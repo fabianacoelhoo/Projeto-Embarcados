@@ -1,0 +1,27 @@
+{
+  "httpPort": 3000,
+  "defaultDeviceId": "node1",
+  "mqtt": {
+    "embeddedBroker": true,
+    "port": 1883,
+    "externalUrl": null,
+    "topicPrefix": "echomap"
+  },
+  "serial": {
+    "enabled": false,
+    "path": "COM3",
+    "baudRate": 115200,
+    "deviceId": "node1"
+  },
+  "thresholds": {
+    "nearMissCm": 30,
+    "impactG": 3.0,
+    "lowBatteryPct": 20
+  },
+  "offlineAfterMs": 10000,
+  "persistEveryMs": 1000,
+  "retentionDays": 30,
+  "safeZones": [
+    { "name": "Casa (exemplo)", "lat": -23.5505, "lon": -46.6333, "radiusM": 150 }
+  ]
+}

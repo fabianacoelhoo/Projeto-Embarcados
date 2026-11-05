@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EchoMap Responsáveis</title>
+  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="12" r="3" fill="currentColor"/><path d="M6.3 6.3a8 8 0 0 0 0 11.4M17.7 6.3a8 8 0 0 1 0 11.4M3.5 3.5a12 12 0 0 0 0 17M20.5 3.5a12 12 0 0 1 0 17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </span>
+      <span class="brand-name">EchoMap</span>
+    </div>
+
+    <div class="device-picker">
+      <label for="deviceSelect" class="sr-only">Dispositivo</label>
+      <select id="deviceSelect"></select>
+      <button id="renameBtn" class="ghost" title="Dar um nome ao dispositivo (ex.: nome da criança)">Renomear</button>
+    </div>
+
+    <div class="top-right">
+      <span id="devicePill" class="pill"><span class="dot"></span><span class="pill-text">Sem dispositivo</span></span>
+      <span id="linkPill" class="pill"><span class="dot"></span><span class="pill-text">Conectando…</span></span>
+      <button id="notifyBtn" class="ghost">Ativar alertas</button>
+      <button id="themeBtn" class="ghost icon" title="Alternar tema" aria-label="Alternar tema">◐</button>
+    </div>
+  </header>
+
+  <div id="alertBanner" class="alert-banner" hidden role="alert"></div>
+
+  <main class="grid">
+    <!-- Situação atual -->
+    <section class="card span-8" aria-labelledby="nowTitle">
+      <div class="card-head">
+        <h2 id="nowTitle">Ao redor agora</h2>
+        <span id="modeChip" class="chip">—</span>
+      </div>
+      <div id="figure" class="figure"></div>
+    </section>
+
+    <section class="card span-4 tiles">
+      <div class="tile" id="tileL"></div>
+      <div class="tile" id="tileR"></div>
+      <div class="tile small" id="tileThr"></div>
+      <div class="tile small" id="tileDevice"></div>
+    </section>
+
+    <!-- Histórico -->
+    <section class="card span-12" aria-labelledby="chartTitle">
+      <div class="card-head">
+        <h2 id="chartTitle">Distância dos obstáculos</h2>
+        <div class="controls">
+          <div class="seg" role="group" aria-label="Janela de tempo">
+            <button data-win="30000">30 s</button>
+            <button data-win="60000" class="on">1 min</button>
+            <button data-win="300000">5 min</button>
+            <button data-win="1800000">30 min</button>
+          </div>
+          <button id="tableBtn" class="ghost">Ver tabela</button>
+        </div>
+      </div>
+      <div class="legend">
+        <span><i class="sw sw-l"></i>Esquerda</span>
+        <span><i class="sw sw-r"></i>Direita</span>
+        <span><i class="sw sw-thr"></i>Limiar do potenciômetro</span>
+        <span><i class="sw sw-near"></i>Zona de quase colisão</span>
+      </div>
+      <div id="chart" class="chart"></div>
+      <div id="chartTip" class="tip" hidden></div>
+      <div id="chartTable" class="table-wrap" hidden></div>
+    </section>
+
+    <!-- Eventos -->
+    <section class="card span-6" aria-labelledby="eventsTitle">
+      <div class="card-head">
+        <h2 id="eventsTitle">Ocorrências</h2>
+        <div class="seg" role="group" aria-label="Filtro de ocorrências">
+          <button data-filter="pending" class="on">Pendentes</button>
+          <button data-filter="all">Todas</button>
+        </div>
+      </div>
+      <ul id="eventList" class="events"></ul>
+    </section>
+
+    <!-- Localização -->
+    <section class="card span-6" aria-labelledby="mapTitle">
+      <div class="card-head">
+        <h2 id="mapTitle">Localização</h2>
+        <span id="locMeta" class="muted">—</span>
+      </div>
+      <div class="map-wrap">
+        <div id="map" class="map"></div>
+        <div id="mapEmpty" class="map-empty">
+          <strong>Aguardando GPS</strong>
+          <span>O módulo de localização ainda não está no protótipo. Assim que a placa publicar em <code>echomap/&lt;id&gt;/location</code>, a posição aparece aqui.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Movimento / dispositivo -->
+    <section class="card span-12" aria-labelledby="motionTitle">
+      <div class="card-head">
+        <h2 id="motionTitle">Queda, impacto e bateria</h2>
+        <span class="muted">sensores futuros</span>
+      </div>
+      <div class="stats" id="motionStats"></div>
+    </section>
+  </main>
+
+  <script src="/vendor/leaflet/leaflet.js"></script>
+  <script src="/app.js" type="module"></script>
+</body>
+</html>

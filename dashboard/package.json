@@ -1,0 +1,26 @@
+{
+  "name": "echomap-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Recebe a telemetria do EchoMap (ESP32) via MQTT/Serial e mostra num dashboard para os responsaveis.",
+  "scripts": {
+    "start": "node --no-warnings=ExperimentalWarning server/index.js",
+    "dev": "node --no-warnings=ExperimentalWarning --watch server/index.js",
+    "simulate": "node tools/simulator.js",
+    "simulate:all": "node tools/simulator.js --all"
+  },
+  "dependencies": {
+    "aedes": "0.51.3",
+    "express": "^4.21.2",
+    "leaflet": "1.9.4",
+    "mqtt": "^5.10.3",
+    "ws": "^8.18.0"
+  },
+  "optionalDependencies": {
+    "serialport": "^12.0.0"
+  },
+  "engines": {
+    "node": ">=22.13"
+  }
+}
