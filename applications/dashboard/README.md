@@ -7,7 +7,7 @@ Recebe os dados do nó principal EchoMap (ESP32) via **MQTT** (Wi-Fi) ou **Seria
 Requer Node.js 22.13 ou mais novo (usa o SQLite que já vem no Node).
 
 ```bash
-cd dashboard
+cd applications/dashboard
 npm install
 npm start            # dashboard em http://localhost:3000, broker MQTT em :1883
 ```
