@@ -30,12 +30,12 @@ Tópico: `echomap/<deviceId>/<canal>`, com payload JSON. O `deviceId` identifica
 |---|---|---|---|---|
 | `echomap/node1/telemetry` | ESP32 | back-end | `{"t":5230,"mode":"RADAR","distL":87.2,"rawL":88.0,"distR":-1.0,"rawR":-1.0,"bzL":0.40,"bzR":0.00,"thr":120,"angle":0,"pot":0.55}` | implementado |
 | `echomap/node1/events` | ESP32 | back-end | `{"event":"NEAR_MISS","side":"L","value":42.1,"t":6110}` · `{"event":"CRASH","t":9020}` | implementado |
-| `echomap/<id>/location` | ESP32 (GPS) | back-end | `{"lat":-8.06,"lon":-34.87,"acc":8,"sats":9}` | back-end pronto, firmware pendente |
+| `echomap/<id>/location` | ESP32 (GPS) | back-end | `{"lat":-23.55,"lon":-46.63,"acc":8,"sats":9}` | back-end pronto, firmware pendente |
 | `echomap/<id>/imu` | ESP32 (MPU-6050) | back-end | `{"ax":0.01,"ay":-0.02,"az":1.0}` (em g) | back-end pronto, firmware pendente |
 | `echomap/<id>/status` | ESP32 | back-end | `{"battery":64,"rssi":-60,"fw":"1.0"}` | back-end pronto, firmware pendente |
-| `echomap/<id>/cmd` | back-end | ESP32 | `{"cmd":"buzz","ms":3000}` | back-end pronto, firmware pendente |
+| `echomap/<id>/cmd` | back-end | ESP32 | JSON enviado em `POST /api/devices/:id/command` | back-end pronto, firmware pendente |
 
-O formato do `cmd` acima é uma sugestão: o back-end repassa para a placa o JSON que receber na API.
+O back-end repassa para a placa o JSON que recebe na API. O formato dos comandos ainda será definido.
 
 Eventos conhecidos pelo painel: `NEAR_MISS`, `CRASH`, `SOS`, `FALL`, `IMPACT`, `GEOFENCE_EXIT/ENTER`, `LOW_BATTERY`, `DEVICE_OFFLINE/ONLINE`.
 
