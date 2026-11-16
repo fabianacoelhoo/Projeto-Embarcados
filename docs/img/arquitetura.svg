@@ -24,7 +24,7 @@
 <text x="106" y="494" font-size="13" fill="#6b7280">JSON a cada 200 ms</text>
 <rect x="90" y="602" width="410" height="90" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="2" stroke-dasharray="8 6"/>
 <text x="106" y="630" font-size="16" font-weight="700" fill="#1f2937">GPS NEO-6M · MPU-6050</text>
-<text x="106" y="654" font-size="13" fill="#6b7280">localização · queda / impacto</text>
+<text x="106" y="654" font-size="13" fill="#6b7280">localização · queda / impacto (ainda não ligados)</text>
 <rect x="90" y="720" width="410" height="96" rx="10" fill="#f9fafb" stroke="#9ca3af" stroke-width="2"/>
 <text x="106" y="748" font-size="16" font-weight="700" fill="#1f2937">Transporte</text>
 <text x="106" y="772" font-size="13" fill="#6b7280">MQTT sobre Wi-Fi 2,4 GHz (TCP :1883)</text>
@@ -46,14 +46,13 @@
 <text x="646" y="584" font-size="16" font-weight="700" fill="#1f2937">SQLite (node:sqlite)</text>
 <text x="646" y="608" font-size="13" fill="#6b7280">devices · readings · events</text>
 <text x="646" y="627" font-size="13" fill="#6b7280">leituras 1×/s · retenção de 30 dias</text>
-<rect x="630" y="690" width="460" height="120" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="2" stroke-dasharray="8 6"/>
-<text x="646" y="718" font-size="16" font-weight="700" fill="#1f2937">Nuvem (AWS IoT Core)</text>
-<text x="646" y="742" font-size="13" fill="#6b7280">telemetria e eventos na nuvem</text>
-<text x="646" y="761" font-size="13" fill="#6b7280">acesso remoto ao painel</text>
+<rect x="630" y="690" width="460" height="120" rx="10" fill="#f9fafb" stroke="#9ca3af" stroke-width="2"/>
+<text x="646" y="718" font-size="16" font-weight="700" fill="#1f2937">Simulador da ESP32 (tools/simulator.js)</text>
+<text x="646" y="742" font-size="13" fill="#6b7280">publica no broker o mesmo JSON do firmware</text>
+<text x="646" y="761" font-size="13" fill="#6b7280">para testar o painel sem a placa</text>
 <path d="M860,300 L860,334" fill="none" stroke="#374151" stroke-width="2.5" marker-end="url(#ar)"/>
 <text x="872" y="322" font-size="12" fill="#6b7280">subscribe echomap/#</text>
 <path d="M860,520 L860,554" fill="none" stroke="#374151" stroke-width="2.5" marker-end="url(#ar)" marker-start="url(#ar)"/>
-<path d="M860,652 L860,688" fill="none" stroke="#d97706" stroke-width="2.5" stroke-dasharray="9 7" marker-end="url(#arp)"/>
 <rect x="1220" y="190" width="390" height="280" rx="10" fill="#fff" stroke="#16a34a" stroke-width="2"/>
 <text x="1236" y="218" font-size="16" font-weight="700" fill="#1f2937">Dashboard web (navegador)</text>
 <text x="1236" y="242" font-size="13" fill="#6b7280">HTML/CSS/JS + Leaflet (mapa)</text>

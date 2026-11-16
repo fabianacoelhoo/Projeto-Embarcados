@@ -2,7 +2,7 @@
 
 ![Diagrama de ligações](diagrama-ligacoes.png)
 
-Diagrama de ligações gerado a partir de [`esp32-esp8266/no-principal/include/config.h`](../esp32-esp8266/no-principal/include/config.h). Linhas cheias são o que já está no protótipo. As tracejadas são a próxima etapa, com pinos sugeridos.
+Diagrama de ligações gerado a partir de [`esp32-esp8266/no-principal/include/config.h`](../esp32-esp8266/no-principal/include/config.h). Mostra apenas o que está configurado no firmware atual.
 
 - `diagrama-ligacoes.svg`: vetorial, para editar ou ampliar
 - `diagrama-ligacoes.png`: imagem para relatórios
@@ -22,7 +22,7 @@ Diagrama de ligações gerado a partir de [`esp32-esp8266/no-principal/include/c
 | LED RGB (catodo comum) | R / G / B | GPIO 21 / 22 / 23 | 220–330 Ω em cada cor; comum no GND |
 | Buzzer passivo esquerdo | + / – | GPIO 13 / GND | PWM (LEDC canal 0, 2 kHz) |
 | Buzzer passivo direito | + / – | GPIO 14 / GND | PWM (LEDC canal 2, 2 kHz) |
-| *GPS NEO-6M (GY-NEO6MV2)* | VCC / GND / TX / RX | 3V3 / GND / GPIO 16 (RX2) / GPIO 17 (TX2) | *próxima etapa*, UART2 a 9600 baud |
-| *MPU-6050 (GY-521)* | VCC / GND / SDA / SCL | 3V3 / GND / GPIO 26 / GPIO 27 | *próxima etapa*, `Wire.begin(26, 27)`: os pinos 21/22 estão com o RGB |
 
-Todos os GND estão ligados ao mesmo terra.
+Todos os GND estão ligados ao mesmo terra. A ligação dos buzzers aparece de forma simplificada no diagrama.
+
+O GPS NEO-6M e o MPU-6050 ainda não estão no circuito: os pinos deles serão definidos na próxima etapa. Os pinos 21/22, que são o I²C padrão da ESP32, já estão ocupados pelo LED RGB.

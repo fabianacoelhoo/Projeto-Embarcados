@@ -81,7 +81,7 @@ O PC e a ESP32 precisam estar na mesma rede. Não faça commit da senha real do 
 
 ### Próxima etapa
 
-- GPS NEO-6M na UART2 (GPIO 16/17) publicando em `echomap/<id>/location`.
-- MPU-6050 no I²C (sugerido GPIO 26/27, porque 21/22 estão com o RGB) publicando em `echomap/<id>/imu` e gerando `FALL`.
+- GPS NEO-6M publicando em `echomap/<id>/location`.
+- MPU-6050 publicando em `echomap/<id>/imu` e gerando `FALL`. Atenção: os pinos 21/22 (I²C padrão) já estão com o LED RGB.
 - Assinar `echomap/<id>/cmd` para receber comandos do painel (ex.: tocar o buzzer).
 - Publicar `echomap/<id>/status` (bateria, RSSI, versão do firmware).

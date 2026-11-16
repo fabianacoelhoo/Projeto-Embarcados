@@ -60,7 +60,6 @@ Detalhes em [`esp32-esp8266/README.md`](esp32-esp8266/README.md).
 | Dashboard web em tempo real | funcionando (testado com o simulador) |
 | GPS NEO-6M e acelerômetro MPU-6050 no firmware | próxima etapa |
 | Comandos do painel para a placa (`echomap/<id>/cmd`) | back-end pronto, firmware pendente |
-| Nuvem | em estudo |
 
 ## Tecnologias
 
