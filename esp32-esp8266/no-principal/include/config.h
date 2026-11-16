@@ -15,6 +15,8 @@
 #define MQTT_BROKER_PORT 1883
 #define MQTT_TOPIC_TELEMETRY "echomap/node1/telemetry"
 #define MQTT_TOPIC_EVENTS "echomap/node1/events"
+#define MQTT_TOPIC_LOCATION "echomap/node1/location"
+#define MQTT_TOPIC_IMU "echomap/node1/imu"
 
 /* ----- HC-SR04 esquerdo (sensor original) ----- */
 #define PIN_TRIG_L 18
@@ -54,6 +56,44 @@
 #define BUZZER_MIN_VOLUME 0.15f /* volume (0..1) logo ao entrar no alcance */
 #define BUZZER_HYST_CM 10.0f    /* so desliga ao passar de START + HYST (evita liga/desliga na borda) */
 #define BUZZER_CONFIRM_SAMPLES 2 /* leituras seguidas para ligar/desligar (filtra eco espurio) */
+
+/* ----- GPS u-blox NEO-6M (GY-NEO6MV2) na UART2 -----
+ * TX do GPS -> GPIO16 (RX2 da ESP32) · RX do GPS -> GPIO17 (TX2) · VCC 3V3 · GND.
+ * O modulo manda sentencas NMEA a 9600 baud; o fix pode levar alguns minutos
+ * no primeiro uso e precisa de ceu aberto (dentro de casa costuma nao pegar). */
+#define ENABLE_GPS 1
+#define PIN_GPS_RX 16 /* recebe o TX do GPS */
+#define PIN_GPS_TX 17 /* vai no RX do GPS (opcional: so para configurar o modulo) */
+#define GPS_BAUD 9600
+#define GPS_MAX_AGE_MS 3000     /* posicao mais velha que isso nao e publicada */
+#define GPS_UERE_M 5.0f         /* erro tipico por unidade de HDOP, para estimar a precisao em metros */
+#define LOCATION_PERIOD_MS 1000 /* o NEO-6M atualiza a posicao 1x por segundo */
+#define GPS_STATUS_LOG_MS 5000  /* sem fix: imprime o status do GPS na Serial a cada 5 s */
+
+/* ----- Acelerometro/giroscopio MPU-6050 (GY-521) no I2C -----
+ * Os pinos I2C padrao (21/22) ja estao com o LED RGB, por isso o barramento
+ * usa 26 (SDA) e 27 (SCL). VCC 3V3 · GND · AD0 no GND (endereco 0x68). */
+#define ENABLE_IMU 1
+#define PIN_I2C_SDA 26
+#define PIN_I2C_SCL 27
+#define I2C_FREQ_HZ 400000
+#define MPU_ADDR 0x68
+#define IMU_PERIOD_MS 10         /* 100 amostras/s: rapido o bastante para pegar o pico de um impacto */
+#define IMU_CALIBRATION_MS 1000  /* no boot: dispositivo parado para medir o offset do giroscopio e a posicao de referencia */
+
+/* Deteccao (valores em g = modulo da aceleracao; parado vale ~1 g)
+ * QUEDA:   queda livre (abaixo de FREEFALL_G por FREEFALL_MIN_MS) seguida de impacto >= FALL_IMPACT_G
+ *          em ate FALL_WINDOW_MS.
+ * IMPACTO: pancada >= IMPACT_G sem queda livre antes (ex.: a crianca bateu em algo).
+ * IMPACT_G igual ao thresholds.impactG do config.json do dashboard. */
+#define FREEFALL_G 0.5f
+#define FREEFALL_MIN_MS 60
+#define FALL_WINDOW_MS 1000
+#define FALL_IMPACT_G 2.0f
+#define IMPACT_G 3.0f
+#define IMU_PEAK_WINDOW_MS 100   /* depois de passar do limiar, espera o pico do impacto antes de avisar */
+#define IMU_EVENT_COOLDOWN_MS 3000 /* evita varios eventos para a mesma pancada */
+#define TILT_FILTER_ALPHA 0.1f   /* filtro da inclinacao (0..1, menor = mais suave) */
 
 /* ----- Calibracao / limiares ----- */
 #define DIST_MIN_CM 20.0f

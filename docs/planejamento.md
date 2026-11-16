@@ -17,13 +17,19 @@ Etiquetas: `firmware`, `hardware`, `back-end`, `front-end`, `infra`, `documenta�
 - [x] Esquemático (diagrama de ligações) e diagrama de arquitetura
 - [x] Organização do repositório e READMEs
 
+## Concluído depois do check point
+
+- [x] GPS NEO-6M no firmware: posição 1×/s em `echomap/node1/location` ([#10](https://github.com/fabianacoelhoo/Projeto-Embarcados/issues/10), falta testar na placa)
+- [x] MPU-6050 no firmware: queda (`FALL`), batida (`IMPACT`) e inclinação em `echomap/node1/imu` ([#11](https://github.com/fabianacoelhoo/Projeto-Embarcados/issues/11), falta testar na placa)
+
 ## A fazer
 
 | Issue | Tarefa | Etiqueta |
 |---|---|---|
 | [#9](https://github.com/fabianacoelhoo/Projeto-Embarcados/issues/9) | Testar a publicação MQTT por Wi-Fi com a placa real (`ENABLE_MQTT 1`) e o dashboard | firmware |
-| [#10](https://github.com/fabianacoelhoo/Projeto-Embarcados/issues/10) | Integrar o GPS NEO-6M (UART2, GPIO 16/17) e publicar em `echomap/<id>/location` | firmware |
-| [#11](https://github.com/fabianacoelhoo/Projeto-Embarcados/issues/11) | Integrar o MPU-6050 (I²C, GPIO 26/27), publicar em `echomap/<id>/imu` e gerar o evento `FALL` | firmware |
+| [#10](https://github.com/fabianacoelhoo/Projeto-Embarcados/issues/10) | Testar o GPS na placa (posição aparecendo no mapa) | firmware |
+| [#11](https://github.com/fabianacoelhoo/Projeto-Embarcados/issues/11) | Testar queda e batida com o MPU-6050 montado e ajustar os limiares se precisar | firmware |
+| [#24](https://github.com/fabianacoelhoo/Projeto-Embarcados/issues/24) | Trocar os buzzers por motores de vibração (alerta tátil) | firmware, hardware |
 | [#12](https://github.com/fabianacoelhoo/Projeto-Embarcados/issues/12) | Assinar `echomap/<id>/cmd` e tocar o buzzer por comando do painel | firmware |
 | [#13](https://github.com/fabianacoelhoo/Projeto-Embarcados/issues/13) | Publicar `echomap/<id>/status` (bateria, RSSI, versão) | firmware |
 | [#14](https://github.com/fabianacoelhoo/Projeto-Embarcados/issues/14) | Alimentação por bateria e medição do nível de carga | hardware |

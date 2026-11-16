@@ -540,10 +540,11 @@ function renderMotion() {
   const impact = lastOf(['IMPACT', 'CRASH']);
   const stat = (k, v, s) => `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
   $('#motionStats').innerHTML = [
-    stat('Aceleração', imu?.g != null ? `${imu.g.toFixed(2)} g` : '—', imu ? `atualizado ${fmtAgo(imu.ts)}` : 'acelerômetro ainda não instalado'),
+    stat('Aceleração', imu?.g != null ? `${imu.g.toFixed(2)} g` : '—', imu ? `pico ${(imu.gMax ?? imu.g).toFixed(2)} g · ${fmtAgo(imu.ts)}` : 'sem dados do MPU-6050'),
+    stat('Inclinação', imu?.tilt != null ? `${Math.round(imu.tilt)}°` : '—', imu?.tilt != null ? 'em relação à posição de uso' : 'equilíbrio (MPU-6050)'),
     stat('Última queda', fall ? fmtAgo(fall.ts) : 'nenhuma', fall ? fmtTime(fall.ts) : 'evento FALL do firmware'),
     stat('Último impacto/colisão', impact ? fmtAgo(impact.ts) : 'nenhum', impact ? `${EVENT_LABEL[impact.type]} · ${fmtTime(impact.ts)}` : 'IMPACT ou CRASH'),
-    stat('Bateria', st?.battery != null ? `${st.battery}%` : '—', st ? `sinal ${st.rssi ?? '—'} dBm` : 'publicar em echomap/<id>/status'),
+    stat('Bateria', st?.battery != null ? `${st.battery}%` : '—', st ? `sinal ${st.rssi ?? '—'} dBm` : 'publicar em echomap/&lt;id&gt;/status'),
   ].join('');
 }
 

@@ -15,8 +15,8 @@ npm start            # dashboard em http://localhost:3000, broker MQTT em :1883
 Para testar sem a placa, use outro terminal:
 
 ```bash
-npm run simulate       # só os 2 ultrassônicos, igual ao firmware atual
-npm run simulate:all   # + GPS, acelerômetro (queda/impacto) e bateria
+npm run simulate       # só os 2 ultrassônicos
+npm run simulate:all   # + GPS e acelerômetro (mesmo formato do firmware) e bateria
 ```
 
 ## Ligando a ESP32
@@ -49,8 +49,8 @@ Tópico: `echomap/<deviceId>/<canal>`, com payload JSON.
 |---|---|---|
 | `telemetry` | `{"t":123,"mode":"RADAR","distL":87.2,"rawL":88,"distR":-1,"rawR":-1,"bzL":0.4,"bzR":0,"thr":120,"angle":0,"pot":0.55}` | figura, cartões e gráfico (já existe no firmware) |
 | `events` | `{"event":"NEAR_MISS","side":"L","value":25.1,"t":123}` | ocorrências e alertas |
-| `location` | `{"lat":-23.55,"lon":-46.63,"acc":8,"sats":9}` | mapa, trajeto e zonas seguras |
-| `imu` | `{"ax":0.01,"ay":-0.02,"az":1.0}` (em g) | aceleração; o servidor cria `IMPACT` acima de `impactG` |
+| `location` | `{"lat":-23.55,"lon":-46.63,"acc":8,"hdop":1.3,"sats":9,"speed":0.1}` | mapa, trajeto e zonas seguras |
+| `imu` | `{"ax":0.01,"ay":-0.02,"az":1.0,"gx":0.3,"gy":-0.2,"gz":0.1,"gMax":1.02,"tilt":4}` (g, °/s, °) | aceleração, pico e inclinação. Se vier `gMax` (firmware com MPU-6050), a placa detecta `FALL`/`IMPACT` sozinha; sem `gMax`, o servidor cria `IMPACT` acima de `impactG` |
 | `status` | `{"battery":64,"rssi":-60,"fw":"1.0"}` | bateria; o servidor cria `LOW_BATTERY` |
 
 Tipos de evento que o painel já conhece: `NEAR_MISS`, `CRASH`, `SOS`, `FALL`, `IMPACT`, `GEOFENCE_EXIT/ENTER`, `LOW_BATTERY`, `DEVICE_OFFLINE/ONLINE`. Um tipo novo também é aceito: ele aparece com gravidade "info" até ser cadastrado em `server/hub.js` (`SEVERITY`).

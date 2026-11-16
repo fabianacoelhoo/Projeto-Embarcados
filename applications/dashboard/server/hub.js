@@ -45,7 +45,8 @@ const normalizers = {
   imu: (p) => {
     const ax = num(p.ax), ay = num(p.ay), az = num(p.az);
     const g = ax != null && ay != null && az != null ? Math.sqrt(ax * ax + ay * ay + az * az) : num(p.g);
-    return { ax, ay, az, gx: num(p.gx), gy: num(p.gy), gz: num(p.gz), g };
+    /* gMax = maior modulo desde a ultima mensagem (o firmware mede a 100 Hz); tilt = inclinacao em graus */
+    return { ax, ay, az, gx: num(p.gx), gy: num(p.gy), gz: num(p.gz), g, gMax: num(p.gMax), tilt: num(p.tilt) };
   },
   status: (p) => ({ battery: num(p.battery ?? p.bat), rssi: num(p.rssi), fw: p.fw ?? null }),
 };
@@ -210,6 +211,9 @@ export class Hub extends EventEmitter {
   }
 
   ruleImpact(id, imu, now) {
+    /* quem manda gMax e o firmware com MPU-6050: ele mesmo detecta queda/impacto
+       a 100 Hz e publica FALL/IMPACT em events; aqui so para outras fontes */
+    if (imu.gMax != null) return;
     if (imu.g == null || imu.g < this.config.thresholds.impactG) return;
     const st = this.rule.get(id) ?? {};
     if (now - (st.lastImpact ?? 0) < 5000) return; /* evita rajada de eventos do mesmo impacto */
