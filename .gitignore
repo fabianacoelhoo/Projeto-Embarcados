@@ -1,0 +1,11 @@
+# Node
+node_modules/
+applications/dashboard/data/
+
+# PlatformIO
+.pio/
+
+# Sistema / editores
+.DS_Store
+Thumbs.db
+~$*
