@@ -38,8 +38,8 @@ npm start                 # http://localhost:3000 · broker MQTT em :1883
 Sem a placa, simule a ESP32 em outro terminal:
 
 ```bash
-npm run simulate          # 2 ultrassônicos, igual ao firmware atual
-npm run simulate:all      # + GPS, acelerômetro e bateria (sensores da próxima etapa)
+npm run simulate          # só os 2 ultrassônicos
+npm run simulate:all      # + GPS e acelerômetro (igual ao firmware atual) e bateria
 ```
 
 ### 2. Firmware (ESP32)
@@ -58,7 +58,8 @@ Detalhes em [`esp32-esp8266/README.md`](esp32-esp8266/README.md).
 | Firmware: publicação MQTT | implementada (`ENABLE_MQTT`) |
 | Back-end: broker embutido, API REST, WebSocket, SQLite, regras de alerta | funcionando (testado com o simulador) |
 | Dashboard web em tempo real | funcionando (testado com o simulador) |
-| GPS NEO-6M e acelerômetro MPU-6050 no firmware | próxima etapa |
+| Firmware: GPS NEO-6M (posição) e MPU-6050 (queda, batida e inclinação) | implementado; lógica de queda testada no PC |
+| Trocar buzzers por motores de vibração (alerta tátil) | próxima etapa |
 | Comandos do painel para a placa (`echomap/<id>/cmd`) | back-end pronto, firmware pendente |
 
 ## Tecnologias

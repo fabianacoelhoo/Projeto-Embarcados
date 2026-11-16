@@ -1,7 +1,7 @@
 /* Simula a ESP32 publicando no broker, no mesmo formato JSON do firmware.
    Uso:
-     node tools/simulator.js               -> so os 2 ultrassonicos (igual ao firmware atual)
-     node tools/simulator.js --all         -> + GPS, IMU (queda/impacto) e bateria (sensores futuros)
+     node tools/simulator.js               -> so os 2 ultrassonicos
+     node tools/simulator.js --all         -> + GPS e MPU-6050 (igual ao firmware atual) e bateria (futuro)
      node tools/simulator.js --gps --imu --status --device node2 --url mqtt://192.168.0.10:1883 */
 import mqtt from 'mqtt';
 
@@ -86,10 +86,23 @@ function tickGps() {
   pub('location', { lat: +pos.lat.toFixed(6), lon: +pos.lon.toFixed(6), acc: Math.round(5 + Math.random() * 8), sats: 7 + Math.floor(Math.random() * 4) });
 }
 
+/* mesmo formato da TaskImu/publishImu do firmware: o firmware detecta queda e
+   impacto sozinho e publica FALL/IMPACT em events */
+let tilt = 4;
 function tickImu() {
-  let ax = noise(0.05), ay = noise(0.05), az = 1 + noise(0.05);
-  if (Math.random() < 0.01) { ax = 2.6 + Math.random(); az = 2.2; } /* pancada */
-  pub('imu', { ax: +ax.toFixed(3), ay: +ay.toFixed(3), az: +az.toFixed(3) });
+  const ax = noise(0.05), ay = noise(0.05), az = 1 + noise(0.05);
+  let gMax = Math.hypot(ax, ay, az);
+  tilt = Math.max(0, Math.min(90, tilt + noise(2)));
+  if (Math.random() < 0.002) { /* batida */
+    gMax = 3 + Math.random() * 1.5;
+    pub('events', { event: 'IMPACT', value: +gMax.toFixed(2), unit: 'g', t: millis() });
+    console.log('[SIM] IMPACT');
+  }
+  pub('imu', {
+    ax: +ax.toFixed(2), ay: +ay.toFixed(2), az: +az.toFixed(2),
+    gx: +noise(3).toFixed(1), gy: +noise(3).toFixed(1), gz: +noise(3).toFixed(1),
+    gMax: +gMax.toFixed(2), tilt: Math.round(tilt), t: millis(),
+  });
 }
 
 let battery = 64;
@@ -109,12 +122,12 @@ client.on('connect', () => {
   }, 45000);
   setInterval(() => { mode = Math.random() < 0.8 ? 'RADAR' : 'SIM360'; }, 20000);
 
-  if (flag('gps')) setInterval(tickGps, 2000);
+  if (flag('gps')) setInterval(tickGps, 1000); /* LOCATION_PERIOD_MS */
   if (flag('imu')) {
-    setInterval(tickImu, 500);
+    setInterval(tickImu, 200); /* publicado junto com a telemetria */
     setInterval(() => {
       if (Math.random() < 0.3) {
-        pub('events', { event: 'FALL', value: 3.4, t: millis() });
+        pub('events', { event: 'FALL', value: 3.4, unit: 'g', t: millis() });
         console.log('[SIM] FALL');
       }
     }, 60000);

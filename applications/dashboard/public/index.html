@@ -96,7 +96,7 @@
         <div id="map" class="map"></div>
         <div id="mapEmpty" class="map-empty">
           <strong>Aguardando GPS</strong>
-          <span>O módulo de localização ainda não está no protótipo. Assim que a placa publicar em <code>echomap/&lt;id&gt;/location</code>, a posição aparece aqui.</span>
+          <span>A posição aparece aqui quando o NEO-6M tiver sinal de satélite e a placa publicar em <code>echomap/&lt;id&gt;/location</code>. Dentro de casa pode demorar ou não pegar.</span>
         </div>
       </div>
     </section>
@@ -104,8 +104,8 @@
     <!-- Movimento / dispositivo -->
     <section class="card span-12" aria-labelledby="motionTitle">
       <div class="card-head">
-        <h2 id="motionTitle">Queda, impacto e bateria</h2>
-        <span class="muted">sensores futuros</span>
+        <h2 id="motionTitle">Queda, impacto, equilíbrio e bateria</h2>
+        <span class="muted">MPU-6050</span>
       </div>
       <div class="stats" id="motionStats"></div>
     </section>

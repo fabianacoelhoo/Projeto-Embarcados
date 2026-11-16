@@ -12,25 +12,25 @@
 <text x="1210" y="172" font-size="15" font-weight="700" letter-spacing="1" fill="#16a34a">3 · RESPONSÁVEIS</text>
 <rect x="90" y="190" width="410" height="140" rx="10" fill="#fff" stroke="#ea580c" stroke-width="2"/>
 <text x="106" y="218" font-size="16" font-weight="700" fill="#1f2937">Sensores e atuadores</text>
-<text x="106" y="242" font-size="13" fill="#6b7280">2× HC-SR04 (esquerdo / direito)</text>
+<text x="106" y="242" font-size="13" fill="#6b7280">2× HC-SR04 · GPS NEO-6M · MPU-6050</text>
 <text x="106" y="261" font-size="13" fill="#6b7280">Potenciômetro (limiar 20–200 cm) · Botão</text>
 <text x="106" y="280" font-size="13" fill="#6b7280">LED RGB + 2 buzzers passivos</text>
 <rect x="90" y="366" width="410" height="200" rx="10" fill="#fff" stroke="#ea580c" stroke-width="2"/>
-<text x="106" y="394" font-size="16" font-weight="700" fill="#1f2937">ESP32 · FreeRTOS (5 tasks)</text>
+<text x="106" y="394" font-size="16" font-weight="700" fill="#1f2937">ESP32 · FreeRTOS (7 tasks)</text>
 <text x="106" y="418" font-size="13" fill="#6b7280">Core 1: TaskSensors · TaskStatusLed · TaskBuzzer</text>
-<text x="106" y="437" font-size="13" fill="#6b7280">Core 0: TaskButton · TaskComms</text>
-<text x="106" y="456" font-size="13" fill="#6b7280">Filtro EMA + histerese, anti-eco cruzado</text>
-<text x="106" y="475" font-size="13" fill="#6b7280">Eventos NEAR_MISS (&lt; 50 cm) e CRASH</text>
-<text x="106" y="494" font-size="13" fill="#6b7280">JSON a cada 200 ms</text>
+<text x="106" y="437" font-size="13" fill="#6b7280">Core 0: TaskButton · TaskImu · TaskGps · TaskComms</text>
+<text x="106" y="456" font-size="13" fill="#6b7280">Queda e impacto a 100 Hz · inclinação</text>
+<text x="106" y="475" font-size="13" fill="#6b7280">Eventos NEAR_MISS, CRASH, FALL e IMPACT</text>
+<text x="106" y="494" font-size="13" fill="#6b7280">Telemetria e IMU a cada 200 ms · posição 1×/s</text>
 <rect x="90" y="602" width="410" height="90" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="2" stroke-dasharray="8 6"/>
-<text x="106" y="630" font-size="16" font-weight="700" fill="#1f2937">GPS NEO-6M · MPU-6050</text>
-<text x="106" y="654" font-size="13" fill="#6b7280">localização · queda / impacto (ainda não ligados)</text>
+<text x="106" y="630" font-size="16" font-weight="700" fill="#1f2937">Motores de vibração</text>
+<text x="106" y="654" font-size="13" fill="#6b7280">substituem os buzzers (alerta tátil por lado)</text>
 <rect x="90" y="720" width="410" height="96" rx="10" fill="#f9fafb" stroke="#9ca3af" stroke-width="2"/>
 <text x="106" y="748" font-size="16" font-weight="700" fill="#1f2937">Transporte</text>
 <text x="106" y="772" font-size="13" fill="#6b7280">MQTT sobre Wi-Fi 2,4 GHz (TCP :1883)</text>
 <text x="106" y="791" font-size="13" fill="#6b7280">ou USB Serial 115200 · payload JSON</text>
 <path d="M295,330 L295,364" fill="none" stroke="#374151" stroke-width="2.5" marker-end="url(#ar)"/>
-<path d="M295,602 L295,568" fill="none" stroke="#d97706" stroke-width="2.5" stroke-dasharray="9 7" marker-end="url(#arp)"/>
+<path d="M295,568 L295,602" fill="none" stroke="#d97706" stroke-width="2.5" stroke-dasharray="9 7" marker-end="url(#arp)"/>
 <rect x="630" y="190" width="460" height="110" rx="10" fill="#fff" stroke="#2563eb" stroke-width="2"/>
 <text x="646" y="218" font-size="16" font-weight="700" fill="#1f2937">Broker MQTT embutido (Aedes)</text>
 <text x="646" y="242" font-size="13" fill="#6b7280">porta 1883 · echomap/&lt;id&gt;/&lt;canal&gt;</text>
@@ -60,7 +60,7 @@
 <text x="1236" y="280" font-size="13" fill="#6b7280">• Gráfico de distância + limiar</text>
 <text x="1236" y="299" font-size="13" fill="#6b7280">• Ocorrências com “Ciente”</text>
 <text x="1236" y="318" font-size="13" fill="#6b7280">• Localização e zona segura</text>
-<text x="1236" y="337" font-size="13" fill="#6b7280">• Queda, impacto e bateria</text>
+<text x="1236" y="337" font-size="13" fill="#6b7280">• Queda, impacto e inclinação</text>
 <text x="1236" y="356" font-size="13" fill="#6b7280">• Notificações do navegador</text>
 <rect x="1220" y="506" width="390" height="110" rx="10" fill="#fff" stroke="#16a34a" stroke-width="2"/>
 <text x="1236" y="534" font-size="16" font-weight="700" fill="#1f2937">Responsáveis</text>
@@ -73,7 +73,8 @@
 <path d="M1415,470 L1415,504" fill="none" stroke="#374151" stroke-width="2.5" marker-end="url(#ar)" marker-start="url(#ar)"/>
 <path d="M502,410 L560,410 L560,250 L628,250" fill="none" stroke="#374151" stroke-width="2.5" marker-end="url(#ar)"/>
 <text x="531" y="400" font-size="12" text-anchor="middle" font-weight="600" fill="#1f2937">publish</text>
-<text x="552" y="352" font-size="12" text-anchor="end" fill="#1f2937">telemetry · events</text>
+<text x="552" y="344" font-size="12" text-anchor="end" fill="#1f2937">telemetry · events</text>
+<text x="552" y="360" font-size="12" text-anchor="end" fill="#1f2937">location · imu</text>
 <path d="M628,280 L585,280 L585,500 L502,500" fill="none" stroke="#d97706" stroke-width="2.5" stroke-dasharray="9 7" marker-end="url(#arp)"/>
 <text x="543" y="490" font-size="12" text-anchor="middle" font-weight="600" fill="#b45309">…/cmd</text>
 <path d="M1092,380 L1218,380" fill="none" stroke="#374151" stroke-width="2.5" marker-end="url(#ar)"/>

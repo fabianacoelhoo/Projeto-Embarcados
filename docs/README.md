@@ -5,7 +5,7 @@
 | Arquitetura e fluxo de comunicação | nesta página e [`img/arquitetura.svg`](img/arquitetura.svg) |
 | Contrato MQTT (tópicos e payloads) | nesta página |
 | Protótipo do front-end (app dos responsáveis) | [`prototipo/`](prototipo/) |
-| Fotos dos componentes da próxima etapa | [`componentes/`](componentes/) |
+| Fotos do GPS e do acelerômetro | [`componentes/`](componentes/) |
 | Planejamento até a entrega final | [`planejamento.md`](planejamento.md) |
 | Relatório do check point | [`checkpoint/`](checkpoint/) |
 | Esquemático e tabela de pinos | [`../schematics/`](../schematics/) |
@@ -29,9 +29,9 @@ Tópico: `echomap/<deviceId>/<canal>`, com payload JSON. O `deviceId` identifica
 | Tópico | Publisher | Subscriber | Payload (exemplo) | Situação |
 |---|---|---|---|---|
 | `echomap/node1/telemetry` | ESP32 | back-end | `{"t":5230,"mode":"RADAR","distL":87.2,"rawL":88.0,"distR":-1.0,"rawR":-1.0,"bzL":0.40,"bzR":0.00,"thr":120,"angle":0,"pot":0.55}` | implementado |
-| `echomap/node1/events` | ESP32 | back-end | `{"event":"NEAR_MISS","side":"L","value":42.1,"t":6110}` · `{"event":"CRASH","t":9020}` | implementado |
-| `echomap/<id>/location` | ESP32 (GPS) | back-end | `{"lat":-23.55,"lon":-46.63,"acc":8,"sats":9}` | back-end pronto, firmware pendente |
-| `echomap/<id>/imu` | ESP32 (MPU-6050) | back-end | `{"ax":0.01,"ay":-0.02,"az":1.0}` (em g) | back-end pronto, firmware pendente |
+| `echomap/node1/events` | ESP32 | back-end | `{"event":"NEAR_MISS","side":"L","value":42.1,"t":6110}` · `{"event":"CRASH","t":9020}` · `{"event":"FALL","value":3.52,"unit":"g","t":7420}` · `{"event":"IMPACT","value":4.10,"unit":"g","t":9050}` | implementado |
+| `echomap/node1/location` | ESP32 (GPS) | back-end | `{"lat":-8.059280,"lon":-34.872030,"acc":6.5,"hdop":1.30,"sats":8,"speed":0.12,"t":6000}` | implementado |
+| `echomap/node1/imu` | ESP32 (MPU-6050) | back-end | `{"ax":0.02,"ay":-0.01,"az":0.99,"gx":0.3,"gy":-0.2,"gz":0.1,"gMax":1.01,"tilt":4,"t":5230}` | implementado |
 | `echomap/<id>/status` | ESP32 | back-end | `{"battery":64,"rssi":-60,"fw":"1.0"}` | back-end pronto, firmware pendente |
 | `echomap/<id>/cmd` | back-end | ESP32 | JSON enviado em `POST /api/devices/:id/command` | back-end pronto, firmware pendente |
 
@@ -45,9 +45,13 @@ Protótipo de média fidelidade do app dos responsáveis, com 6 telas clicáveis
 
 ![Protótipo](prototipo/prototipo-6-telas.png)
 
-## Componentes da próxima etapa
+## GPS e acelerômetro
 
 | GPS u-blox NEO-6M (GY-NEO6MV2) | Acelerômetro/giroscópio MPU-6050 (GY-521) |
 |---|---|
 | ![GPS](componentes/gps-neo6m.jpg) | ![MPU-6050](componentes/mpu6050-gy521.jpg) |
-| Localização e zonas seguras (UART, 9600 baud) | Detecção de queda e impacto (I²C) |
+| Posição 1×/s para o mapa e as zonas seguras (UART2: GPIO 16/17) | Queda, batida e inclinação a 100 Hz (I²C: GPIO 26/27) |
+
+Os dois já estão integrados no firmware. Detalhes da detecção em [`esp32-esp8266/README.md`](../esp32-esp8266/README.md#queda-impacto-e-equilíbrio-mpu-6050).
+
+**Próxima etapa:** trocar os buzzers por motores de vibração, para o alerta ser tátil.
