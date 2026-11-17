@@ -9,6 +9,7 @@
 | Planejamento até a entrega final | [`planejamento.md`](planejamento.md) |
 | Relatório do check point | [`checkpoint/`](checkpoint/) |
 | Esquemático e tabela de pinos | [`../schematics/`](../schematics/) |
+| Foto da montagem na protoboard | [`img/montagem-protoboard.jpg`](img/montagem-protoboard.jpg) |
 
 ## Arquitetura
 
