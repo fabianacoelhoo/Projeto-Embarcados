@@ -42,9 +42,11 @@ Eventos conhecidos pelo painel: `NEAR_MISS`, `CRASH`, `SOS`, `FALL`, `IMPACT`, `
 
 ## Protótipo do front-end
 
-Protótipo de média fidelidade do app dos responsáveis, com 6 telas clicáveis: Início, Ao vivo, Ocorrências, Detalhe do alerta, Localização/zonas seguras e Ajustes. Ele segue a mesma linguagem visual do dashboard que já existe.
+Protótipo de média fidelidade do app dos responsáveis, com 7 telas clicáveis: Início, Ao vivo, Ocorrências, Detalhe do alerta, Localização/zonas seguras, Ajustes e Movimento e equilíbrio (acelerômetro: inclinação, aceleração e histórico de quedas e batidas). Ele segue a mesma linguagem visual do dashboard que já existe.
 
-![Protótipo](prototipo/prototipo-6-telas.png)
+Link: https://claude.ai/artifact/XALGsWsSJYQuJyNCUk5RMF
+
+![Protótipo](prototipo/prototipo-7-telas.png)
 
 ## GPS e acelerômetro
 
