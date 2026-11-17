@@ -7,6 +7,10 @@ Diagrama de ligações gerado a partir de [`esp32-esp8266/no-principal/include/c
 - `diagrama-ligacoes.svg`: vetorial, para editar ou ampliar
 - `diagrama-ligacoes.png`: imagem para relatórios
 
+## Montagem na protoboard
+
+![Montagem física](../docs/img/montagem-protoboard.jpg)
+
 ## Tabela de pinos
 
 | Componente | Pino do componente | ESP32 | Observação |
