@@ -18,10 +18,7 @@
 #include <Wire.h>
 #endif
 
-#if ENABLE_MQTT
-#include <WiFi.h>
-#include <PubSubClient.h>
-#endif
+#include "net.h" /* Wi-Fi, MQTT, portal de configuracao e descoberta do servidor */
 
 /*=====================================================*/
 /* Tipos                                                 */
@@ -35,6 +32,7 @@ struct SideState {
   bool inRange = false; /* alguem confirmado dentro de BUZZER_START_CM */
   uint8_t nearHits = 0;
   uint8_t farHits = 0;
+  uint8_t misses = 0;   /* leituras perdidas seguidas */
 };
 
 struct SensorState {
@@ -63,6 +61,8 @@ struct AppEvent {
   float value;  /* cm para NEAR_MISS, g para FALL/IMPACT */
   uint32_t t;
   char side; /* 'L'/'R' para NEAR_MISS, '-' quando nao se aplica */
+  float tilt;   /* inclinacao (graus) que confirmou a queda; -1 quando nao se aplica
+                   (sem valor padrao aqui: no C++11 do core isso impediria o AppEvent{...}) */
 };
 
 struct GpsState {
@@ -102,10 +102,10 @@ volatile uint32_t crashFlashUntil = 0;
 TinyGPSPlus gps;
 #endif
 
-#if ENABLE_MQTT
-WiFiClient wifiClient;
-PubSubClient mqttClient(wifiClient);
-#endif
+volatile uint32_t locateUntil = 0;  /* "tocar buzzer" pedido pelo painel */
+bool bootPortalRequested = false;    /* botao segurado ao ligar */
+volatile bool sensorsPaused = false; /* teste de sensores em andamento: a leitura normal espera */
+volatile bool diagRequested = false; /* "sensores" na Serial ou "Testar sensores" no painel */
 
 /*=====================================================*/
 /* Botao - ISR                                           */
@@ -245,9 +245,13 @@ float buzzerVolume(const SideState &side, float prevVolume) {
 /*=====================================================*/
 void updateSide(SideState &side, float raw) {
   if (raw < 0) {
+    /* eco perdido isolado e comum no HC-SR04: mantem o ultimo valor filtrado por algumas
+       leituras em vez de "piscar" para nada detectado (no painel, no buzzer e no NEAR_MISS) */
     side.rawCm = -1;
-    side.filteredCm = -1;
+    if (side.misses < SENSOR_DROPOUT_HOLD) side.misses++;
+    if (side.misses >= SENSOR_DROPOUT_HOLD) side.filteredCm = -1;
   } else {
+    side.misses = 0;
     side.rawCm = raw;
     side.filteredCm = (side.filteredCm < 0) ? raw : (side.filteredCm * 0.7f + raw * 0.3f);
   }
@@ -267,11 +271,39 @@ void updateSide(SideState &side, float raw) {
   }
 }
 
+/* quase colisao: precisa ficar perto por NEAR_MISS_CONFIRM_SAMPLES leituras seguidas, rearma so depois de
+   sair da faixa (histerese) e respeita NEAR_MISS_COOLDOWN_MS por lado, para uma pessoa parada perto ou um
+   eco que falha e volta nao virarem dezenas de alertas */
+struct NearState {
+  bool active = false;
+  uint8_t count = 0;
+  uint32_t lastAlertAt = 0;
+};
+
+bool updateNear(NearState &n, float filteredCm) {
+  bool nearNow = filteredCm >= 0 && filteredCm < (n.active ? NEAR_MISS_CM + NEAR_MISS_HYST_CM : NEAR_MISS_CM);
+  n.count = nearNow ? (n.count < 255 ? n.count + 1 : 255) : 0;
+  if (!n.active && n.count >= NEAR_MISS_CONFIRM_SAMPLES) {
+    n.active = true;
+    uint32_t now = millis();
+    if (n.lastAlertAt == 0 || now - n.lastAlertAt >= NEAR_MISS_COOLDOWN_MS) {
+      n.lastAlertAt = now;
+      return true;
+    }
+  } else if (n.active && !nearNow) {
+    n.active = false;
+  }
+  return false;
+}
+
 void TaskSensors(void *pvParameters) {
-  bool wasNearL = false;
-  bool wasNearR = false;
+  NearState nearL, nearR;
 
   for (;;) {
+    if (sensorsPaused) {
+      vTaskDelay(pdMS_TO_TICKS(20));
+      continue;
+    }
     /* leitura sequencial com intervalo para evitar eco cruzado entre os dois HC-SR04 */
     float rawL = readDistanceCm(PIN_TRIG_L, PIN_ECHO_L);
     vTaskDelay(pdMS_TO_TICKS(SENSOR_GAP_MS));
@@ -287,19 +319,14 @@ void TaskSensors(void *pvParameters) {
     float filteredR = sensorState.right.filteredCm;
     xSemaphoreGive(stateMutex);
 
-    bool isNearL = (filteredL >= 0 && filteredL < NEAR_MISS_CM);
-    if (isNearL && !wasNearL) {
-      AppEvent evt{EVT_NEAR_MISS, filteredL, millis(), 'L'};
+    if (updateNear(nearL, filteredL)) {
+      AppEvent evt{EVT_NEAR_MISS, filteredL, (uint32_t)millis(), 'L', -1.0f};
       xQueueSend(eventQueue, &evt, 0);
     }
-    wasNearL = isNearL;
-
-    bool isNearR = (filteredR >= 0 && filteredR < NEAR_MISS_CM);
-    if (isNearR && !wasNearR) {
-      AppEvent evt{EVT_NEAR_MISS, filteredR, millis(), 'R'};
+    if (updateNear(nearR, filteredR)) {
+      AppEvent evt{EVT_NEAR_MISS, filteredR, (uint32_t)millis(), 'R', -1.0f};
       xQueueSend(eventQueue, &evt, 0);
     }
-    wasNearR = isNearR;
 
     vTaskDelay(pdMS_TO_TICKS(SENSOR_PERIOD_MS));
   }
@@ -314,20 +341,33 @@ void TaskButton(void *pvParameters) {
       vTaskDelay(pdMS_TO_TICKS(BUTTON_DEBOUNCE_MS));
       if (digitalRead(PIN_BUTTON) != LOW) continue; /* ruido */
 
+      /* o alerta do clique longo sai assim que completa 1,5 s, sem esperar soltar o botao */
       uint32_t pressStart = millis();
+      bool longFired = false;
       while (digitalRead(PIN_BUTTON) == LOW) {
+        if (!longFired && millis() - pressStart >= BUTTON_LONGPRESS_MS) {
+          longFired = true;
+          AppEvent evt{EVT_CRASH, 0, (uint32_t)millis(), '-', -1.0f};
+          xQueueSend(eventQueue, &evt, 0);
+          crashFlashUntil = millis() + CRASH_FLASH_MS;
+        }
         vTaskDelay(pdMS_TO_TICKS(10));
       }
-      uint32_t heldMs = millis() - pressStart;
 
-      if (heldMs >= BUTTON_LONGPRESS_MS) {
-        AppEvent evt{EVT_CRASH, 0, millis(), '-'};
-        xQueueSend(eventQueue, &evt, 0);
-        crashFlashUntil = millis() + CRASH_FLASH_MS;
-      } else {
+      if (!longFired) {
         xSemaphoreTake(stateMutex, portMAX_DELAY);
         appState.mode = (Mode)((appState.mode + 1) % 3);
         xSemaphoreGive(stateMutex);
+
+        /* 3 cliques rapidos abrem o portal de Wi-Fi (como sao 3 modos, o modo volta a ser o mesmo) */
+        static uint32_t clicks[3] = {0, 0, 0};
+        clicks[0] = clicks[1];
+        clicks[1] = clicks[2];
+        clicks[2] = millis();
+        if (clicks[0] != 0 && clicks[2] - clicks[0] <= TRIPLE_CLICK_MS) {
+          clicks[0] = clicks[1] = clicks[2] = 0;
+          netRequestPortal();
+        }
       }
     }
   }
@@ -353,6 +393,14 @@ void TaskStatusLed(void *pvParameters) {
 
     if (now < crashFlashUntil) {
       computeCrashFlash(r, g, b);
+    } else if (netTesting()) {
+      /* ciano piscando rapido: testando uma rede Wi-Fi nova */
+      float on = ((now / 120) % 2) ? 1.0f : 0.1f;
+      r = 0.0f; g = 0.6f * on; b = on;
+    } else if (netPortalActive()) {
+      /* azul "respirando": portal de configuracao de Wi-Fi aberto */
+      float p = 0.15f + 0.85f * (0.5f + 0.5f * sinf(now / 400.0f));
+      r = 0.0f; g = 0.25f * p; b = p;
     } else if (mode == MODE_RADAR) {
       computeRadar(s, thr, now, r, g, b);
     } else if (mode == MODE_SIM360) {
@@ -382,6 +430,16 @@ void TaskBuzzer(void *pvParameters) {
   float volR = 0.0f;
 
   for (;;) {
+    uint32_t now = millis();
+    if ((int32_t)(locateUntil - now) > 0) {
+      /* "tocar buzzer" pelo painel: bipes fortes nos dois lados para achar o dispositivo */
+      float v = ((now / 150) % 2) ? 1.0f : 0.0f;
+      setBuzzerVolume(BUZZER_CHANNEL_L, v);
+      setBuzzerVolume(BUZZER_CHANNEL_R, v);
+      vTaskDelay(pdMS_TO_TICKS(STATUS_PERIOD_MS));
+      continue;
+    }
+
     xSemaphoreTake(stateMutex, portMAX_DELAY);
     SideState left = sensorState.left;
     SideState right = sensorState.right;
@@ -449,32 +507,86 @@ static const uint8_t MPU_REG_WHO_AM_I = 0x75;
 static const float MPU_ACCEL_LSB_PER_G = 4096.0f;  /* faixa de +-8 g */
 static const float MPU_GYRO_LSB_PER_DPS = 65.5f;   /* faixa de +-500 graus/s */
 
+static uint8_t mpuAddr = MPU_ADDR; /* 0x68 ou 0x69, detectado no boot */
+static uint8_t mpuWhoAmI = 0;
+
+/* responde no barramento? (ACK do endereco) */
+bool i2cProbe(uint8_t addr) {
+  Wire.beginTransmission(addr);
+  return Wire.endTransmission() == 0;
+}
+
+/* lista tudo que responde no I2C: mostra se o modulo esta em outro endereco ou se nada responde */
+void i2cScan() {
+  int found = 0;
+  Serial.print("[IMU] Varredura I2C (SDA 26, SCL 27):");
+  for (uint8_t a = 0x08; a < 0x78; a++) {
+    if (i2cProbe(a)) {
+      Serial.printf(" 0x%02X", a);
+      found++;
+    }
+  }
+  if (found) {
+    Serial.println();
+    return;
+  }
+  Serial.println(" nenhum dispositivo.");
+
+  /* fio de SDA e SCL invertido e o erro mais comum: testa com os pinos trocados */
+  Wire.end();
+  Wire.begin(PIN_I2C_SCL, PIN_I2C_SDA, 100000);
+  bool swapped = i2cProbe(MPU_ADDR) || i2cProbe(MPU_ADDR ^ 0x01);
+  Wire.end();
+  Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL, I2C_FREQ_HZ);
+  if (swapped) {
+    Serial.printf("[IMU] >>> Achei o MPU com os fios INVERTIDOS: troque os fios (SDA do modulo -> GPIO %d, SCL -> GPIO %d).\n",
+                  PIN_I2C_SDA, PIN_I2C_SCL);
+  } else {
+    Serial.println("[IMU] Nem com SDA/SCL trocados. Confira: LED do modulo aceso? VCC e GND certos? "
+                   "pinos do modulo soldados? fios nos furos D26/D27 da placa?");
+  }
+}
+
+const char *mpuChipName(uint8_t who) {
+  switch (who) {
+    case 0x68: return "MPU-6050";
+    case 0x70: return "MPU-6500";
+    case 0x71: return "MPU-9250";
+    case 0x73: return "MPU-9255";
+    case 0x12: return "ICM-20602";
+    default: return "compativel/clone";
+  }
+}
+
 bool mpuWrite(uint8_t reg, uint8_t value) {
-  Wire.beginTransmission(MPU_ADDR);
+  Wire.beginTransmission(mpuAddr);
   Wire.write(reg);
   Wire.write(value);
   return Wire.endTransmission() == 0;
 }
 
 bool mpuRead(uint8_t reg, uint8_t *buf, size_t len) {
-  Wire.beginTransmission(MPU_ADDR);
+  Wire.beginTransmission(mpuAddr);
   Wire.write(reg);
   if (Wire.endTransmission(false) != 0) return false;
-  if (Wire.requestFrom((uint16_t)MPU_ADDR, (uint8_t)len) != len) return false;
+  if (Wire.requestFrom((uint16_t)mpuAddr, (uint8_t)len) != len) return false;
   for (size_t i = 0; i < len; i++) buf[i] = (uint8_t)Wire.read();
   return true;
 }
 
 bool mpuInit() {
-  uint8_t who = 0;
-  if (!mpuRead(MPU_REG_WHO_AM_I, &who, 1)) return false;
-  if (who != 0x68) {
-    /* clones do GY-521 as vezes respondem 0x70/0x72/0x98 mas funcionam igual */
-    Serial.printf("[IMU] WHO_AM_I = 0x%02X (esperado 0x68), seguindo mesmo assim.\n", who);
-  }
+  /* testa 0x68 (AD0 no GND) e 0x69 (AD0 em 3V3 ou solto em alguns modulos) */
+  if (i2cProbe(MPU_ADDR)) mpuAddr = MPU_ADDR;
+  else if (i2cProbe(MPU_ADDR ^ 0x01)) mpuAddr = MPU_ADDR ^ 0x01;
+  else return false;
+
+  /* placas "ITG/MPU" podem trazer MPU-6050, 6500, 9250 ou clones: os registradores usados aqui sao iguais */
+  if (!mpuRead(MPU_REG_WHO_AM_I, &mpuWhoAmI, 1)) return false;
+  if (!mpuWrite(MPU_REG_PWR_MGMT_1, 0x80)) return false; /* reset: o ESP32 pode reiniciar sem o modulo desligar */
+  vTaskDelay(pdMS_TO_TICKS(100));
   return mpuWrite(MPU_REG_PWR_MGMT_1, 0x01) &&   /* acorda, clock do giroscopio X */
-         mpuWrite(MPU_REG_SMPLRT_DIV, 9) &&      /* 1 kHz / (1 + 9) = 100 Hz */
-         mpuWrite(MPU_REG_CONFIG, 0x03) &&       /* filtro passa-baixa ~44 Hz */
+         mpuWrite(MPU_REG_SMPLRT_DIV, MPU_SMPLRT_DIV) &&
+         mpuWrite(MPU_REG_CONFIG, MPU_DLPF_CFG) &&
          mpuWrite(MPU_REG_GYRO_CONFIG, 0x08) &&  /* +-500 graus/s */
          mpuWrite(MPU_REG_ACCEL_CONFIG, 0x10);   /* +-8 g: impactos passam facilmente de 2 g */
 }
@@ -498,9 +610,12 @@ void TaskImu(void *pvParameters) {
   Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL, I2C_FREQ_HZ);
 
   while (!mpuInit()) {
-    Serial.println("[IMU] MPU-6050 nao respondeu (confira SDA 26, SCL 27, 3V3 e GND). Tentando de novo em 2 s...");
-    vTaskDelay(pdMS_TO_TICKS(2000));
+    Serial.println("[IMU] MPU nao respondeu em 0x68 nem 0x69. Tentando de novo em 3 s...");
+    i2cScan();
+    vTaskDelay(pdMS_TO_TICKS(3000));
   }
+  Serial.printf("[IMU] %s encontrado em 0x%02X (WHO_AM_I 0x%02X), %d amostras/s.\n",
+                mpuChipName(mpuWhoAmI), mpuAddr, mpuWhoAmI, 1000 / IMU_PERIOD_MS);
 
   /* Calibracao: com o dispositivo parado na posicao de uso, mede o offset do
      giroscopio e a direcao da gravidade (referencia para a inclinacao). */
@@ -520,10 +635,22 @@ void TaskImu(void *pvParameters) {
   float gravityRef[3] = {sum[0] / n, sum[1] / n, sum[2] / n};
   float gyroBias[3] = {sum[3] / n, sum[4] / n, sum[5] / n};
   float lp[3] = {gravityRef[0], gravityRef[1], gravityRef[2]}; /* aceleracao filtrada para a inclinacao */
-  Serial.printf("[IMU] Pronto. Gravidade de referencia: %.2f %.2f %.2f g\n", gravityRef[0], gravityRef[1], gravityRef[2]);
+
+  /* Normalizacao: parado, o modulo deveria medir exatamente 1 g. Modulos e clones costumam ler
+     0,95-1,08 g; dividir pela gravidade medida no boot deixa os limiares iguais em qualquer placa. */
+  float restG = sqrtf(gravityRef[0] * gravityRef[0] + gravityRef[1] * gravityRef[1] + gravityRef[2] * gravityRef[2]);
+  float gScale = 1.0f;
+  if (restG > 0.8f && restG < 1.25f) {
+    gScale = 1.0f / restG;
+  } else {
+    Serial.printf("[IMU] Gravidade medida %.2f g (esperado ~1): o modulo mexeu na calibracao? Sem normalizacao.\n", restG);
+  }
+  Serial.printf("[IMU] Pronto. Gravidade de referencia: %.2f %.2f %.2f g (escala x%.3f)\n",
+                gravityRef[0], gravityRef[1], gravityRef[2], gScale);
 
   const ImuDetectorConfig cfg = {FREEFALL_G, FREEFALL_MIN_MS, FALL_WINDOW_MS, FALL_IMPACT_G,
-                                 IMPACT_G, IMU_PEAK_WINDOW_MS, IMU_EVENT_COOLDOWN_MS};
+                                 IMPACT_G, IMU_PEAK_WINDOW_MS, IMU_EVENT_COOLDOWN_MS,
+                                 FALL_CONFIRM_MS, FALL_TILT_DEG, HARD_IMPACT_G};
   ImuDetector detector(cfg);
   uint32_t readErrors = 0;
   TickType_t lastWake = xTaskGetTickCount();
@@ -535,19 +662,39 @@ void TaskImu(void *pvParameters) {
       gx -= gyroBias[0];
       gy -= gyroBias[1];
       gz -= gyroBias[2];
+      ax *= gScale;
+      ay *= gScale;
+      az *= gScale;
       float g = sqrtf(ax * ax + ay * ay + az * az);
 
-      float peak;
-      ImuEvent evt = detector.update(g, millis(), peak);
-      if (evt != ImuEvent::None) {
-        AppEvent e{evt == ImuEvent::Fall ? EVT_FALL : EVT_IMPACT, peak, (uint32_t)millis(), '-'};
-        xQueueSend(eventQueue, &e, 0);
-      }
-
+      /* inclinacao antes do detector: ela confirma (ou descarta) a queda */
       lp[0] += TILT_FILTER_ALPHA * (ax - lp[0]);
       lp[1] += TILT_FILTER_ALPHA * (ay - lp[1]);
       lp[2] += TILT_FILTER_ALPHA * (az - lp[2]);
       float tilt = tiltFromReferenceDeg(gravityRef, lp[0], lp[1], lp[2]);
+#if IMU_DEBUG
+      static float dbgMin = 99, dbgMax = 0;
+      static uint32_t dbgAt = 0;
+      dbgMin = min(dbgMin, g);
+      dbgMax = max(dbgMax, g);
+      if (millis() - dbgAt >= 500) {
+        Serial.printf("[IMU] g agora %.2f  min %.2f  max %.2f  (queda livre < %.1f, queda >= %.1f, impacto >= %.1f)\n",
+                      g, dbgMin, dbgMax, FREEFALL_G, FALL_IMPACT_G, IMPACT_G);
+        dbgAt = millis();
+        dbgMin = 99;
+        dbgMax = 0;
+      }
+#endif
+
+      float peak, evtTilt;
+      ImuEvent evt = detector.update(g, tilt, millis(), peak, evtTilt);
+      if (evt == ImuEvent::Jump) {
+        Serial.printf("[IMU] Pulo/passo forte ignorado (pico %.2f g, inclinacao %.0f graus: continuou de pe).\n", peak, evtTilt);
+      } else if (evt != ImuEvent::None) {
+        AppEvent e{evt == ImuEvent::Fall ? EVT_FALL : EVT_IMPACT, peak, (uint32_t)millis(), '-',
+                   evt == ImuEvent::Fall ? evtTilt : -1.0f};
+        xQueueSend(eventQueue, &e, 0);
+      }
 
       xSemaphoreTake(stateMutex, portMAX_DELAY);
       imuState.ready = true;
@@ -557,7 +704,7 @@ void TaskImu(void *pvParameters) {
       if (g > imuState.gMax) imuState.gMax = g;
       imuState.tiltDeg = tilt;
       xSemaphoreGive(stateMutex);
-    } else if (++readErrors == 100) {
+    } else if (++readErrors == 1000 / IMU_PERIOD_MS) {
       Serial.println("[IMU] Falha de leitura no I2C (1 s sem dados). Confira os fios do MPU-6050.");
       xSemaphoreTake(stateMutex, portMAX_DELAY);
       imuState.ready = false;
@@ -570,37 +717,13 @@ void TaskImu(void *pvParameters) {
 #endif
 
 /*=====================================================*/
-/* Task 5 - Comunicacao (serial JSON + MQTT opcional)    */
+/* Task 5 - Comunicacao (Serial JSON + rede em net.cpp)  */
 /*=====================================================*/
-#if ENABLE_MQTT
-void conectarWiFi() {
-  if (WiFi.status() == WL_CONNECTED) return;
-
-  Serial.println("[WiFi] Iniciando conexao...");
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-
-  while (WiFi.status() != WL_CONNECTED) {
-    vTaskDelay(pdMS_TO_TICKS(500));
-  }
-  Serial.print("[WiFi] Conectado. IP local: ");
-  Serial.println(WiFi.localIP());
+/* toda mensagem sai pela Serial (USB) e, com rede, pelo MQTT */
+void publishLine(NetChannel ch, const char *json) {
+  Serial.println(json);
+  netPublish(ch, json);
 }
-
-void conectarMQTT() {
-  if (mqttClient.connected()) return;
-
-  mqttClient.setServer(MQTT_BROKER_IP, MQTT_BROKER_PORT);
-  String clientId = "echomap-node1-" + String((uint32_t)ESP.getEfuseMac(), HEX);
-
-  if (mqttClient.connect(clientId.c_str())) {
-    Serial.println("[MQTT] Conectado ao broker.");
-  } else {
-    Serial.print("[MQTT] Falha na conexao. Estado: ");
-    Serial.println(mqttClient.state());
-  }
-}
-#endif
 
 const char *modeToString(Mode m) {
   switch (m) {
@@ -620,33 +743,31 @@ void publishTelemetry() {
   float volR = appState.buzzVolR;
   xSemaphoreGive(stateMutex);
 
+  /* "near" = NEAR_MISS_CM: o painel desenha a faixa de quase colisao com o mesmo valor do firmware */
   char buf[220];
   snprintf(buf, sizeof(buf),
            "{\"t\":%lu,\"mode\":\"%s\","
            "\"distL\":%.1f,\"rawL\":%.1f,"
            "\"distR\":%.1f,\"rawR\":%.1f,"
            "\"bzL\":%.2f,\"bzR\":%.2f,"
-           "\"thr\":%.0f,\"angle\":%.0f,\"pot\":%.2f}",
+           "\"thr\":%.0f,\"angle\":%.0f,\"pot\":%.2f,\"near\":%.0f}",
            (unsigned long)millis(), modeToString(mode),
            s.left.filteredCm, s.left.rawCm,
            s.right.filteredCm, s.right.rawCm,
            volL, volR,
-           thr, angle, s.potNormalized);
+           thr, angle, s.potNormalized, NEAR_MISS_CM);
 
-  Serial.println(buf);
-
-#if ENABLE_MQTT
-  if (mqttClient.connected()) {
-    mqttClient.publish(MQTT_TOPIC_TELEMETRY, buf);
-  }
-#endif
+  publishLine(CH_TELEMETRY, buf);
 }
 
 void emitEvent(const AppEvent &evt) {
-  char buf[96];
+  char buf[112];
   if (evt.type == EVT_NEAR_MISS) {
     snprintf(buf, sizeof(buf), "{\"event\":\"NEAR_MISS\",\"side\":\"%c\",\"value\":%.1f,\"t\":%lu}",
              evt.side, evt.value, (unsigned long)evt.t);
+  } else if (evt.type == EVT_FALL && evt.tilt >= 0) {
+    snprintf(buf, sizeof(buf), "{\"event\":\"FALL\",\"value\":%.2f,\"unit\":\"g\",\"tilt\":%.0f,\"t\":%lu}",
+             evt.value, evt.tilt, (unsigned long)evt.t);
   } else if (evt.type == EVT_FALL || evt.type == EVT_IMPACT) {
     snprintf(buf, sizeof(buf), "{\"event\":\"%s\",\"value\":%.2f,\"unit\":\"g\",\"t\":%lu}",
              evt.type == EVT_FALL ? "FALL" : "IMPACT", evt.value, (unsigned long)evt.t);
@@ -655,21 +776,17 @@ void emitEvent(const AppEvent &evt) {
   }
 
   Serial.println(buf);
-
-#if ENABLE_MQTT
-  if (mqttClient.connected()) {
-    mqttClient.publish(MQTT_TOPIC_EVENTS, buf);
-  }
-#endif
+  netPublishEvent(buf); /* evento nao pode se perder: sem broker, fica guardado e sai na reconexao */
 }
 
-void publishLine(const char *topic, const char *json) {
-  Serial.println(json);
-#if ENABLE_MQTT
-  if (mqttClient.connected()) {
-    mqttClient.publish(topic, json);
-  }
-#endif
+/* versao, tempo ligado, memoria livre e rede (sinal, IP, rede, servidor, fila de eventos) */
+void publishStatus() {
+  char buf[640];
+  int n = snprintf(buf, sizeof(buf), "{\"fw\":\"%s\",\"up\":%lu,\"heap\":%lu",
+                   FW_VERSION, (unsigned long)(millis() / 1000), (unsigned long)ESP.getFreeHeap());
+  n += netStatusAppend(buf + n, sizeof(buf) - n - 24);
+  snprintf(buf + n, sizeof(buf) - n, ",\"t\":%lu}", (unsigned long)millis());
+  publishLine(CH_STATUS, buf);
 }
 
 #if ENABLE_IMU
@@ -688,7 +805,7 @@ void publishImu() {
            "\"gx\":%.1f,\"gy\":%.1f,\"gz\":%.1f,"
            "\"gMax\":%.2f,\"tilt\":%.0f,\"t\":%lu}",
            s.ax, s.ay, s.az, s.gx, s.gy, s.gz, s.gMax > 0 ? s.gMax : s.g, s.tiltDeg, (unsigned long)millis());
-  publishLine(MQTT_TOPIC_IMU, buf);
+  publishLine(CH_IMU, buf);
 }
 #endif
 
@@ -717,40 +834,191 @@ void publishLocation() {
   snprintf(buf, sizeof(buf),
            "{\"lat\":%.6f,\"lon\":%.6f,\"acc\":%.1f,\"hdop\":%.2f,\"sats\":%lu,\"speed\":%.2f,\"t\":%lu}",
            s.lat, s.lon, s.accuracyM, s.hdop, (unsigned long)s.sats, s.speedMps, (unsigned long)millis());
-  publishLine(MQTT_TOPIC_LOCATION, buf);
+  publishLine(CH_LOCATION, buf);
 }
 #endif
 
+/* comandos do painel (echomap/<id>/cmd); ping e portal sao tratados em net.cpp */
+/*=====================================================*/
+/* Teste dos ultrassonicos ("sensores" / "Testar sensores") */
+/*=====================================================*/
+/* Para cada lado: o ECHO fica em LOW parado? Dispara o TRIG e mede o eco. Se o pino do ECHO
+   tem ADC (GPIO33 no lado direito), mede tambem a tensao que chega do divisor: ~3,3 V e o
+   certo, ~1,7 V indica resistores invertidos, ~0 V indica que nada chega. E ve se o eco
+   apareceu no pino do OUTRO lado (fios de ECHO trocados entre os sensores). */
+struct SideDiag {
+  bool idleHigh = false;
+  bool echo = false;
+  float cm = -1;
+  int peakMv = -1; /* -1 = pino sem ADC */
+  bool cross = false;
+};
+
+static void fireTrig(uint8_t trig) {
+  digitalWrite(trig, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trig, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trig, LOW);
+}
+
+static SideDiag diagSide(uint8_t trig, uint8_t echo, uint8_t otherEcho) {
+  SideDiag d;
+  int highs = 0;
+  for (int i = 0; i < 20; i++) {
+    highs += digitalRead(echo);
+    delayMicroseconds(100);
+  }
+  d.idleHigh = highs > 15;
+
+  for (int attempt = 0; attempt < 3 && !d.echo; attempt++) {
+    fireTrig(trig);
+    uint32_t t0 = micros(), rise = 0;
+    while (micros() - t0 < 30000) {
+      int e = digitalRead(echo);
+      if (!rise && e) rise = micros();
+      if (rise && !e) {
+        d.echo = true;
+        d.cm = (micros() - rise) * 0.0343f / 2.0f;
+        break;
+      }
+      if (digitalRead(otherEcho)) d.cross = true;
+    }
+    vTaskDelay(pdMS_TO_TICKS(60)); /* deixa o eco anterior morrer */
+  }
+
+  int ch = digitalPinToAnalogChannel(echo);
+  if (ch >= 0 && ch < 10) { /* ADC1 (funciona com o Wi-Fi ligado) */
+    fireTrig(trig);
+    uint32_t t0 = millis();
+    int peak = 0;
+    while (millis() - t0 < 30) {
+      int mv = analogReadMilliVolts(echo);
+      if (mv > peak) peak = mv;
+    }
+    d.peakMv = peak;
+    pinMode(echo, INPUT); /* devolve o pino para leitura digital */
+  }
+  return d;
+}
+
+static void diagJson(char *buf, size_t len, const char *side, uint8_t trig, uint8_t echo, const SideDiag &d) {
+  snprintf(buf, len, "\"%s\":{\"trig\":%u,\"echo\":%u,\"idleHigh\":%s,\"echoOk\":%s,\"cm\":%.1f,\"mv\":%d,\"cross\":%s}", side,
+           trig, echo, d.idleHigh ? "true" : "false", d.echo ? "true" : "false", d.cm, d.peakMv, d.cross ? "true" : "false");
+}
+
+static void printDiag(const char *name, uint8_t trig, uint8_t echo, const SideDiag &d) {
+  Serial.printf("[DIAG] %s (TRIG %u, ECHO %u): ", name, trig, echo);
+  if (d.echo) Serial.printf("OK, eco a %.0f cm", d.cm);
+  else if (d.idleHigh) Serial.print("ECHO preso em nivel alto (confira o divisor)");
+  else if (d.cross) Serial.print("sem eco aqui, mas o eco apareceu no pino do OUTRO lado (fios de ECHO trocados)");
+  else if (d.peakMv >= 2400) Serial.printf("sinal chega (%d mV) mas sem pulso valido", d.peakMv);
+  else if (d.peakMv >= 600) Serial.printf("sinal FRACO no pino (%d mV): resistores do divisor invertidos ou errados", d.peakMv);
+  else if (d.peakMv >= 0) Serial.printf("nenhum sinal no pino (%d mV): sensor sem 5 V/GND, TRIG solto ou ECHO sem chegar ao divisor", d.peakMv);
+  else Serial.print("sem eco: confira 5 V, GND, TRIG e ECHO (divisor)");
+  if (d.peakMv >= 0 && d.echo) Serial.printf(", %d mV no pino", d.peakMv);
+  Serial.println();
+}
+
+static void runSensorDiag() {
+  sensorsPaused = true;
+  vTaskDelay(pdMS_TO_TICKS(120)); /* termina a leitura que estava em andamento */
+  Serial.println("[DIAG] Testando os ultrassonicos (aponte para uma parede a 30-100 cm)...");
+  SideDiag l = diagSide(PIN_TRIG_L, PIN_ECHO_L, PIN_ECHO_R);
+  vTaskDelay(pdMS_TO_TICKS(60));
+  SideDiag r = diagSide(PIN_TRIG_R, PIN_ECHO_R, PIN_ECHO_L);
+  sensorsPaused = false;
+
+  printDiag("Esquerdo", PIN_TRIG_L, PIN_ECHO_L, l);
+  printDiag("Direito", PIN_TRIG_R, PIN_ECHO_R, r);
+  char a[150], b[150], out[340];
+  diagJson(a, sizeof(a), "L", PIN_TRIG_L, PIN_ECHO_L, l);
+  diagJson(b, sizeof(b), "R", PIN_TRIG_R, PIN_ECHO_R, r);
+  snprintf(out, sizeof(out), "{\"diag\":{%s,%s},\"t\":%lu}", a, b, (unsigned long)millis());
+  publishLine(CH_DIAG, out);
+}
+
+/* comandos do painel (MQTT ou cabo) e da Serial que nao sao de rede */
+bool onPanelCommand(const char *cmd, const char *json) {
+  (void)json;
+  if (strcmp(cmd, "locate") == 0) {
+    locateUntil = millis() + LOCATE_MS;
+    Serial.println("[APP] Painel pediu para tocar o buzzer.");
+    return true;
+  }
+  if (strcmp(cmd, "diag") == 0 || strcmp(cmd, "sensores") == 0) {
+    diagRequested = true; /* roda no ciclo da TaskComms, fora do callback do MQTT */
+    return true;
+  }
+  return false;
+}
+
 void TaskComms(void *pvParameters) {
   TickType_t lastWake = xTaskGetTickCount();
+  uint32_t lastTelemetry = 0;
+  uint32_t lastStatus = 0;
+#if ENABLE_GPS
   uint32_t lastLocation = 0;
+#endif
+
+  netOnCommand(onPanelCommand);
+  Serial.println("[APP] Digite \"sensores\" para testar os ultrassonicos.");
+  netBegin(bootPortalRequested);
+
+  /* ciclo curto (20 ms): rede, comandos e alertas sao atendidos rapido;
+     telemetria, posicao e status saem nos seus proprios periodos */
+  /* comandos digitados na Serial (ou mandados pelo painel pelo USB): wifi, portal, rede, esquecer... */
+  static char line[160];
+  static size_t lineLen = 0;
 
   for (;;) {
-#if ENABLE_MQTT
-    conectarWiFi();
-    conectarMQTT();
-    mqttClient.loop();
-#endif
+    uint32_t now = millis();
+    netService(); /* nunca bloqueia */
+
+    while (Serial.available() > 0) {
+      char c = (char)Serial.read();
+      if (c == '\r') continue;
+      if (c == '\n') {
+        line[lineLen] = '\0';
+        netHandleLine(line);
+        lineLen = 0;
+      } else if (lineLen + 1 < sizeof(line)) {
+        line[lineLen++] = c;
+      }
+    }
 
     AppEvent evt;
     while (xQueueReceive(eventQueue, &evt, 0) == pdTRUE) {
       emitEvent(evt);
     }
 
-    publishTelemetry();
+    if (diagRequested) {
+      diagRequested = false;
+      runSensorDiag();
+    }
 
+    if (now - lastTelemetry >= TELEMETRY_PERIOD_MS) {
+      lastTelemetry = now;
+      publishTelemetry();
 #if ENABLE_IMU
-    publishImu();
+      publishImu();
 #endif
+    }
 
 #if ENABLE_GPS
-    if (millis() - lastLocation >= LOCATION_PERIOD_MS) {
-      lastLocation = millis();
+    if (now - lastLocation >= LOCATION_PERIOD_MS) {
+      lastLocation = now;
       publishLocation();
     }
 #endif
 
-    vTaskDelayUntil(&lastWake, pdMS_TO_TICKS(TELEMETRY_PERIOD_MS));
+    /* a cada 5 s, ou na hora quando a rede muda (queda, teste, portal) ou alguem digita "status" na Serial */
+    if (netTakeStatusRequest() || lastStatus == 0 || now - lastStatus >= NET_STATUS_PERIOD_MS) {
+      lastStatus = now | 1;
+      publishStatus();
+    }
+
+    vTaskDelayUntil(&lastWake, pdMS_TO_TICKS(COMMS_TICK_MS));
   }
 }
 
@@ -787,6 +1055,16 @@ void setup() {
     while (true) delay(1000);
   }
 
+  /* segurar o botao ao ligar (2 s) abre o portal de Wi-Fi; o LED fica azul enquanto segura */
+  if (digitalRead(PIN_BUTTON) == LOW) {
+    setRGB(0, 0, 1);
+    uint32_t start = millis();
+    while (digitalRead(PIN_BUTTON) == LOW && millis() - start < PORTAL_BUTTON_HOLD_MS) delay(10);
+    bootPortalRequested = millis() - start >= PORTAL_BUTTON_HOLD_MS;
+    while (digitalRead(PIN_BUTTON) == LOW) delay(10); /* espera soltar para nao virar troca de modo */
+    setRGB(0, 0, 0);
+  }
+
   attachInterrupt(digitalPinToInterrupt(PIN_BUTTON), buttonISR, FALLING);
 
   /* Core 1: leitura de sensores e atuacao (timing critico, longe do Wi-Fi) */
@@ -803,9 +1081,10 @@ void setup() {
 #if ENABLE_GPS
   xTaskCreatePinnedToCore(TaskGps, "TaskGps", 3072, NULL, 1, NULL, 0);
 #endif
-  xTaskCreatePinnedToCore(TaskComms, "TaskComms", 6144, NULL, 1, NULL, 0);
+  xTaskCreatePinnedToCore(TaskComms, "TaskComms", 8192, NULL, 1, NULL, 0); /* 8 KB: portal web usa String */
 
-  Serial.println("[APP] EchoMap no principal iniciado (RGB + buzzers + GPS + MPU-6050).");
+  Serial.printf("[APP] EchoMap fw %s iniciado: RGB + buzzers%s%s%s.\n", FW_VERSION,
+                ENABLE_GPS ? " + GPS" : "", ENABLE_IMU ? " + MPU-6050" : "", ENABLE_MQTT ? " + MQTT" : "");
 }
 
 void loop() {

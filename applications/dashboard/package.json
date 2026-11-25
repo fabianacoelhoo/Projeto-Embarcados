@@ -8,13 +8,16 @@
     "start": "node --no-warnings=ExperimentalWarning server/index.js",
     "dev": "node --no-warnings=ExperimentalWarning --watch server/index.js",
     "simulate": "node tools/simulator.js",
-    "simulate:all": "node tools/simulator.js --all"
+    "simulate:all": "node tools/simulator.js --all",
+    "test": "node tools/test-panel.mjs && node tools/test-usb.mjs"
   },
   "dependencies": {
-    "aedes": "0.51.3",
+    "@fontsource/atkinson-hyperlegible": "^5.3.0",
+    "aedes": "^1.2.0",
     "express": "^4.21.2",
     "leaflet": "1.9.4",
     "mqtt": "^5.10.3",
+    "qrcode-generator": "^2.0.4",
     "ws": "^8.18.0"
   },
   "optionalDependencies": {

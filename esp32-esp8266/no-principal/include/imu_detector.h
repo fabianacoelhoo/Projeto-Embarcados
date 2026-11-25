@@ -10,7 +10,9 @@
 #include <math.h>
 #include <stdint.h>
 
-enum class ImuEvent : uint8_t { None, Fall, Impact };
+/* Jump = queda livre + impacto, mas a pessoa continuou de pe (pulo, corrida, degrau):
+   nao vira alerta, so aparece no log da Serial */
+enum class ImuEvent : uint8_t { None, Fall, Impact, Jump };
 
 struct ImuDetectorConfig {
   float freeFallG;          /* abaixo disso o corpo esta "sem peso" (queda livre) */
@@ -20,38 +22,63 @@ struct ImuDetectorConfig {
   float impactG;            /* pancada sem queda livre antes (batida) */
   uint32_t peakWindowMs;    /* espera o pico do impacto antes de avisar */
   uint32_t cooldownMs;      /* intervalo minimo entre dois eventos */
+  uint32_t fallConfirmMs;   /* depois do impacto, espera esse tempo para ver a postura */
+  float fallTiltDeg;        /* inclinacao media no fim da espera para confirmar a queda (0 = nao confirma) */
+  float hardImpactG;        /* queda nao confirmada mas com pancada >= isso vira IMPACT (ex.: bateu correndo) */
 };
 
 class ImuDetector {
  public:
   explicit ImuDetector(const ImuDetectorConfig &cfg) : cfg_(cfg) {}
 
-  /* Chamar a cada amostra. Quando retorna Fall ou Impact, peakG traz o maior
-     valor medido durante o impacto. */
-  ImuEvent update(float g, uint32_t nowMs, float &peakG) {
+  /* Chamar a cada amostra com o modulo da aceleracao (g) e a inclinacao (graus) em relacao
+     a posicao de uso. Quando retorna um evento, peakG traz o pico do impacto e tiltDeg a
+     inclinacao media usada para confirmar a queda. */
+  ImuEvent update(float g, float tilt, uint32_t nowMs, float &peakG, float &tiltDeg) {
     peakG = 0.0f;
+    tiltDeg = 0.0f;
 
-    /* 1) impacto ja detectado: acompanha o pico e avisa no fim da janela */
+    /* 1) impacto ja detectado: acompanha o pico ate o fim da janela */
     if (pending_ != ImuEvent::None) {
       if (g > peak_) peak_ = g;
       if (nowMs - pendingSinceMs_ < cfg_.peakWindowMs) return ImuEvent::None;
       ImuEvent evt = pending_;
-      peakG = peak_;
       pending_ = ImuEvent::None;
-      cooldownUntilMs_ = nowMs + cfg_.cooldownMs;
-      coolingDown_ = true;
       freeFall_ = false;
       lowActive_ = false;
-      return evt;
+      if (evt == ImuEvent::Fall && cfg_.fallTiltDeg > 0.0f) {
+        /* queda precisa de confirmacao: quem cai fica inclinado/deitado; quem pula continua de pe */
+        confirming_ = true;
+        confirmUntilMs_ = nowMs + cfg_.fallConfirmMs;
+        tiltSum_ = 0.0f;
+        tiltN_ = 0;
+        return ImuEvent::None;
+      }
+      return finish(evt, nowMs, peakG, tiltDeg, tilt);
     }
 
-    /* 2) depois de um evento, ignora o resto da mesma pancada */
+    /* 2) esperando a postura depois do impacto (media do ultimo terco da espera) */
+    if (confirming_) {
+      if ((int32_t)(nowMs - (confirmUntilMs_ - cfg_.fallConfirmMs / 3)) >= 0) {
+        tiltSum_ += tilt;
+        tiltN_++;
+      }
+      if ((int32_t)(nowMs - confirmUntilMs_) < 0) return ImuEvent::None;
+      confirming_ = false;
+      float avg = tiltN_ ? tiltSum_ / tiltN_ : tilt;
+      ImuEvent evt = ImuEvent::Jump;
+      if (avg >= cfg_.fallTiltDeg) evt = ImuEvent::Fall;
+      else if (cfg_.hardImpactG > 0.0f && peak_ >= cfg_.hardImpactG) evt = ImuEvent::Impact;
+      return finish(evt, nowMs, peakG, tiltDeg, avg);
+    }
+
+    /* 3) depois de um evento, ignora o resto da mesma pancada */
     if (coolingDown_) {
       if ((int32_t)(nowMs - cooldownUntilMs_) < 0) return ImuEvent::None;
       coolingDown_ = false;
     }
 
-    /* 3) queda livre: aceleracao baixa por tempo suficiente */
+    /* 4) queda livre: aceleracao baixa por tempo suficiente */
     if (g < cfg_.freeFallG) {
       if (!lowActive_) {
         lowActive_ = true;
@@ -66,7 +93,7 @@ class ImuDetector {
       freeFall_ = false; /* caiu "no vazio" e nao bateu: nao conta */
     }
 
-    /* 4) impacto: com queda livre antes = queda; sem = batida */
+    /* 5) impacto: com queda livre antes = queda (a confirmar); sem = batida */
     if (freeFall_ && g >= cfg_.fallImpactG) {
       start(ImuEvent::Fall, g, nowMs);
     } else if (g >= cfg_.impactG) {
@@ -76,6 +103,14 @@ class ImuDetector {
   }
 
  private:
+  ImuEvent finish(ImuEvent evt, uint32_t nowMs, float &peakG, float &tiltDeg, float tilt) {
+    peakG = peak_;
+    tiltDeg = tilt;
+    cooldownUntilMs_ = nowMs + cfg_.cooldownMs;
+    coolingDown_ = true;
+    return evt;
+  }
+
   void start(ImuEvent evt, float g, uint32_t nowMs) {
     pending_ = evt;
     pendingSinceMs_ = nowMs;
@@ -92,6 +127,10 @@ class ImuDetector {
   float peak_ = 0.0f;
   bool coolingDown_ = false;
   uint32_t cooldownUntilMs_ = 0;
+  bool confirming_ = false;
+  uint32_t confirmUntilMs_ = 0;
+  float tiltSum_ = 0.0f;
+  uint32_t tiltN_ = 0;
 };
 
 /* Inclinacao (graus) entre a direcao atual da gravidade e a de referencia,

@@ -7,29 +7,86 @@ import config, { ROOT } from './config.js';
 import { openDb } from './db.js';
 import { Hub } from './hub.js';
 import { startMqtt } from './sources/mqtt.js';
-import { startSerial } from './sources/serial.js';
+import { SerialManager } from './sources/serial.js';
+import { hostWifi, savedPassword } from './hostwifi.js';
+import { startDiscovery } from './discovery.js';
+import { createAuth } from './auth.js';
+import { createZones } from './zones.js';
 
 const db = openDb(config.dbFile);
 const hub = new Hub({ db, config });
+const usb = new SerialManager(hub, config.serial);
+hub.commandSenders.push((deviceId, command) => usb.send(deviceId, command));
+
+const dataDir = path.dirname(config.dbFile);
+/* senha do painel para outros aparelhos (no próprio computador abre direto) */
+const auth = createAuth({ dataDir, password: config.auth?.password || null, enabled: config.auth?.enabled !== false });
+/* zonas seguras editáveis pelo painel; ficam em data/zones.json */
+const zones = createZones({
+  dataDir,
+  initial: config.safeZones ?? [],
+  onChange: (list) => { config.safeZones = list; hub.resetZones(); broadcast({ type: 'zones', zones: list }); },
+});
+config.safeZones = zones.list();
+
+/* pedidos vindos do próprio computador (o navegador do PC); a senha do Wi-Fi nunca sai para a rede */
+const isLocal = (req) => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress);
 
 /* ---------------- HTTP / API ---------------- */
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '32kb' }));
+
+/* quem não está no próprio computador precisa entrar com a senha (cookie de sessão) */
+const OPEN_PATHS = new Set(['/login.html', '/api/login', '/favicon.ico']);
+app.use((req, res, next) => {
+  if (auth.allowed(req) || OPEN_PATHS.has(req.path) || req.path.startsWith('/vendor/fonts/')) return next();
+  if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Entre com a senha do painel.', login: true });
+  res.redirect(302, `/login.html?next=${encodeURIComponent(req.originalUrl)}`);
+});
+app.post('/api/login', (req, res) => {
+  const out = auth.login(req, req.body?.password);
+  if (!out.ok) return res.status(out.status).json({ error: out.error });
+  res.setHeader('Set-Cookie', out.cookie);
+  res.json({ ok: true });
+});
+app.post('/api/logout', (req, res) => { res.setHeader('Set-Cookie', auth.logoutCookie()); res.json({ ok: true }); });
+
 app.use(express.static(path.join(ROOT, 'public')));
 app.use('/vendor/leaflet', express.static(path.join(ROOT, 'node_modules', 'leaflet', 'dist')));
+app.use('/vendor/qrcode', express.static(path.join(ROOT, 'node_modules', 'qrcode-generator', 'dist')));
+app.use('/vendor/fonts', express.static(path.join(ROOT, 'node_modules', '@fontsource', 'atkinson-hyperlegible', 'files'), { maxAge: '30d' }));
 
-const publicConfig = () => ({
+const localIps = () => Object.values(os.networkInterfaces()).flat()
+  .filter((i) => i && i.family === 'IPv4' && !i.internal).map((i) => i.address);
+
+const publicConfig = (req) => ({
   thresholds: config.thresholds,
-  safeZones: config.safeZones,
+  safeZones: zones.list(),
+  /* a senha só aparece para quem abriu o painel no próprio computador */
+  auth: { enabled: auth.enabled, remote: !isLocal(req), password: auth.enabled && isLocal(req) ? auth.password : undefined },
   offlineAfterMs: config.offlineAfterMs,
+  server: {
+    host: os.hostname(),
+    ips: localIps(),
+    mqttPort: config.mqtt.embeddedBroker ? config.mqtt.port : null,
+    discovery: Boolean(config.discovery?.enabled),
+    serial: usb.state.path,
+  },
+  portalPassword: config.portal?.password ?? 'echomap123',
 });
 
 app.get('/api/state', (req, res) => {
-  res.json({ devices: hub.listDevices(), events: db.events({ limit: 100 }), config: publicConfig() });
+  res.json({ devices: hub.listDevices(), events: db.events({ limit: 100 }), config: publicConfig(req), serial: usb.publicState() });
 });
 
 app.get('/api/devices/:id/readings', (req, res) => {
   const kind = String(req.query.kind ?? 'proximity');
+  /* intervalo exato (ex.: leituras em volta de uma ocorrencia): ?from=ms&to=ms, no maximo 1 h */
+  if (req.query.from != null && req.query.to != null) {
+    const from = Number(req.query.from), to = Math.min(Number(req.query.to), from + 3600000);
+    if (!Number.isFinite(from) || !Number.isFinite(to)) return res.status(400).json({ error: 'from/to invalidos' });
+    return res.json(db.readingsRange(req.params.id, kind, from, to));
+  }
   const minutes = Math.min(Number(req.query.minutes ?? 10), 60 * 24 * 7);
   res.json(db.readings(req.params.id, kind, Date.now() - minutes * 60000));
 });
@@ -41,9 +98,80 @@ app.patch('/api/devices/:id', (req, res) => {
   res.json(d);
 });
 
+/* comandos que o painel pode mandar para a placa (o resto e recusado).
+   Vao pelo Wi-Fi (MQTT) e, com a placa no USB e o servidor lendo a Serial, tambem pelo cabo. */
+const PANEL_COMMANDS = new Set(['locate', 'portal', 'wifi', 'diag', 'server']);
+const isIpv4 = (s) => /^\d{1,3}(\.\d{1,3}){3}$/.test(s) && s.split('.').every((n) => Number(n) <= 255);
+function buildCommand(body) {
+  const cmd = body?.cmd;
+  if (!PANEL_COMMANDS.has(cmd)) return { error: `comando invalido (aceitos: ${[...PANEL_COMMANDS].join(', ')})` };
+  if (cmd === 'server') {
+    /* onde a placa procura o servidor MQTT: "auto" (descoberta na rede) ou um IP fixo */
+    const host = typeof body.host === 'string' && body.host.trim() ? body.host.trim() : 'auto';
+    if (host !== 'auto' && !isIpv4(host)) return { error: 'Servidor: use "auto" ou um IP como 192.168.0.10.' };
+    return { command: { cmd, host } };
+  }
+  if (cmd !== 'wifi') return { command: { cmd } };
+  const ssid = typeof body.ssid === 'string' ? body.ssid.trim() : '';
+  const pass = typeof body.pass === 'string' ? body.pass : '';
+  const host = typeof body.host === 'string' ? body.host.trim() : '';
+  if (!ssid || Buffer.byteLength(ssid) > 32) return { error: 'Digite o nome da rede (até 32 caracteres).' };
+  if (pass && (pass.length < 8 || pass.length > 63)) return { error: 'A senha do Wi-Fi tem de 8 a 63 caracteres (deixe vazia para rede aberta).' };
+  if (host && host !== 'auto' && !isIpv4(host)) return { error: 'Servidor: use "auto" ou um IP como 192.168.0.10.' };
+  return { command: { cmd, ssid, pass, ...(host ? { host } : {}) } };
+}
+
 app.post('/api/devices/:id/command', (req, res) => {
-  const ok = hub.sendCommand(req.params.id, req.body ?? {});
+  const { command, error } = buildCommand(req.body);
+  if (error) return res.status(400).json({ sent: false, error });
+  const d = hub.devices.get(req.params.id);
+  const onUsb = usb.state.status === 'connected' && (usb.state.deviceId ?? config.serial.deviceId) === req.params.id;
+  if (!d?.online && !onUsb) return res.status(409).json({ sent: false, error: 'O EchoMap está desconectado: ligue o cabo USB ou use o celular (3 cliques no botão).' });
+  if (command.cmd === 'wifi') hub.expectReconnect(req.params.id, 45000); /* teste da rede nova + volta */
+  if (command.cmd === 'server') hub.expectReconnect(req.params.id, 15000); /* a placa refaz a conexao MQTT */
+  const ok = hub.sendCommand(req.params.id, command);
   res.status(ok ? 202 : 503).json({ sent: ok });
+});
+
+/* ---------------- cabo USB ---------------- */
+app.get('/api/serial', (req, res) => res.json(usb.publicState()));
+app.post('/api/serial/connect', async (req, res) => {
+  const path = typeof req.body?.path === 'string' ? req.body.path.trim() : '';
+  if (!path) return res.status(400).json({ error: 'Escolha uma porta.' });
+  await usb.connect(path);
+  res.json(usb.publicState());
+});
+app.post('/api/serial/auto', async (req, res) => { await usb.auto(); res.json(usb.publicState()); });
+app.post('/api/serial/release', (req, res) => {
+  const minutes = Math.min(Math.max(Number(req.body?.minutes ?? 3), 1), 15);
+  usb.release(minutes);
+  res.json(usb.publicState());
+});
+
+/* ---------------- Wi-Fi deste computador ---------------- */
+app.get('/api/host-wifi', async (req, res) => {
+  const info = await hostWifi();
+  res.json({ ...info, canReadPassword: info.canReadPassword && isLocal(req) });
+});
+app.post('/api/host-wifi/password', async (req, res) => {
+  if (!isLocal(req)) return res.status(403).json({ error: 'Por segurança, a senha salva só pode ser lida abrindo o painel no próprio computador (localhost).' });
+  const out = await savedPassword(req.body?.ssid);
+  res.status(out.error ? 422 : 200).json(out);
+});
+
+/* ---------------- zonas seguras ---------------- */
+app.get('/api/zones', (req, res) => res.json(zones.list()));
+app.post('/api/zones', (req, res) => {
+  const out = zones.add(req.body);
+  res.status(out.error ? 400 : 201).json(out.error ? { error: out.error } : out.zone);
+});
+app.patch('/api/zones/:id', (req, res) => {
+  const out = zones.update(req.params.id, req.body);
+  res.status(out.error ? out.status ?? 400 : 200).json(out.error ? { error: out.error } : out.zone);
+});
+app.delete('/api/zones/:id', (req, res) => {
+  const out = zones.remove(req.params.id);
+  res.status(out.error ? out.status ?? 400 : 200).json(out.error ? { error: out.error } : { ok: true });
 });
 
 app.get('/api/events', (req, res) => {
@@ -57,8 +185,9 @@ app.post('/api/events/:id/ack', (req, res) => {
 });
 
 /* ---------------- WebSocket (tempo real) ---------------- */
-const server = http.createServer(app);
-const wss = new WebSocketServer({ server, path: '/ws' });
+/* noDelay: atualizacoes pequenas e frequentes saem na hora; sem compressao por mensagem (custa mais do que economiza) */
+const server = http.createServer({ noDelay: true }, app);
+const wss = new WebSocketServer({ server, path: '/ws', perMessageDeflate: false, verifyClient: ({ req }) => auth.allowed(req) });
 
 const broadcast = (msg) => {
   const text = JSON.stringify(msg);
@@ -69,15 +198,24 @@ hub.on('reading', (r) => broadcast({ type: 'reading', ...r }));
 hub.on('event', (e) => broadcast({ type: 'event', event: e }));
 hub.on('eventUpdated', (e) => broadcast({ type: 'eventUpdated', event: e }));
 hub.on('device', (d) => broadcast({ type: 'device', device: d }));
+hub.on('log', (l) => broadcast({ type: 'log', ...l }));
+usb.on('state', (s) => broadcast({ type: 'serial', serial: s }));
 hub.on('event', (e) => console.log(`[EVENTO] ${e.deviceId} ${e.type} (${e.severity}) ${JSON.stringify(e.data)}`));
 
 /* ---------------- Fontes de dados ---------------- */
-startMqtt(hub, config.mqtt);
-if (config.serial.enabled) startSerial(hub, config.serial);
+startMqtt(hub, config.mqtt).catch((err) => {
+  console.error(`[MQTT] Nao foi possivel iniciar o broker: ${err.message}`);
+  process.exit(1);
+});
+usb.start().catch((err) => console.warn(`[USB] ${err.message}`));
 
 server.listen(config.httpPort, () => {
   console.log(`[HTTP] Dashboard em http://localhost:${config.httpPort}`);
-  const ips = Object.values(os.networkInterfaces()).flat()
-    .filter((i) => i && i.family === 'IPv4' && !i.internal).map((i) => i.address);
-  if (ips.length) console.log(`[INFO] IPs desta maquina (use um deles em MQTT_BROKER_IP no config.h): ${ips.join(', ')}`);
+  const ips = localIps();
+  if (auth.enabled) {
+    console.log(`[SENHA] Neste computador o painel abre direto. Em outro aparelho (celular, outro PC), use a senha: ${auth.password}`);
+    console.log(`        ${auth.fromConfig ? '(definida em config.json, "auth.password")' : `(gerada e guardada em ${path.relative(ROOT, auth.file)}; troque em config.json, "auth.password")`}`);
+  }
+  if (ips.length) console.log(`[INFO] IPs desta maquina: ${ips.join(', ')} (so precisa deles se a placa usar IP fixo em vez de "auto")`);
+  if (config.mqtt.embeddedBroker) startDiscovery(config.discovery, { mqttPort: config.mqtt.port, httpPort: config.httpPort });
 });
