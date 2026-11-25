@@ -19,7 +19,7 @@
 <text x="106" y="394" font-size="16" font-weight="700" fill="#1f2937">ESP32 · FreeRTOS (7 tasks)</text>
 <text x="106" y="418" font-size="13" fill="#6b7280">Core 1: TaskSensors · TaskStatusLed · TaskBuzzer</text>
 <text x="106" y="437" font-size="13" fill="#6b7280">Core 0: TaskButton · TaskImu · TaskGps · TaskComms</text>
-<text x="106" y="456" font-size="13" fill="#6b7280">Queda e impacto a 100 Hz · inclinação</text>
+<text x="106" y="456" font-size="13" fill="#6b7280">Queda e impacto a 200 Hz · inclinação</text>
 <text x="106" y="475" font-size="13" fill="#6b7280">Eventos NEAR_MISS, CRASH, FALL e IMPACT</text>
 <text x="106" y="494" font-size="13" fill="#6b7280">Telemetria e IMU a cada 200 ms · posição 1×/s</text>
 <rect x="90" y="602" width="410" height="90" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="2" stroke-dasharray="8 6"/>
@@ -62,25 +62,27 @@
 <text x="1236" y="318" font-size="13" fill="#6b7280">• Localização e zona segura</text>
 <text x="1236" y="337" font-size="13" fill="#6b7280">• Queda, impacto e inclinação</text>
 <text x="1236" y="356" font-size="13" fill="#6b7280">• Notificações do navegador</text>
+<text x="1236" y="375" font-size="13" fill="#6b7280">• Zonas seguras editáveis no mapa</text>
+<text x="1236" y="394" font-size="13" fill="#6b7280">• Senha para abrir em outro aparelho</text>
 <rect x="1220" y="506" width="390" height="110" rx="10" fill="#fff" stroke="#16a34a" stroke-width="2"/>
 <text x="1236" y="534" font-size="16" font-weight="700" fill="#1f2937">Responsáveis</text>
 <text x="1236" y="558" font-size="13" fill="#6b7280">pais/cuidadores de crianças,</text>
 <text x="1236" y="577" font-size="13" fill="#6b7280">idosos ou pessoas vulneráveis</text>
-<rect x="1220" y="656" width="390" height="124" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="2" stroke-dasharray="8 6"/>
+<rect x="1220" y="656" width="390" height="124" rx="10" fill="#fff" stroke="#16a34a" stroke-width="2"/>
 <text x="1236" y="684" font-size="16" font-weight="700" fill="#1f2937">Comandos ao dispositivo</text>
 <text x="1236" y="708" font-size="13" fill="#6b7280">POST /api/devices/:id/command</text>
-<text x="1236" y="727" font-size="13" fill="#6b7280">→ echomap/&lt;id&gt;/cmd (ex.: tocar buzzer)</text>
+<text x="1236" y="727" font-size="13" fill="#6b7280">→ echomap/&lt;id&gt;/cmd: buzzer, portal, Wi-Fi, servidor</text>
 <path d="M1415,470 L1415,504" fill="none" stroke="#374151" stroke-width="2.5" marker-end="url(#ar)" marker-start="url(#ar)"/>
 <path d="M502,410 L560,410 L560,250 L628,250" fill="none" stroke="#374151" stroke-width="2.5" marker-end="url(#ar)"/>
 <text x="531" y="400" font-size="12" text-anchor="middle" font-weight="600" fill="#1f2937">publish</text>
 <text x="552" y="344" font-size="12" text-anchor="end" fill="#1f2937">telemetry · events</text>
 <text x="552" y="360" font-size="12" text-anchor="end" fill="#1f2937">location · imu</text>
-<path d="M628,280 L585,280 L585,500 L502,500" fill="none" stroke="#d97706" stroke-width="2.5" stroke-dasharray="9 7" marker-end="url(#arp)"/>
-<text x="543" y="490" font-size="12" text-anchor="middle" font-weight="600" fill="#b45309">…/cmd</text>
+<path d="M628,280 L585,280 L585,500 L502,500" fill="none" stroke="#374151" stroke-width="2.5" marker-end="url(#ar)"/>
+<text x="543" y="490" font-size="12" text-anchor="middle" font-weight="600" fill="#1f2937">…/cmd</text>
 <path d="M1092,380 L1218,380" fill="none" stroke="#374151" stroke-width="2.5" marker-end="url(#ar)"/>
 <text x="1155" y="368" font-size="12" text-anchor="middle" font-weight="600" fill="#1f2937">WebSocket</text>
 <path d="M1092,440 L1218,440" fill="none" stroke="#374151" stroke-width="2.5" marker-end="url(#ar)" marker-start="url(#ar)"/>
 <text x="1155" y="428" font-size="12" text-anchor="middle" font-weight="600" fill="#1f2937">REST /api</text>
-<path d="M1218,718 L1160,718 L1160,490 L1092,490" fill="none" stroke="#d97706" stroke-width="2.5" stroke-dasharray="9 7" marker-end="url(#arp)"/>
-<text x="1153" y="620" font-size="12" text-anchor="end" font-weight="600" fill="#b45309">comando</text>
+<path d="M1218,718 L1160,718 L1160,490 L1092,490" fill="none" stroke="#374151" stroke-width="2.5" marker-end="url(#ar)"/>
+<text x="1153" y="620" font-size="12" text-anchor="end" font-weight="600" fill="#1f2937">comando</text>
 </svg>

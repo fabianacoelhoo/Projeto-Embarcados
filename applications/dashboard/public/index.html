@@ -2,114 +2,43 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>EchoMap Responsáveis</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f3f5f4">
+  <title>EchoMap</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='4' fill='%230e7c73'/%3E%3Cpath d='M9 9a10 10 0 0 0 0 14M23 9a10 10 0 0 1 0 14' fill='none' stroke='%230e7c73' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <span class="logo" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="12" r="3" fill="currentColor"/><path d="M6.3 6.3a8 8 0 0 0 0 11.4M17.7 6.3a8 8 0 0 1 0 11.4M3.5 3.5a12 12 0 0 0 0 17M20.5 3.5a12 12 0 0 1 0 17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-      </span>
-      <span class="brand-name">EchoMap</span>
-    </div>
+  <a class="skip" href="#view">Ir para o conteúdo</a>
 
-    <div class="device-picker">
-      <label for="deviceSelect" class="sr-only">Dispositivo</label>
-      <select id="deviceSelect"></select>
-      <button id="renameBtn" class="ghost" title="Dar um nome ao dispositivo (ex.: nome da criança)">Renomear</button>
-    </div>
-
-    <div class="top-right">
-      <span id="devicePill" class="pill"><span class="dot"></span><span class="pill-text">Sem dispositivo</span></span>
-      <span id="linkPill" class="pill"><span class="dot"></span><span class="pill-text">Conectando…</span></span>
-      <button id="notifyBtn" class="ghost">Ativar alertas</button>
-      <button id="themeBtn" class="ghost icon" title="Alternar tema" aria-label="Alternar tema">◐</button>
-    </div>
-  </header>
-
-  <div id="alertBanner" class="alert-banner" hidden role="alert"></div>
-
-  <main class="grid">
-    <!-- Situação atual -->
-    <section class="card span-8" aria-labelledby="nowTitle">
-      <div class="card-head">
-        <h2 id="nowTitle">Ao redor agora</h2>
-        <span id="modeChip" class="chip">—</span>
+  <div class="shell">
+    <nav class="rail" aria-label="Principal">
+      <a class="brand" href="#/">
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="4"/><path d="M9 9a10 10 0 0 0 0 14M23 9a10 10 0 0 1 0 14M5 5a15.5 15.5 0 0 0 0 22M27 5a15.5 15.5 0 0 1 0 22"/></svg>
+        <span>EchoMap</span>
+      </a>
+      <ul class="nav" id="nav">
+        <li><a href="#/" data-route="inicio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z"/></svg><span>Início</span></a></li>
+        <li><a href="#/ao-vivo" data-route="ao-vivo"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2.5"/><path d="M7.5 7.5a6.4 6.4 0 0 0 0 9M16.5 7.5a6.4 6.4 0 0 1 0 9M4.4 4.4a10.8 10.8 0 0 0 0 15.2M19.6 4.4a10.8 10.8 0 0 1 0 15.2"/></svg><span>Ao vivo</span></a></li>
+        <li><a href="#/ocorrencias" data-route="ocorrencias"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0"/></svg><span>Ocorrências</span><b class="count" id="navCount" hidden></b></a></li>
+        <li><a href="#/mapa" data-route="mapa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-6.1-6.5-11a6.5 6.5 0 0 1 13 0c0 4.9-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg><span>Mapa</span></a></li>
+        <li class="wide-only"><a href="#/movimento" data-route="movimento"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l2.5-6 5 12 2.5-6h4"/></svg><span>Movimento</span></a></li>
+        <li><a href="#/dispositivo" data-route="dispositivo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span>Dispositivo</span></a></li>
+      </ul>
+      <div class="rail-foot">
+        <span class="link-state" id="linkState"><i></i><span>Conectando ao servidor</span></span>
+        <button class="quiet" id="themeBtn" type="button">Tema escuro</button>
       </div>
-      <div id="figure" class="figure"></div>
-    </section>
+    </nav>
 
-    <section class="card span-4 tiles">
-      <div class="tile" id="tileL"></div>
-      <div class="tile" id="tileR"></div>
-      <div class="tile small" id="tileThr"></div>
-      <div class="tile small" id="tileDevice"></div>
-    </section>
+    <main class="main">
+      <div id="alertBand" class="alert-band" hidden role="alert"></div>
+      <div id="view" class="view" tabindex="-1"></div>
+    </main>
+  </div>
 
-    <!-- Histórico -->
-    <section class="card span-12" aria-labelledby="chartTitle">
-      <div class="card-head">
-        <h2 id="chartTitle">Distância dos obstáculos</h2>
-        <div class="controls">
-          <div class="seg" role="group" aria-label="Janela de tempo">
-            <button data-win="30000">30 s</button>
-            <button data-win="60000" class="on">1 min</button>
-            <button data-win="300000">5 min</button>
-            <button data-win="1800000">30 min</button>
-          </div>
-          <button id="tableBtn" class="ghost">Ver tabela</button>
-        </div>
-      </div>
-      <div class="legend">
-        <span><i class="sw sw-l"></i>Esquerda</span>
-        <span><i class="sw sw-r"></i>Direita</span>
-        <span><i class="sw sw-thr"></i>Limiar do potenciômetro</span>
-        <span><i class="sw sw-near"></i>Zona de quase colisão</span>
-      </div>
-      <div id="chart" class="chart"></div>
-      <div id="chartTip" class="tip" hidden></div>
-      <div id="chartTable" class="table-wrap" hidden></div>
-    </section>
-
-    <!-- Eventos -->
-    <section class="card span-6" aria-labelledby="eventsTitle">
-      <div class="card-head">
-        <h2 id="eventsTitle">Ocorrências</h2>
-        <div class="seg" role="group" aria-label="Filtro de ocorrências">
-          <button data-filter="pending" class="on">Pendentes</button>
-          <button data-filter="all">Todas</button>
-        </div>
-      </div>
-      <ul id="eventList" class="events"></ul>
-    </section>
-
-    <!-- Localização -->
-    <section class="card span-6" aria-labelledby="mapTitle">
-      <div class="card-head">
-        <h2 id="mapTitle">Localização</h2>
-        <span id="locMeta" class="muted">—</span>
-      </div>
-      <div class="map-wrap">
-        <div id="map" class="map"></div>
-        <div id="mapEmpty" class="map-empty">
-          <strong>Aguardando GPS</strong>
-          <span>A posição aparece aqui quando o NEO-6M tiver sinal de satélite e a placa publicar em <code>echomap/&lt;id&gt;/location</code>. Dentro de casa pode demorar ou não pegar.</span>
-        </div>
-      </div>
-    </section>
-
-    <!-- Movimento / dispositivo -->
-    <section class="card span-12" aria-labelledby="motionTitle">
-      <div class="card-head">
-        <h2 id="motionTitle">Queda, impacto, equilíbrio e bateria</h2>
-        <span class="muted">MPU-6050</span>
-      </div>
-      <div class="stats" id="motionStats"></div>
-    </section>
-  </main>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
   <script src="/vendor/leaflet/leaflet.js"></script>
   <script src="/app.js" type="module"></script>

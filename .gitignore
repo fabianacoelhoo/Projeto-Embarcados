@@ -5,6 +5,9 @@ applications/dashboard/data/
 # PlatformIO
 .pio/
 
+# Arquivos de trabalho do assistente (nunca vão para o repositório)
+Claude outputs/
+
 # Sistema / editores
 .DS_Store
 Thumbs.db

@@ -1,0 +1,10 @@
+# Texto: LF dentro do repositorio, fim de linha nativo na copia de trabalho (CRLF no Windows).
+* text=auto
+
+# Binarios
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.pdf binary
+*.woff2 binary
+*.db binary

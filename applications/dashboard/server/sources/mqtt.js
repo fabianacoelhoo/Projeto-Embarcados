@@ -1,5 +1,5 @@
 import net from 'node:net';
-import Aedes from 'aedes';
+import * as aedesModule from 'aedes';
 import mqtt from 'mqtt';
 
 /* Topicos aceitos:
@@ -13,19 +13,53 @@ function parseTopic(topic, prefix) {
   return { deviceId: null, channel: parts[0] ?? 'telemetry' };
 }
 
-export function startMqtt(hub, cfg) {
+/* aedes 1.x: `await Aedes.createBroker()`; aedes 0.x: a exportacao padrao era a fabrica */
+async function createBroker() {
+  if (aedesModule.Aedes?.createBroker) return aedesModule.Aedes.createBroker();
+  return aedesModule.default();
+}
+
+export async function startMqtt(hub, cfg) {
   const prefix = cfg.topicPrefix;
 
   if (cfg.embeddedBroker) {
-    const broker = Aedes();
-    const server = net.createServer(broker.handle);
+    const broker = await createBroker();
+    /* so o servidor manda comandos para a placa: um cliente qualquer da rede nao pode publicar em .../cmd
+       (o servidor publica direto no broker, sem passar por aqui) */
+    broker.authorizePublish = (client, packet, done) => {
+      if (client && packet.topic.endsWith('/cmd')) {
+        console.warn(`[MQTT] Recusado: ${client.id} tentou publicar em ${packet.topic}`);
+        return done(new Error('somente o servidor envia comandos'));
+      }
+      done(null);
+    };
+    const server = net.createServer((socket) => {
+      /* sem Nagle: comandos e pings para a placa saem na hora, sem esperar juntar bytes */
+      socket.setNoDelay(true);
+      broker.handle(socket);
+    });
     server.listen(cfg.port, '0.0.0.0', () => {
       console.log(`[MQTT] Broker embutido ouvindo em 0.0.0.0:${cfg.port}`);
     });
     server.on('error', (err) => console.error(`[MQTT] Erro no broker: ${err.message}`));
 
-    broker.on('client', (c) => console.log(`[MQTT] Cliente conectado: ${c.id}`));
-    broker.on('clientDisconnect', (c) => console.log(`[MQTT] Cliente desconectado: ${c.id}`));
+    /* o firmware usa clientId "echomap-<id>-XXXXXX": quando a ultima conexao de uma placa cai,
+       ela fica offline na hora, sem esperar o tempo limite (a contagem cobre reconexao rapida) */
+    const deviceOf = (c) => /^echomap-(.+)-[0-9A-F]{6}$/i.exec(c?.id ?? '')?.[1];
+    const links = new Map();
+    broker.on('client', (c) => {
+      console.log(`[MQTT] Cliente conectado: ${c.id}`);
+      const id = deviceOf(c);
+      if (id) links.set(id, (links.get(id) ?? 0) + 1);
+    });
+    broker.on('clientDisconnect', (c) => {
+      console.log(`[MQTT] Cliente desconectado: ${c.id}`);
+      const id = deviceOf(c);
+      if (!id) return;
+      const left = Math.max(0, (links.get(id) ?? 1) - 1);
+      links.set(id, left);
+      if (left === 0) hub.linkDown(id);
+    });
     broker.on('publish', (packet, client) => {
       if (!client || packet.topic.startsWith('$SYS') || packet.topic.endsWith('/cmd')) return;
       const { deviceId, channel } = parseTopic(packet.topic, prefix);
@@ -34,6 +68,7 @@ export function startMqtt(hub, cfg) {
 
     hub.commandSenders.push((deviceId, command) => {
       broker.publish({ topic: `${prefix}/${deviceId}/cmd`, payload: Buffer.from(JSON.stringify(command)), qos: 0, retain: false }, () => {});
+      return (links.get(deviceId) ?? 0) > 0; /* a placa estava conectada ao broker? */
     });
     return;
   }

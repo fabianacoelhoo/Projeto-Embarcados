@@ -44,6 +44,8 @@ export function openDb(file) {
     insertReading: db.prepare('INSERT INTO readings(device_id, ts, kind, data) VALUES (?, ?, ?, ?)'),
     readings: db.prepare(`SELECT ts, data FROM readings WHERE device_id = ? AND kind = ? AND ts >= ?
                           ORDER BY ts DESC LIMIT ?`),
+    readingsRange: db.prepare(`SELECT ts, data FROM readings WHERE device_id = ? AND kind = ? AND ts BETWEEN ? AND ?
+                               ORDER BY ts LIMIT 2000`),
     insertEvent: db.prepare('INSERT INTO events(device_id, ts, type, severity, data) VALUES (?, ?, ?, ?, ?)'),
     eventsAll: db.prepare('SELECT * FROM events ORDER BY ts DESC LIMIT ?'),
     eventsByDevice: db.prepare('SELECT * FROM events WHERE device_id = ? ORDER BY ts DESC LIMIT ?'),
@@ -77,6 +79,9 @@ export function openDb(file) {
       return q.readings.all(deviceId, kind, sinceTs, limit)
         .map((r) => ({ ts: Number(r.ts), ...JSON.parse(r.data) }))
         .reverse();
+    },
+    readingsRange(deviceId, kind, fromTs, toTs) {
+      return q.readingsRange.all(deviceId, kind, fromTs, toTs).map((r) => ({ ts: Number(r.ts), ...JSON.parse(r.data) }));
     },
     insertEvent(deviceId, ts, type, severity, data) {
       const res = q.insertEvent.run(deviceId, ts, type, severity, JSON.stringify(data));

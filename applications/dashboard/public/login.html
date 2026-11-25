@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Entrar no EchoMap</title>
+  <style>
+    @font-face { font-family: "Atkinson Hyperlegible"; src: url("/vendor/fonts/atkinson-hyperlegible-latin-400-normal.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+    @font-face { font-family: "Atkinson Hyperlegible"; src: url("/vendor/fonts/atkinson-hyperlegible-latin-700-normal.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+    :root { --paper: #f3f5f4; --surface: #fff; --ink: #15201e; --muted: #66726f; --line: #c4cdca; --echo: #0e7c73; --critical: #c23434; color-scheme: light dark; }
+    @media (prefers-color-scheme: dark) { :root { --paper: #111a18; --surface: #17221f; --ink: #e8efed; --muted: #9aa8a4; --line: #33433f; --echo: #3fb3a8; --critical: #ff7a70; } }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px;
+      background: var(--paper); color: var(--ink); font: 16px/1.5 "Atkinson Hyperlegible", system-ui, sans-serif; }
+    main { width: 100%; max-width: 360px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 28px 24px; }
+    .mark { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 20px; margin-bottom: 18px; }
+    .mark svg { flex: none; }
+    h1 { font-size: 25px; margin: 0 0 6px; line-height: 1.2; }
+    p { margin: 0 0 18px; color: var(--muted); font-size: 14px; }
+    label { display: block; font-weight: 700; margin-bottom: 6px; }
+    input { width: 100%; font: inherit; font-size: 20px; letter-spacing: .06em; padding: 10px 12px; border-radius: 10px;
+      border: 1px solid var(--line); background: var(--paper); color: var(--ink); }
+    input:focus-visible, button:focus-visible { outline: 3px solid var(--echo); outline-offset: 2px; }
+    button { margin-top: 14px; width: 100%; font: inherit; font-weight: 700; padding: 12px; border: 0; border-radius: 10px;
+      background: var(--echo); color: #fff; cursor: pointer; }
+    button[disabled] { opacity: .6; cursor: progress; }
+    .err { color: var(--critical); margin: 12px 0 0; font-size: 14px; min-height: 1.5em; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="mark">
+      <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="4" fill="var(--echo)"/><path d="M6 8a11 11 0 0 0 0 12M22 8a11 11 0 0 1 0 12" fill="none" stroke="var(--echo)" stroke-width="2.4" stroke-linecap="round"/></svg>
+      EchoMap
+    </div>
+    <h1>Entrar no painel</h1>
+    <p>Este aparelho precisa da senha do painel. Ela aparece no terminal onde o servidor foi iniciado e na aba Dispositivo, no computador.</p>
+    <form id="f">
+      <label for="pw">Senha do painel</label>
+      <input id="pw" type="password" autocomplete="current-password" autocapitalize="none" spellcheck="false" required autofocus>
+      <button id="go" type="submit">Entrar</button>
+      <p class="err" id="err" role="alert"></p>
+    </form>
+  </main>
+  <script>
+    const f = document.getElementById('f'), err = document.getElementById('err'), go = document.getElementById('go');
+    f.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      go.disabled = true; err.textContent = '';
+      try {
+        const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: document.getElementById('pw').value }) });
+        const body = await res.json().catch(() => ({}));
+        if (res.ok) {
+          const next = new URLSearchParams(location.search).get('next');
+          location.replace(next && next.startsWith('/') && !next.startsWith('//') ? next : '/');
+          return;
+        }
+        err.textContent = body.error || 'Não foi possível entrar.';
+      } catch { err.textContent = 'Sem conexão com o servidor.'; }
+      go.disabled = false;
+    });
+  </script>
+</body>
+</html>
