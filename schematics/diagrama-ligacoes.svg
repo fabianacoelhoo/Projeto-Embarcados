@@ -1,215 +1,258 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1700" height="1130" viewBox="0 0 1700 1130" font-family="Inter, Arial, Helvetica, sans-serif">
-<rect width="100%" height="100%" fill="#ffffff"/>
-<text x="80" y="62" font-size="28" font-weight="700" fill="#1f2937">EchoMap — Diagrama de ligações do nó principal (ESP32)</text>
-<text x="80" y="94" font-size="16" fill="#6b7280">Gerado a partir de <tspan font-family="monospace">esp32-esp8266/no-principal/include/config.h</tspan></text>
-<line x1="80" y1="118" x2="1620" y2="118" stroke="#FF6000" stroke-width="3"/>
-<rect x="700" y="140" width="300" height="868" rx="14" fill="#1e293b"/>
-<rect x="795" y="114" width="110" height="34" rx="4" fill="#334155"/>
-<text x="850.0" y="136" text-anchor="middle" font-size="12" fill="#cbd5e1">antena Wi-Fi</text>
-<text x="850.0" y="170" text-anchor="middle" font-size="20" font-weight="700" fill="#fff">ESP32 (placa esp32dev)</text>
-<text x="850.0" y="192" text-anchor="middle" font-size="13" fill="#94a3b8">pinagem ilustrativa · FreeRTOS</text>
-<rect x="818.0" y="1000" width="64" height="26" rx="4" fill="#64748b"/>
-<text x="850.0" y="1046" text-anchor="middle" font-size="12" fill="#6b7280">USB (alimentação + Serial 115200)</text>
-<rect x="693" y="223" width="14" height="14" rx="3" fill="#475569"/>
-<text x="716" y="235" font-size="14" fill="#7c8aa0" font-weight="400">EN</text>
-<rect x="693" y="275" width="14" height="14" rx="3" fill="#475569"/>
-<text x="716" y="287" font-size="14" fill="#7c8aa0" font-weight="400">GPIO36 (VP)</text>
-<rect x="693" y="327" width="14" height="14" rx="3" fill="#475569"/>
-<text x="716" y="339" font-size="14" fill="#7c8aa0" font-weight="400">GPIO39 (VN)</text>
-<rect x="693" y="379" width="14" height="14" rx="3" fill="#475569"/>
-<text x="716" y="391" font-size="14" fill="#7c8aa0" font-weight="400">GPIO34</text>
-<rect x="693" y="431" width="14" height="14" rx="3" fill="#FF6000"/>
-<text x="716" y="443" font-size="14" fill="#ffffff" font-weight="600">GPIO35</text>
-<rect x="693" y="483" width="14" height="14" rx="3" fill="#475569"/>
-<text x="716" y="495" font-size="14" fill="#7c8aa0" font-weight="400">GPIO32</text>
-<rect x="693" y="535" width="14" height="14" rx="3" fill="#FF6000"/>
-<text x="716" y="547" font-size="14" fill="#ffffff" font-weight="600">GPIO33</text>
-<rect x="693" y="587" width="14" height="14" rx="3" fill="#FF6000"/>
-<text x="716" y="599" font-size="14" fill="#ffffff" font-weight="600">GPIO25</text>
-<rect x="693" y="639" width="14" height="14" rx="3" fill="#FF6000"/>
-<text x="716" y="651" font-size="14" fill="#ffffff" font-weight="600">GPIO26</text>
-<rect x="693" y="691" width="14" height="14" rx="3" fill="#FF6000"/>
-<text x="716" y="703" font-size="14" fill="#ffffff" font-weight="600">GPIO27</text>
-<rect x="693" y="743" width="14" height="14" rx="3" fill="#FF6000"/>
-<text x="716" y="755" font-size="14" fill="#ffffff" font-weight="600">GPIO14</text>
-<rect x="693" y="795" width="14" height="14" rx="3" fill="#475569"/>
-<text x="716" y="807" font-size="14" fill="#7c8aa0" font-weight="400">GPIO12</text>
-<rect x="693" y="847" width="14" height="14" rx="3" fill="#FF6000"/>
-<text x="716" y="859" font-size="14" fill="#ffffff" font-weight="600">GPIO13</text>
-<rect x="693" y="899" width="14" height="14" rx="3" fill="#FF6000"/>
-<text x="716" y="911" font-size="14" fill="#ffffff" font-weight="600">GND</text>
-<rect x="693" y="951" width="14" height="14" rx="3" fill="#FF6000"/>
-<text x="716" y="963" font-size="14" fill="#ffffff" font-weight="600">VIN (5V)</text>
-<rect x="993" y="223" width="14" height="14" rx="3" fill="#FF6000"/>
-<text x="984" y="235" font-size="14" text-anchor="end" fill="#ffffff" font-weight="600">GPIO23</text>
-<rect x="993" y="275" width="14" height="14" rx="3" fill="#FF6000"/>
-<text x="984" y="287" font-size="14" text-anchor="end" fill="#ffffff" font-weight="600">GPIO22</text>
-<rect x="993" y="327" width="14" height="14" rx="3" fill="#475569"/>
-<text x="984" y="339" font-size="14" text-anchor="end" fill="#7c8aa0" font-weight="400">GPIO1 (TX0)</text>
-<rect x="993" y="379" width="14" height="14" rx="3" fill="#475569"/>
-<text x="984" y="391" font-size="14" text-anchor="end" fill="#7c8aa0" font-weight="400">GPIO3 (RX0)</text>
-<rect x="993" y="431" width="14" height="14" rx="3" fill="#FF6000"/>
-<text x="984" y="443" font-size="14" text-anchor="end" fill="#ffffff" font-weight="600">GPIO21</text>
-<rect x="993" y="483" width="14" height="14" rx="3" fill="#FF6000"/>
-<text x="984" y="495" font-size="14" text-anchor="end" fill="#ffffff" font-weight="600">GPIO19</text>
-<rect x="993" y="535" width="14" height="14" rx="3" fill="#FF6000"/>
-<text x="984" y="547" font-size="14" text-anchor="end" fill="#ffffff" font-weight="600">GPIO18</text>
-<rect x="993" y="587" width="14" height="14" rx="3" fill="#475569"/>
-<text x="984" y="599" font-size="14" text-anchor="end" fill="#7c8aa0" font-weight="400">GPIO5</text>
-<rect x="993" y="639" width="14" height="14" rx="3" fill="#FF6000"/>
-<text x="984" y="651" font-size="14" text-anchor="end" fill="#ffffff" font-weight="600">GPIO17 (TX2)</text>
-<rect x="993" y="691" width="14" height="14" rx="3" fill="#FF6000"/>
-<text x="984" y="703" font-size="14" text-anchor="end" fill="#ffffff" font-weight="600">GPIO16 (RX2)</text>
-<rect x="993" y="743" width="14" height="14" rx="3" fill="#FF6000"/>
-<text x="984" y="755" font-size="14" text-anchor="end" fill="#ffffff" font-weight="600">GPIO4</text>
-<rect x="993" y="795" width="14" height="14" rx="3" fill="#475569"/>
-<text x="984" y="807" font-size="14" text-anchor="end" fill="#7c8aa0" font-weight="400">GPIO2</text>
-<rect x="993" y="847" width="14" height="14" rx="3" fill="#475569"/>
-<text x="984" y="859" font-size="14" text-anchor="end" fill="#7c8aa0" font-weight="400">GPIO15</text>
-<rect x="993" y="899" width="14" height="14" rx="3" fill="#FF6000"/>
-<text x="984" y="911" font-size="14" text-anchor="end" fill="#ffffff" font-weight="600">GND</text>
-<rect x="993" y="951" width="14" height="14" rx="3" fill="#FF6000"/>
-<text x="984" y="963" font-size="14" text-anchor="end" fill="#ffffff" font-weight="600">3V3</text>
-<rect x="80" y="416" width="270" height="44" rx="8" fill="#fff7f2" stroke="#0d9488" stroke-width="2"/>
-<text x="94" y="434.0" font-size="14" font-weight="700" fill="#1f2937">Potenciômetro</text>
-<text x="94" y="450.0" font-size="11.5" font-weight="400" fill="#6b7280">extremos: 3V3 e GND</text>
-<text x="340" y="442" text-anchor="end" font-size="12" font-weight="700" fill="#1f2937">OUT</text>
-<line x1="350" y1="438" x2="700" y2="438" stroke="#0d9488" stroke-width="3"/>
-<circle cx="350" cy="438" r="4" fill="#0d9488"/>
-<circle cx="700" cy="438" r="4" fill="#0d9488"/>
-<rect x="80" y="520" width="270" height="96" rx="8" fill="#fff7f2" stroke="#ea580c" stroke-width="2"/>
-<text x="94" y="556.0" font-size="14" font-weight="700" fill="#1f2937">HC-SR04 direito</text>
-<text x="94" y="572.0" font-size="11.5" font-weight="400" fill="#6b7280">VCC → VIN (5V)</text>
-<text x="94" y="588.0" font-size="11.5" font-weight="400" fill="#6b7280">GND → GND</text>
-<text x="340" y="546" text-anchor="end" font-size="12" font-weight="700" fill="#1f2937">ECHO</text>
-<text x="340" y="598" text-anchor="end" font-size="12" font-weight="700" fill="#1f2937">TRIG</text>
-<line x1="350" y1="542" x2="700" y2="542" stroke="#ea580c" stroke-width="3"/>
-<circle cx="350" cy="542" r="4" fill="#ea580c"/>
-<circle cx="700" cy="542" r="4" fill="#ea580c"/>
-<line x1="350" y1="594" x2="700" y2="594" stroke="#ea580c" stroke-width="3"/>
-<circle cx="350" cy="594" r="4" fill="#ea580c"/>
-<circle cx="700" cy="594" r="4" fill="#ea580c"/>
-<rect x="426" y="534" width="48" height="16" rx="3" fill="#fff" stroke="#1f2937" stroke-width="2"/>
-<text x="450" y="528" text-anchor="middle" font-size="12" font-weight="600" fill="#1f2937">1 kΩ</text>
-<circle cx="540" cy="542" r="5" fill="#1f2937"/>
-<line x1="540" y1="542" x2="540" y2="550" stroke="#1f2937" stroke-width="2"/>
-<rect x="533" y="550" width="14" height="22" rx="2" fill="#fff" stroke="#1f2937" stroke-width="2"/>
-<text x="552" y="566" font-size="12" font-weight="600" fill="#1f2937">2 kΩ</text>
-<line x1="540" y1="572" x2="540" y2="576" stroke="#1f2937" stroke-width="2"/>
-<line x1="530" y1="576" x2="550" y2="576" stroke="#1f2937" stroke-width="2"/>
-<line x1="534" y1="580" x2="546" y2="580" stroke="#1f2937" stroke-width="2"/>
-<line x1="538" y1="584" x2="542" y2="584" stroke="#1f2937" stroke-width="2"/>
-<rect x="80" y="624" width="270" height="96" rx="8" fill="#fff7f2" stroke="#0891b2" stroke-width="2"/>
-<text x="94" y="660.0" font-size="14" font-weight="700" fill="#1f2937">MPU-6050 (GY-521)</text>
-<text x="94" y="676.0" font-size="11.5" font-weight="400" fill="#6b7280">VCC → 3V3 · GND → GND</text>
-<text x="94" y="692.0" font-size="11.5" font-weight="400" fill="#6b7280">I²C 0x68 · AD0 no GND</text>
-<text x="340" y="650" text-anchor="end" font-size="12" font-weight="700" fill="#1f2937">SDA</text>
-<text x="340" y="702" text-anchor="end" font-size="12" font-weight="700" fill="#1f2937">SCL</text>
-<line x1="350" y1="646" x2="700" y2="646" stroke="#0891b2" stroke-width="3"/>
-<circle cx="350" cy="646" r="4" fill="#0891b2"/>
-<circle cx="700" cy="646" r="4" fill="#0891b2"/>
-<line x1="350" y1="698" x2="700" y2="698" stroke="#0891b2" stroke-width="3"/>
-<circle cx="350" cy="698" r="4" fill="#0891b2"/>
-<circle cx="700" cy="698" r="4" fill="#0891b2"/>
-<rect x="80" y="728" width="270" height="44" rx="8" fill="#fff7f2" stroke="#7c3aed" stroke-width="2"/>
-<text x="94" y="746.0" font-size="14" font-weight="700" fill="#1f2937">Buzzer passivo direito</text>
-<text x="94" y="762.0" font-size="11.5" font-weight="400" fill="#6b7280">– → GND · LEDC canal 2</text>
-<text x="340" y="754" text-anchor="end" font-size="12" font-weight="700" fill="#1f2937">+</text>
-<line x1="350" y1="750" x2="700" y2="750" stroke="#7c3aed" stroke-width="3"/>
-<circle cx="350" cy="750" r="4" fill="#7c3aed"/>
-<circle cx="700" cy="750" r="4" fill="#7c3aed"/>
-<rect x="80" y="832" width="270" height="44" rx="8" fill="#fff7f2" stroke="#7c3aed" stroke-width="2"/>
-<text x="94" y="850.0" font-size="14" font-weight="700" fill="#1f2937">Buzzer passivo esquerdo</text>
-<text x="94" y="866.0" font-size="11.5" font-weight="400" fill="#6b7280">– → GND · LEDC canal 0</text>
-<text x="340" y="858" text-anchor="end" font-size="12" font-weight="700" fill="#1f2937">+</text>
-<line x1="350" y1="854" x2="700" y2="854" stroke="#7c3aed" stroke-width="3"/>
-<circle cx="350" cy="854" r="4" fill="#7c3aed"/>
-<circle cx="700" cy="854" r="4" fill="#7c3aed"/>
-<rect x="1330" y="208" width="300" height="252" rx="8" fill="#fff7f2" stroke="#be123c" stroke-width="2"/>
-<text x="1392" y="322.0" font-size="14" font-weight="700" fill="#1f2937">LED RGB</text>
-<text x="1392" y="338.0" font-size="11.5" font-weight="400" fill="#6b7280">catodo comum → GND</text>
-<text x="1392" y="354.0" font-size="11.5" font-weight="400" fill="#6b7280">resistor em cada cor</text>
-<text x="1340" y="234" font-size="12" font-weight="700" fill="#1f2937">B</text>
-<text x="1340" y="286" font-size="12" font-weight="700" fill="#1f2937">G</text>
-<text x="1340" y="442" font-size="12" font-weight="700" fill="#1f2937">R</text>
-<line x1="1000" y1="230" x2="1330" y2="230" stroke="#2563eb" stroke-width="3"/>
-<circle cx="1000" cy="230" r="4" fill="#2563eb"/>
-<circle cx="1330" cy="230" r="4" fill="#2563eb"/>
-<rect x="1176" y="222" width="48" height="16" rx="3" fill="#fff" stroke="#1f2937" stroke-width="2"/>
-<text x="1200" y="216" text-anchor="middle" font-size="12" font-weight="600" fill="#1f2937">220–330 Ω</text>
-<line x1="1000" y1="282" x2="1330" y2="282" stroke="#16a34a" stroke-width="3"/>
-<circle cx="1000" cy="282" r="4" fill="#16a34a"/>
-<circle cx="1330" cy="282" r="4" fill="#16a34a"/>
-<rect x="1176" y="274" width="48" height="16" rx="3" fill="#fff" stroke="#1f2937" stroke-width="2"/>
-<text x="1200" y="268" text-anchor="middle" font-size="12" font-weight="600" fill="#1f2937">220–330 Ω</text>
-<line x1="1000" y1="438" x2="1330" y2="438" stroke="#dc2626" stroke-width="3"/>
-<circle cx="1000" cy="438" r="4" fill="#dc2626"/>
-<circle cx="1330" cy="438" r="4" fill="#dc2626"/>
-<rect x="1176" y="430" width="48" height="16" rx="3" fill="#fff" stroke="#1f2937" stroke-width="2"/>
-<text x="1200" y="424" text-anchor="middle" font-size="12" font-weight="600" fill="#1f2937">220–330 Ω</text>
-<rect x="1330" y="468" width="300" height="96" rx="8" fill="#fff7f2" stroke="#ea580c" stroke-width="2"/>
-<text x="1392" y="504.0" font-size="14" font-weight="700" fill="#1f2937">HC-SR04 esquerdo</text>
-<text x="1392" y="520.0" font-size="11.5" font-weight="400" fill="#6b7280">VCC → VIN (5V)</text>
-<text x="1392" y="536.0" font-size="11.5" font-weight="400" fill="#6b7280">GND → GND</text>
-<text x="1340" y="494" font-size="12" font-weight="700" fill="#1f2937">ECHO</text>
-<text x="1340" y="546" font-size="12" font-weight="700" fill="#1f2937">TRIG</text>
-<line x1="1000" y1="490" x2="1330" y2="490" stroke="#ea580c" stroke-width="3"/>
-<circle cx="1000" cy="490" r="4" fill="#ea580c"/>
-<circle cx="1330" cy="490" r="4" fill="#ea580c"/>
-<line x1="1000" y1="542" x2="1330" y2="542" stroke="#ea580c" stroke-width="3"/>
-<circle cx="1000" cy="542" r="4" fill="#ea580c"/>
-<circle cx="1330" cy="542" r="4" fill="#ea580c"/>
-<rect x="1226" y="482" width="48" height="16" rx="3" fill="#fff" stroke="#1f2937" stroke-width="2"/>
-<text x="1250" y="476" text-anchor="middle" font-size="12" font-weight="600" fill="#1f2937">1 kΩ</text>
-<circle cx="1160" cy="490" r="5" fill="#1f2937"/>
-<line x1="1160" y1="490" x2="1160" y2="498" stroke="#1f2937" stroke-width="2"/>
-<rect x="1153" y="498" width="14" height="22" rx="2" fill="#fff" stroke="#1f2937" stroke-width="2"/>
-<text x="1172" y="514" font-size="12" font-weight="600" fill="#1f2937">2 kΩ</text>
-<line x1="1160" y1="520" x2="1160" y2="524" stroke="#1f2937" stroke-width="2"/>
-<line x1="1150" y1="524" x2="1170" y2="524" stroke="#1f2937" stroke-width="2"/>
-<line x1="1154" y1="528" x2="1166" y2="528" stroke="#1f2937" stroke-width="2"/>
-<line x1="1158" y1="532" x2="1162" y2="532" stroke="#1f2937" stroke-width="2"/>
-<rect x="1330" y="624" width="300" height="96" rx="8" fill="#fff7f2" stroke="#db2777" stroke-width="2"/>
-<text x="1392" y="660.0" font-size="14" font-weight="700" fill="#1f2937">GPS NEO-6M (GY-NEO6MV2)</text>
-<text x="1392" y="676.0" font-size="11.5" font-weight="400" fill="#6b7280">VCC → 3V3 · GND → GND</text>
-<text x="1392" y="692.0" font-size="11.5" font-weight="400" fill="#6b7280">UART2 · 9600 baud</text>
-<text x="1340" y="650" font-size="12" font-weight="700" fill="#1f2937">RX</text>
-<text x="1340" y="702" font-size="12" font-weight="700" fill="#1f2937">TX</text>
-<line x1="1000" y1="646" x2="1330" y2="646" stroke="#db2777" stroke-width="3"/>
-<circle cx="1000" cy="646" r="4" fill="#db2777"/>
-<circle cx="1330" cy="646" r="4" fill="#db2777"/>
-<line x1="1000" y1="698" x2="1330" y2="698" stroke="#db2777" stroke-width="3"/>
-<circle cx="1000" cy="698" r="4" fill="#db2777"/>
-<circle cx="1330" cy="698" r="4" fill="#db2777"/>
-<rect x="1330" y="728" width="300" height="44" rx="8" fill="#fff7f2" stroke="#475569" stroke-width="2"/>
-<text x="1392" y="746.0" font-size="14" font-weight="700" fill="#1f2937">Botão (push-button)</text>
-<text x="1392" y="762.0" font-size="11.5" font-weight="400" fill="#6b7280">B → GND · pull-up interno</text>
-<text x="1340" y="754" font-size="12" font-weight="700" fill="#1f2937">A</text>
-<line x1="1000" y1="750" x2="1330" y2="750" stroke="#475569" stroke-width="3"/>
-<circle cx="1000" cy="750" r="4" fill="#475569"/>
-<circle cx="1330" cy="750" r="4" fill="#475569"/>
-<line x1="640" y1="906" x2="700" y2="906" stroke="#1f2937" stroke-width="2.5"/>
-<text x="632" y="911" text-anchor="end" font-size="13" font-weight="600" fill="#1f2937">GND comum</text>
-<line x1="640" y1="958" x2="700" y2="958" stroke="#1f2937" stroke-width="2.5"/>
-<text x="632" y="963" text-anchor="end" font-size="13" font-weight="600" fill="#1f2937">5V → VCC dos HC-SR04</text>
-<line x1="1000" y1="906" x2="1060" y2="906" stroke="#1f2937" stroke-width="2.5"/>
-<text x="1068" y="911" font-size="13" font-weight="600" fill="#1f2937">GND comum</text>
-<line x1="1000" y1="958" x2="1060" y2="958" stroke="#1f2937" stroke-width="2.5"/>
-<text x="1068" y="963" font-size="13" font-weight="600" fill="#1f2937">3V3 → pot., GPS, MPU-6050</text>
-<line x1="80" y1="1058" x2="1620" y2="1058" stroke="#d1d5db"/>
-<line x1="80" y1="1080" x2="114" y2="1080" stroke="#ea580c" stroke-width="4"/>
-<text x="122" y="1085" font-size="14" fill="#1f2937">HC-SR04 (5V; ECHO com divisor 1k/2k → 3,3 V)</text>
-<line x1="487.6" y1="1080" x2="521.6" y2="1080" stroke="#7c3aed" stroke-width="4"/>
-<text x="529.6" y="1085" font-size="14" fill="#1f2937">Buzzers (PWM/LEDC)</text>
-<line x1="689.8000000000001" y1="1080" x2="723.8000000000001" y2="1080" stroke="#0d9488" stroke-width="4"/>
-<text x="731.8000000000001" y="1085" font-size="14" fill="#1f2937">Potenciômetro (ADC)</text>
-<line x1="899.9000000000001" y1="1080" x2="933.9000000000001" y2="1080" stroke="#dc2626" stroke-width="4"/>
-<text x="941.9000000000001" y="1085" font-size="14" fill="#1f2937">LED RGB</text>
-<line x1="1015.2" y1="1080" x2="1049.2" y2="1080" stroke="#475569" stroke-width="4"/>
-<text x="1057.2" y="1085" font-size="14" fill="#1f2937">Botão (interrupção)</text>
-<line x1="1225.3" y1="1080" x2="1259.3" y2="1080" stroke="#0891b2" stroke-width="4"/>
-<text x="1267.3" y="1085" font-size="14" fill="#1f2937">MPU-6050 (I²C)</text>
-<line x1="1395.9" y1="1080" x2="1429.9" y2="1080" stroke="#db2777" stroke-width="4"/>
-<text x="1437.9" y="1085" font-size="14" fill="#1f2937">GPS (UART2)</text>
-<text x="80" y="1116" font-size="13" fill="#6b7280">Todos os GND no mesmo terra. Buzzers representados de forma simplificada; na próxima etapa serão trocados por motores de vibração.</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="1760" height="1330" viewBox="0 0 1760 1330" font-family="DejaVu Sans, Arial, Helvetica, sans-serif" xmlns:c2pa="http://c2pa.org/manifest">
+<rect x="0" y="0" width="1760" height="1330" rx="0" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="60" y="56" font-size="26" fill="#1f2937" font-weight="700" text-anchor="start">EchoMap — Diagrama de ligações do nó principal (ESP32 DevKit 38 pinos)</text>
+<text x="60" y="86" font-size="14" fill="#6b7280" font-weight="400" text-anchor="start">Gerado por schematics/gerar_diagrama.py a partir de esp32-esp8266/no-principal/include/config.h</text>
+<line x1="60" y1="104" x2="1700" y2="104" stroke="#FF6000" stroke-width="3"/>
+<rect x="740" y="150" width="280" height="962" rx="16" fill="#1e293b" stroke="none" stroke-width="1.5"/>
+<rect x="820" y="126" width="120" height="40" rx="4" fill="#334155" stroke="none" stroke-width="1.5"/>
+<text x="880.0" y="151" font-size="12" fill="#cbd5e1" font-weight="400" text-anchor="middle">antena (WROOM)</text>
+<text x="880.0" y="196" font-size="17" fill="#ffffff" font-weight="700" text-anchor="middle">ESP32-D0WD-V3 · 4 MB</text>
+<text x="880.0" y="216" font-size="12" fill="#94a3b8" font-weight="400" text-anchor="middle">CP2102 · FreeRTOS · board = esp32dev</text>
+<rect x="846.0" y="1102" width="68" height="26" rx="4" fill="#64748b" stroke="none" stroke-width="1.5"/>
+<text x="880.0" y="1150" font-size="12" fill="#6b7280" font-weight="400" text-anchor="middle">USB-C (alimentação 5 V + Serial 115200)</text>
+<rect x="733" y="243" width="14" height="14" rx="3" fill="#94a3b8" stroke="none" stroke-width="1.5"/>
+<text x="754" y="255" font-size="12" fill="#e2e8f0" font-weight="400" text-anchor="start">3V3</text>
+<rect x="733" y="287" width="14" height="14" rx="3" fill="#94a3b8" stroke="none" stroke-width="1.5"/>
+<text x="754" y="299" font-size="12" fill="#e2e8f0" font-weight="400" text-anchor="start">EN</text>
+<rect x="733" y="331" width="14" height="14" rx="3" fill="#94a3b8" stroke="none" stroke-width="1.5"/>
+<text x="754" y="343" font-size="12" fill="#e2e8f0" font-weight="400" text-anchor="start">GPIO36 (VP)</text>
+<rect x="733" y="375" width="14" height="14" rx="3" fill="#94a3b8" stroke="none" stroke-width="1.5"/>
+<text x="754" y="387" font-size="12" fill="#e2e8f0" font-weight="400" text-anchor="start">GPIO39 (VN)</text>
+<rect x="733" y="419" width="14" height="14" rx="3" fill="#94a3b8" stroke="none" stroke-width="1.5"/>
+<text x="754" y="431" font-size="12" fill="#e2e8f0" font-weight="400" text-anchor="start">GPIO34</text>
+<rect x="733" y="463" width="14" height="14" rx="3" fill="#94a3b8" stroke="none" stroke-width="1.5"/>
+<text x="754" y="475" font-size="12" fill="#e2e8f0" font-weight="400" text-anchor="start">GPIO35</text>
+<rect x="733" y="507" width="14" height="14" rx="3" fill="#94a3b8" stroke="none" stroke-width="1.5"/>
+<text x="754" y="519" font-size="12" fill="#e2e8f0" font-weight="400" text-anchor="start">GPIO32</text>
+<rect x="733" y="551" width="14" height="14" rx="3" fill="#94a3b8" stroke="none" stroke-width="1.5"/>
+<text x="754" y="563" font-size="12" fill="#e2e8f0" font-weight="400" text-anchor="start">GPIO33</text>
+<rect x="733" y="595" width="14" height="14" rx="3" fill="#94a3b8" stroke="none" stroke-width="1.5"/>
+<text x="754" y="607" font-size="12" fill="#e2e8f0" font-weight="400" text-anchor="start">GPIO25</text>
+<rect x="733" y="639" width="14" height="14" rx="3" fill="#94a3b8" stroke="none" stroke-width="1.5"/>
+<text x="754" y="651" font-size="12" fill="#e2e8f0" font-weight="400" text-anchor="start">GPIO26</text>
+<rect x="733" y="683" width="14" height="14" rx="3" fill="#94a3b8" stroke="none" stroke-width="1.5"/>
+<text x="754" y="695" font-size="12" fill="#e2e8f0" font-weight="400" text-anchor="start">GPIO27</text>
+<rect x="733" y="727" width="14" height="14" rx="3" fill="#94a3b8" stroke="none" stroke-width="1.5"/>
+<text x="754" y="739" font-size="12" fill="#e2e8f0" font-weight="400" text-anchor="start">GPIO14</text>
+<rect x="733" y="771" width="14" height="14" rx="3" fill="#94a3b8" stroke="none" stroke-width="1.5"/>
+<text x="754" y="783" font-size="12" fill="#94a3b8" font-weight="400" text-anchor="start">GPIO12 · boot</text>
+<rect x="733" y="815" width="14" height="14" rx="3" fill="#94a3b8" stroke="none" stroke-width="1.5"/>
+<text x="754" y="827" font-size="12" fill="#e2e8f0" font-weight="400" text-anchor="start">GND</text>
+<rect x="733" y="859" width="14" height="14" rx="3" fill="#94a3b8" stroke="none" stroke-width="1.5"/>
+<text x="754" y="871" font-size="12" fill="#e2e8f0" font-weight="400" text-anchor="start">GPIO13</text>
+<rect x="733" y="903" width="14" height="14" rx="3" fill="#475569" stroke="none" stroke-width="1.5"/>
+<text x="754" y="915" font-size="12" fill="#64748b" font-weight="400" text-anchor="start">SD2 ✕ flash</text>
+<rect x="733" y="947" width="14" height="14" rx="3" fill="#475569" stroke="none" stroke-width="1.5"/>
+<text x="754" y="959" font-size="12" fill="#64748b" font-weight="400" text-anchor="start">SD3 ✕ flash</text>
+<rect x="733" y="991" width="14" height="14" rx="3" fill="#475569" stroke="none" stroke-width="1.5"/>
+<text x="754" y="1003" font-size="12" fill="#64748b" font-weight="400" text-anchor="start">CMD ✕ flash</text>
+<rect x="733" y="1035" width="14" height="14" rx="3" fill="#94a3b8" stroke="none" stroke-width="1.5"/>
+<text x="754" y="1047" font-size="12" fill="#e2e8f0" font-weight="400" text-anchor="start">5V</text>
+<rect x="1013" y="243" width="14" height="14" rx="3" fill="#94a3b8" stroke="none" stroke-width="1.5"/>
+<text x="1006" y="255" font-size="12" fill="#e2e8f0" font-weight="400" text-anchor="end">GND</text>
+<rect x="1013" y="287" width="14" height="14" rx="3" fill="#94a3b8" stroke="none" stroke-width="1.5"/>
+<text x="1006" y="299" font-size="12" fill="#e2e8f0" font-weight="400" text-anchor="end">GPIO23</text>
+<rect x="1013" y="331" width="14" height="14" rx="3" fill="#94a3b8" stroke="none" stroke-width="1.5"/>
+<text x="1006" y="343" font-size="12" fill="#e2e8f0" font-weight="400" text-anchor="end">GPIO22</text>
+<rect x="1013" y="375" width="14" height="14" rx="3" fill="#94a3b8" stroke="none" stroke-width="1.5"/>
+<text x="1006" y="387" font-size="12" fill="#e2e8f0" font-weight="400" text-anchor="end">GPIO1 (TX0)</text>
+<rect x="1013" y="419" width="14" height="14" rx="3" fill="#94a3b8" stroke="none" stroke-width="1.5"/>
+<text x="1006" y="431" font-size="12" fill="#e2e8f0" font-weight="400" text-anchor="end">GPIO3 (RX0)</text>
+<rect x="1013" y="463" width="14" height="14" rx="3" fill="#94a3b8" stroke="none" stroke-width="1.5"/>
+<text x="1006" y="475" font-size="12" fill="#e2e8f0" font-weight="400" text-anchor="end">GPIO21</text>
+<rect x="1013" y="243" width="14" height="14" rx="3" fill="#94a3b8" stroke="none" stroke-width="1.5"/>
+<text x="1006" y="255" font-size="12" fill="#e2e8f0" font-weight="400" text-anchor="end">GND</text>
+<rect x="1013" y="551" width="14" height="14" rx="3" fill="#94a3b8" stroke="none" stroke-width="1.5"/>
+<text x="1006" y="563" font-size="12" fill="#e2e8f0" font-weight="400" text-anchor="end">GPIO19</text>
+<rect x="1013" y="595" width="14" height="14" rx="3" fill="#94a3b8" stroke="none" stroke-width="1.5"/>
+<text x="1006" y="607" font-size="12" fill="#e2e8f0" font-weight="400" text-anchor="end">GPIO18</text>
+<rect x="1013" y="639" width="14" height="14" rx="3" fill="#94a3b8" stroke="none" stroke-width="1.5"/>
+<text x="1006" y="651" font-size="12" fill="#94a3b8" font-weight="400" text-anchor="end">GPIO5 · boot</text>
+<rect x="1013" y="683" width="14" height="14" rx="3" fill="#94a3b8" stroke="none" stroke-width="1.5"/>
+<text x="1006" y="695" font-size="12" fill="#e2e8f0" font-weight="400" text-anchor="end">GPIO17 (TX2)</text>
+<rect x="1013" y="727" width="14" height="14" rx="3" fill="#94a3b8" stroke="none" stroke-width="1.5"/>
+<text x="1006" y="739" font-size="12" fill="#e2e8f0" font-weight="400" text-anchor="end">GPIO16 (RX2)</text>
+<rect x="1013" y="771" width="14" height="14" rx="3" fill="#94a3b8" stroke="none" stroke-width="1.5"/>
+<text x="1006" y="783" font-size="12" fill="#e2e8f0" font-weight="400" text-anchor="end">GPIO4</text>
+<rect x="1013" y="815" width="14" height="14" rx="3" fill="#94a3b8" stroke="none" stroke-width="1.5"/>
+<text x="1006" y="827" font-size="12" fill="#94a3b8" font-weight="400" text-anchor="end">GPIO0 · boot</text>
+<rect x="1013" y="859" width="14" height="14" rx="3" fill="#94a3b8" stroke="none" stroke-width="1.5"/>
+<text x="1006" y="871" font-size="12" fill="#94a3b8" font-weight="400" text-anchor="end">GPIO2 · boot</text>
+<rect x="1013" y="903" width="14" height="14" rx="3" fill="#94a3b8" stroke="none" stroke-width="1.5"/>
+<text x="1006" y="915" font-size="12" fill="#94a3b8" font-weight="400" text-anchor="end">GPIO15 · boot</text>
+<rect x="1013" y="947" width="14" height="14" rx="3" fill="#475569" stroke="none" stroke-width="1.5"/>
+<text x="1006" y="959" font-size="12" fill="#64748b" font-weight="400" text-anchor="end">SD1 ✕ flash</text>
+<rect x="1013" y="991" width="14" height="14" rx="3" fill="#475569" stroke="none" stroke-width="1.5"/>
+<text x="1006" y="1003" font-size="12" fill="#64748b" font-weight="400" text-anchor="end">SD0 ✕ flash</text>
+<rect x="1013" y="1035" width="14" height="14" rx="3" fill="#475569" stroke="none" stroke-width="1.5"/>
+<text x="1006" y="1047" font-size="12" fill="#64748b" font-weight="400" text-anchor="end">CLK ✕ flash</text>
+<rect x="50" y="150" width="420" height="70" rx="10" fill="#ffffff" stroke="#9ca3af" stroke-width="2" stroke-dasharray="6 4"/>
+<rect x="50" y="150" width="420" height="30" rx="10" fill="#9ca3af" stroke="#9ca3af" stroke-width="1.5"/>
+<rect x="50" y="170" width="420" height="10" rx="0" fill="#9ca3af" stroke="#9ca3af" stroke-width="1.5"/>
+<text x="62" y="171" font-size="14" fill="#ffffff" font-weight="700" text-anchor="start">Reservado: bateria (GPIO34, só entrada)</text>
+<text x="62" y="200" font-size="12" fill="#374151" font-weight="400" text-anchor="start">divisor de tensão da bateria — ainda não montado</text>
+<rect x="50" y="240" width="420" height="92" rx="10" fill="#ffffff" stroke="#0891b2" stroke-width="2"/>
+<rect x="50" y="240" width="420" height="30" rx="10" fill="#0891b2" stroke="#0891b2" stroke-width="1.5"/>
+<rect x="50" y="260" width="420" height="10" rx="0" fill="#0891b2" stroke="#0891b2" stroke-width="1.5"/>
+<text x="62" y="261" font-size="14" fill="#ffffff" font-weight="700" text-anchor="start">Potenciômetro WH148 (10 kΩ, rosca M7)</text>
+<text x="62" y="290" font-size="12" fill="#374151" font-weight="400" text-anchor="start">limiar de detecção 20–200 cm</text>
+<text x="62" y="308" font-size="12" fill="#374151" font-weight="400" text-anchor="start">extremos: 3V3 e GND · cursor no ADC1</text>
+<rect x="50" y="352" width="420" height="128" rx="10" fill="#ffffff" stroke="#2563eb" stroke-width="2"/>
+<rect x="50" y="352" width="420" height="30" rx="10" fill="#2563eb" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="50" y="372" width="420" height="10" rx="0" fill="#2563eb" stroke="#2563eb" stroke-width="1.5"/>
+<text x="62" y="373" font-size="14" fill="#ffffff" font-weight="700" text-anchor="start">HC-SR04 direito</text>
+<text x="62" y="402" font-size="12" fill="#374151" font-weight="400" text-anchor="start">VCC → 5V · GND → GND</text>
+<text x="62" y="420" font-size="12" fill="#374151" font-weight="400" text-anchor="start">TRIG direto (3,3 V basta)</text>
+<text x="62" y="438" font-size="12" fill="#374151" font-weight="400" text-anchor="start">ECHO 5 V → 1 kΩ → GPIO → 2 kΩ → GND</text>
+<rect x="50" y="500" width="420" height="110" rx="10" fill="#ffffff" stroke="#7c3aed" stroke-width="2"/>
+<rect x="50" y="500" width="420" height="30" rx="10" fill="#7c3aed" stroke="#7c3aed" stroke-width="1.5"/>
+<rect x="50" y="520" width="420" height="10" rx="0" fill="#7c3aed" stroke="#7c3aed" stroke-width="1.5"/>
+<text x="62" y="521" font-size="14" fill="#ffffff" font-weight="700" text-anchor="start">MPU-6050 (GY-521) · I²C 400 kHz</text>
+<text x="62" y="550" font-size="12" fill="#374151" font-weight="400" text-anchor="start">VCC → 3V3 · GND → GND · AD0 → GND (0x68)</text>
+<text x="62" y="568" font-size="12" fill="#374151" font-weight="400" text-anchor="start">SDA/SCL em 26/27: 21/22 estão no LED RGB</text>
+<rect x="50" y="630" width="420" height="160" rx="10" fill="#ffffff" stroke="#ea580c" stroke-width="2"/>
+<rect x="50" y="630" width="420" height="30" rx="10" fill="#ea580c" stroke="#ea580c" stroke-width="1.5"/>
+<rect x="50" y="650" width="420" height="10" rx="0" fill="#ea580c" stroke="#ea580c" stroke-width="1.5"/>
+<text x="62" y="651" font-size="14" fill="#ffffff" font-weight="700" text-anchor="start">Atuador direito</text>
+<text x="62" y="680" font-size="12" fill="#374151" font-weight="400" text-anchor="start">montado hoje: buzzer passivo (+ no GPIO, – no GND)</text>
+<text x="62" y="698" font-size="12" fill="#374151" font-weight="400" text-anchor="start">pronto no firmware: módulo MV50 (IN no GPIO,</text>
+<text x="62" y="716" font-size="12" fill="#374151" font-weight="400" text-anchor="start">VCC → 5V, GND → GND) com 'atuador motor'</text>
+<text x="62" y="734" font-size="12" fill="#374151" font-weight="400" text-anchor="start">LEDC canal 2 · buzzer 2 kHz / motor 20 kHz</text>
+<rect x="50" y="810" width="420" height="160" rx="10" fill="#ffffff" stroke="#ea580c" stroke-width="2"/>
+<rect x="50" y="810" width="420" height="30" rx="10" fill="#ea580c" stroke="#ea580c" stroke-width="1.5"/>
+<rect x="50" y="830" width="420" height="10" rx="0" fill="#ea580c" stroke="#ea580c" stroke-width="1.5"/>
+<text x="62" y="831" font-size="14" fill="#ffffff" font-weight="700" text-anchor="start">Atuador esquerdo</text>
+<text x="62" y="860" font-size="12" fill="#374151" font-weight="400" text-anchor="start">montado hoje: buzzer passivo (+ no GPIO, – no GND)</text>
+<text x="62" y="878" font-size="12" fill="#374151" font-weight="400" text-anchor="start">pronto no firmware: módulo MV50 (IN no GPIO,</text>
+<text x="62" y="896" font-size="12" fill="#374151" font-weight="400" text-anchor="start">VCC → 5V, GND → GND) com 'atuador motor'</text>
+<text x="62" y="914" font-size="12" fill="#374151" font-weight="400" text-anchor="start">LEDC canal 0 · buzzer 2 kHz / motor 20 kHz</text>
+<rect x="1290" y="150" width="420" height="130" rx="10" fill="#ffffff" stroke="#db2777" stroke-width="2"/>
+<rect x="1290" y="150" width="420" height="30" rx="10" fill="#db2777" stroke="#db2777" stroke-width="1.5"/>
+<rect x="1290" y="170" width="420" height="10" rx="0" fill="#db2777" stroke="#db2777" stroke-width="1.5"/>
+<text x="1302" y="171" font-size="14" fill="#ffffff" font-weight="700" text-anchor="start">LED RGB 5 mm (catodo comum)</text>
+<text x="1302" y="200" font-size="12" fill="#374151" font-weight="400" text-anchor="start">220–330 Ω em cada cor · comum → GND</text>
+<text x="1302" y="218" font-size="12" fill="#374151" font-weight="400" text-anchor="start">cor = modo (radar / autoteste) e avisos</text>
+<rect x="1290" y="300" width="420" height="128" rx="10" fill="#ffffff" stroke="#2563eb" stroke-width="2"/>
+<rect x="1290" y="300" width="420" height="30" rx="10" fill="#2563eb" stroke="#2563eb" stroke-width="1.5"/>
+<rect x="1290" y="320" width="420" height="10" rx="0" fill="#2563eb" stroke="#2563eb" stroke-width="1.5"/>
+<text x="1302" y="321" font-size="14" fill="#ffffff" font-weight="700" text-anchor="start">HC-SR04 esquerdo</text>
+<text x="1302" y="350" font-size="12" fill="#374151" font-weight="400" text-anchor="start">VCC → 5V · GND → GND</text>
+<text x="1302" y="368" font-size="12" fill="#374151" font-weight="400" text-anchor="start">TRIG direto (3,3 V basta)</text>
+<text x="1302" y="386" font-size="12" fill="#374151" font-weight="400" text-anchor="start">ECHO 5 V → 1 kΩ → GPIO → 2 kΩ → GND</text>
+<rect x="1290" y="448" width="420" height="128" rx="10" fill="#ffffff" stroke="#16a34a" stroke-width="2"/>
+<rect x="1290" y="448" width="420" height="30" rx="10" fill="#16a34a" stroke="#16a34a" stroke-width="1.5"/>
+<rect x="1290" y="468" width="420" height="10" rx="0" fill="#16a34a" stroke="#16a34a" stroke-width="1.5"/>
+<text x="1302" y="469" font-size="14" fill="#ffffff" font-weight="700" text-anchor="start">GPS NEO-6M (GY-GPS6MV2) · UART2</text>
+<text x="1302" y="498" font-size="12" fill="#374151" font-weight="400" text-anchor="start">VCC → 3V3 · GND → GND · 9600 baud</text>
+<text x="1302" y="516" font-size="12" fill="#374151" font-weight="400" text-anchor="start">TX do GPS → RX2 (obrigatório)</text>
+<text x="1302" y="534" font-size="12" fill="#374151" font-weight="400" text-anchor="start">RX do GPS ← TX2 (opcional, só configura)</text>
+<rect x="1290" y="596" width="420" height="110" rx="10" fill="#ffffff" stroke="#475569" stroke-width="2"/>
+<rect x="1290" y="596" width="420" height="30" rx="10" fill="#475569" stroke="#475569" stroke-width="1.5"/>
+<rect x="1290" y="616" width="420" height="10" rx="0" fill="#475569" stroke="#475569" stroke-width="1.5"/>
+<text x="1302" y="617" font-size="14" fill="#ffffff" font-weight="700" text-anchor="start">Push-button 6×6 mm</text>
+<text x="1302" y="646" font-size="12" fill="#374151" font-weight="400" text-anchor="start">um terminal no GPIO, outro no GND</text>
+<text x="1302" y="664" font-size="12" fill="#374151" font-weight="400" text-anchor="start">pull-up interno · interrupção na descida</text>
+<text x="1302" y="682" font-size="12" fill="#374151" font-weight="400" text-anchor="start">1 clique modo · 2 âncora · 3 portal · 1,5 s SOS</text>
+<rect x="1290" y="760" width="420" height="160" rx="10" fill="#ffffff" stroke="#111827" stroke-width="2"/>
+<rect x="1290" y="760" width="420" height="30" rx="10" fill="#111827" stroke="#111827" stroke-width="1.5"/>
+<rect x="1290" y="780" width="420" height="10" rx="0" fill="#111827" stroke="#111827" stroke-width="1.5"/>
+<text x="1302" y="781" font-size="14" fill="#ffffff" font-weight="700" text-anchor="start">Alimentação e terra</text>
+<text x="1302" y="810" font-size="12" fill="#374151" font-weight="400" text-anchor="start">5V (VIN): HC-SR04 ×2 e MV50 ×2</text>
+<text x="1302" y="828" font-size="12" fill="#374151" font-weight="400" text-anchor="start">3V3: potenciômetro, GPS, MPU-6050</text>
+<text x="1302" y="846" font-size="12" fill="#374151" font-weight="400" text-anchor="start">GND comum a todos os módulos</text>
+<text x="1302" y="864" font-size="12" fill="#374151" font-weight="400" text-anchor="start">Hoje pelo USB-C; bateria 3,7 V + TP4056 +</text>
+<text x="1302" y="882" font-size="12" fill="#374151" font-weight="400" text-anchor="start">MT3608 (5 V) entra no 5V quando montada</text>
+<polyline points="470,196 706,196 706,426 740,426" fill="none" stroke="#9ca3af" stroke-width="2.4" stroke-linejoin="round" stroke-dasharray="7 5"/>
+<circle cx="470" cy="196" r="3.6" fill="#9ca3af"/>
+<circle cx="740" cy="426" r="3.6" fill="#9ca3af"/>
+<polyline points="470,300 692,300 692,470 740,470" fill="none" stroke="#0891b2" stroke-width="2.4" stroke-linejoin="round"/>
+<circle cx="470" cy="300" r="3.6" fill="#0891b2"/>
+<circle cx="740" cy="470" r="3.6" fill="#0891b2"/>
+<text x="581.0" y="293" font-size="11" fill="#0891b2" font-weight="600" text-anchor="middle">cursor</text>
+<polyline points="470,424 678,424 678,558 740,558" fill="none" stroke="#2563eb" stroke-width="2.4" stroke-linejoin="round"/>
+<circle cx="470" cy="424" r="3.6" fill="#2563eb"/>
+<circle cx="740" cy="558" r="3.6" fill="#2563eb"/>
+<text x="574.0" y="417" font-size="11" fill="#2563eb" font-weight="600" text-anchor="middle">ECHO (divisor)</text>
+<polyline points="470,456 664,456 664,602 740,602" fill="none" stroke="#2563eb" stroke-width="2.4" stroke-linejoin="round"/>
+<circle cx="470" cy="456" r="3.6" fill="#2563eb"/>
+<circle cx="740" cy="602" r="3.6" fill="#2563eb"/>
+<text x="567.0" y="449" font-size="11" fill="#2563eb" font-weight="600" text-anchor="middle">TRIG</text>
+<polyline points="470,564 650,564 650,646 740,646" fill="none" stroke="#7c3aed" stroke-width="2.4" stroke-linejoin="round"/>
+<circle cx="470" cy="564" r="3.6" fill="#7c3aed"/>
+<circle cx="740" cy="646" r="3.6" fill="#7c3aed"/>
+<text x="560.0" y="557" font-size="11" fill="#7c3aed" font-weight="600" text-anchor="middle">SDA</text>
+<polyline points="470,590 636,590 636,690 740,690" fill="none" stroke="#7c3aed" stroke-width="2.4" stroke-linejoin="round"/>
+<circle cx="470" cy="590" r="3.6" fill="#7c3aed"/>
+<circle cx="740" cy="690" r="3.6" fill="#7c3aed"/>
+<text x="553.0" y="583" font-size="11" fill="#7c3aed" font-weight="600" text-anchor="middle">SCL</text>
+<polyline points="470,746 692,746 692,734 740,734" fill="none" stroke="#ea580c" stroke-width="2.4" stroke-linejoin="round"/>
+<circle cx="470" cy="746" r="3.6" fill="#ea580c"/>
+<circle cx="740" cy="734" r="3.6" fill="#ea580c"/>
+<text x="581.0" y="739" font-size="11" fill="#ea580c" font-weight="600" text-anchor="middle">+ / IN</text>
+<polyline points="470,926 706,926 706,866 740,866" fill="none" stroke="#ea580c" stroke-width="2.4" stroke-linejoin="round"/>
+<circle cx="470" cy="926" r="3.6" fill="#ea580c"/>
+<circle cx="740" cy="866" r="3.6" fill="#ea580c"/>
+<text x="588.0" y="919" font-size="11" fill="#ea580c" font-weight="600" text-anchor="middle">+ / IN</text>
+<polyline points="1290,220 1054,220 1054,294 1020,294" fill="none" stroke="#db2777" stroke-width="2.4" stroke-linejoin="round"/>
+<circle cx="1290" cy="220" r="3.6" fill="#db2777"/>
+<circle cx="1020" cy="294" r="3.6" fill="#db2777"/>
+<text x="1172.0" y="213" font-size="11" fill="#db2777" font-weight="600" text-anchor="middle">B</text>
+<polyline points="1290,244 1068,244 1068,338 1020,338" fill="none" stroke="#db2777" stroke-width="2.4" stroke-linejoin="round"/>
+<circle cx="1290" cy="244" r="3.6" fill="#db2777"/>
+<circle cx="1020" cy="338" r="3.6" fill="#db2777"/>
+<text x="1179.0" y="237" font-size="11" fill="#db2777" font-weight="600" text-anchor="middle">G</text>
+<polyline points="1290,268 1082,268 1082,470 1020,470" fill="none" stroke="#db2777" stroke-width="2.4" stroke-linejoin="round"/>
+<circle cx="1290" cy="268" r="3.6" fill="#db2777"/>
+<circle cx="1020" cy="470" r="3.6" fill="#db2777"/>
+<text x="1186.0" y="261" font-size="11" fill="#db2777" font-weight="600" text-anchor="middle">R</text>
+<polyline points="1290,380 1096,380 1096,558 1020,558" fill="none" stroke="#2563eb" stroke-width="2.4" stroke-linejoin="round"/>
+<circle cx="1290" cy="380" r="3.6" fill="#2563eb"/>
+<circle cx="1020" cy="558" r="3.6" fill="#2563eb"/>
+<text x="1193.0" y="373" font-size="11" fill="#2563eb" font-weight="600" text-anchor="middle">ECHO (divisor)</text>
+<polyline points="1290,410 1110,410 1110,602 1020,602" fill="none" stroke="#2563eb" stroke-width="2.4" stroke-linejoin="round"/>
+<circle cx="1290" cy="410" r="3.6" fill="#2563eb"/>
+<circle cx="1020" cy="602" r="3.6" fill="#2563eb"/>
+<text x="1200.0" y="403" font-size="11" fill="#2563eb" font-weight="600" text-anchor="middle">TRIG</text>
+<polyline points="1290,530 1124,530 1124,690 1020,690" fill="none" stroke="#16a34a" stroke-width="2.4" stroke-linejoin="round"/>
+<circle cx="1290" cy="530" r="3.6" fill="#16a34a"/>
+<circle cx="1020" cy="690" r="3.6" fill="#16a34a"/>
+<text x="1207.0" y="523" font-size="11" fill="#16a34a" font-weight="600" text-anchor="middle">RX do GPS</text>
+<polyline points="1290,558 1138,558 1138,734 1020,734" fill="none" stroke="#16a34a" stroke-width="2.4" stroke-linejoin="round"/>
+<circle cx="1290" cy="558" r="3.6" fill="#16a34a"/>
+<circle cx="1020" cy="734" r="3.6" fill="#16a34a"/>
+<text x="1214.0" y="551" font-size="11" fill="#16a34a" font-weight="600" text-anchor="middle">TX do GPS</text>
+<polyline points="1290,662 1152,662 1152,778 1020,778" fill="none" stroke="#475569" stroke-width="2.4" stroke-linejoin="round"/>
+<circle cx="1290" cy="662" r="3.6" fill="#475569"/>
+<circle cx="1020" cy="778" r="3.6" fill="#475569"/>
+<text x="1221.0" y="655" font-size="11" fill="#475569" font-weight="600" text-anchor="middle">A</text>
+<polyline points="740,1042 710,1042 710,1082" fill="none" stroke="#dc2626" stroke-width="2.4" stroke-linejoin="round"/>
+<circle cx="740" cy="1042" r="3.6" fill="#dc2626"/>
+<circle cx="710" cy="1082" r="3.6" fill="#dc2626"/>
+<text x="702" y="1098" font-size="11" fill="#dc2626" font-weight="600" text-anchor="end">5V → HC-SR04 ×2, MV50 ×2</text>
+<polyline points="740,250 720,250 720,170" fill="none" stroke="#f59e0b" stroke-width="2.4" stroke-linejoin="round"/>
+<circle cx="740" cy="250" r="3.6" fill="#f59e0b"/>
+<circle cx="720" cy="170" r="3.6" fill="#f59e0b"/>
+<text x="712" y="166" font-size="11" fill="#f59e0b" font-weight="600" text-anchor="end">3V3 → pot., GPS, MPU-6050</text>
+<polyline points="1020,250 1050,250 1050,204" fill="none" stroke="#111827" stroke-width="2.4" stroke-linejoin="round"/>
+<circle cx="1020" cy="250" r="3.6" fill="#111827"/>
+<circle cx="1050" cy="204" r="3.6" fill="#111827"/>
+<text x="1058" y="200" font-size="11" fill="#111827" font-weight="600" text-anchor="start">GND comum</text>
+<line x1="60" y1="1180" x2="1700" y2="1180" stroke="#e5e7eb" stroke-width="1.5"/>
+<line x1="60" y1="1195" x2="94" y2="1195" stroke="#2563eb" stroke-width="4"/>
+<text x="104" y="1200" font-size="13" fill="#1f2937" font-weight="400" text-anchor="start">HC-SR04 (5 V; ECHO com divisor 1k/2k → 3,3 V)</text>
+<line x1="470" y1="1195" x2="504" y2="1195" stroke="#ea580c" stroke-width="4"/>
+<text x="514" y="1200" font-size="13" fill="#1f2937" font-weight="400" text-anchor="start">Atuadores PWM (LEDC)</text>
+<line x1="880" y1="1195" x2="914" y2="1195" stroke="#0891b2" stroke-width="4"/>
+<text x="924" y="1200" font-size="13" fill="#1f2937" font-weight="400" text-anchor="start">Potenciômetro (ADC1)</text>
+<line x1="1290" y1="1195" x2="1324" y2="1195" stroke="#db2777" stroke-width="4"/>
+<text x="1334" y="1200" font-size="13" fill="#1f2937" font-weight="400" text-anchor="start">LED RGB</text>
+<line x1="60" y1="1225" x2="94" y2="1225" stroke="#475569" stroke-width="4"/>
+<text x="104" y="1230" font-size="13" fill="#1f2937" font-weight="400" text-anchor="start">Botão (interrupção)</text>
+<line x1="470" y1="1225" x2="504" y2="1225" stroke="#7c3aed" stroke-width="4"/>
+<text x="514" y="1230" font-size="13" fill="#1f2937" font-weight="400" text-anchor="start">MPU-6050 (I²C)</text>
+<line x1="880" y1="1225" x2="914" y2="1225" stroke="#16a34a" stroke-width="4"/>
+<text x="924" y="1230" font-size="13" fill="#1f2937" font-weight="400" text-anchor="start">GPS (UART2)</text>
+<line x1="1290" y1="1225" x2="1324" y2="1225" stroke="#9ca3af" stroke-width="4"/>
+<text x="1334" y="1230" font-size="13" fill="#1f2937" font-weight="400" text-anchor="start">Reservado</text>
+<text x="60" y="1276" font-size="13" fill="#6b7280" font-weight="400" text-anchor="start">Não usar: GPIO 6–11 (flash, marcados ✕). GPIO 0, 2, 5, 12 e 15 participam do boot (GPIO12 em LOW). Livre: GPIO32. Todos os GND no mesmo terra.</text>
+<metadata><c2pa:manifest>AAAWgmp1bWIAAAAeanVtZGMycGEAEQAQgAAAqgA4m3EDYzJwYQAAABZcanVtYgAAAEdqdW1kYzJtYQARABCAAACqADibcQN1cm46YzJwYTpiODE2NDgwMS05OWNiLTRkZWYtYmMxOS1iMGIzZDgxZDEyZTUAAAADl2p1bWIAAAApanVtZGMyYXMAEQAQgAAAqgA4m3EDYzJwYS5hc3NlcnRpb25zAAAAALxqdW1iAAAARGp1bWRjYm9yABEAEIAAAKoAOJtxE2MycGEuaW5ncmVkaWVudC52MwAAAAAYYzJzaNTdVvZGaLUfUkDYClXDSaAAAABwY2JvcqNpZGM6Zm9ybWF0bWltYWdlL3N2Zyt4bWxqaW5zdGFuY2VJRHgseG1wOmlpZDpkZjVmNjdlZC0xYTgyLTQ0MWEtYTlkMC1mYmEzYjViY2M1MzlscmVsYXRpb25zaGlwaHBhcmVudE9mAAAB4mp1bWIAAABBanVtZGNib3IAEQAQgAAAqgA4m3ETYzJwYS5hY3Rpb25zLnYyAAAAABhjMnNoQxH0gx3cmtVTZ63Iic6WGwAAAZljYm9yomdhY3Rpb25zgqJmYWN0aW9ua2MycGEub3BlbmVkanBhcmFtZXRlcnOha2luZ3JlZGllbnRzgaJjdXJseC1zZWxmI2p1bWJmPWMycGEuYXNzZXJ0aW9ucy9jMnBhLmluZ3JlZGllbnQudjNkaGFzaFggqeC8xGbVG+y75Tw1iXWMmlmiGKHk//txb9vJLjc+zQKkZmFjdGlvbngdY29tLmFudGhyb3BpYy5jbGF1ZGUucHJvdmlkZWRqcGFyYW1ldGVyc6F4H2NvbS5hbnRocm9waWMub3JpZ2luLWNvbmZpZGVuY2VndW5rbm93bmtkZXNjcmlwdGlvbnhmQ2xhdWRlIHByb3ZpZGVkIHRoaXMgZmlsZSBhdCB0aGUgcmVxdWVzdCBvZiBhIHVzZXIgYW5kIG1heSBoYXZlIGNyZWF0ZWQgb3IgbW9kaWZpZWQgdGhlIGZpbGUgY29udGVudHMubXNvZnR3YXJlQWdlbnShZG5hbWVmQ2xhdWRlcmFsbEFjdGlvbnNJbmNsdWRlZPUAAADIanVtYgAAAEBqdW1kY2JvcgARABCAAACqADibcRNjMnBhLmhhc2guZGF0YQAAAAAYYzJzaPYfoLm8+JlKyx6LWjpFk2cAAACAY2JvcqVjYWxnZnNoYTI1NmNwYWRMAAAAAAAAAAAAAAAAZGhhc2hYIH5IQ8iBPVvxvZyi9Y9MV6gvvg6qdg8Pdxy9lbuDbLEyZG5hbWVuanVtYmYgbWFuaWZlc3RqZXhjbHVzaW9uc4GiZXN0YXJ0GWqXZmxlbmd0aBkeBAAAAj5qdW1iAAAAJ2p1bWRjMmNsABEAEIAAAKoAOJtxA2MycGEuY2xhaW0udjIAAAACD2Nib3KlY2FsZ2ZzaGEyNTZpc2lnbmF0dXJleE1zZWxmI2p1bWJmPS9jMnBhL3VybjpjMnBhOmI4MTY0ODAxLTk5Y2ItNGRlZi1iYzE5LWIwYjNkODFkMTJlNS9jMnBhLnNpZ25hdHVyZWppbnN0YW5jZUlEeCx4bXA6aWlkOmRkNjRmYjAxLTkwZWItNGU2OC05MjJlLWYwZTk1ZDFhZmYyOXJjcmVhdGVkX2Fzc2VydGlvbnODomN1cmx4LXNlbGYjanVtYmY9YzJwYS5hc3NlcnRpb25zL2MycGEuaW5ncmVkaWVudC52M2RoYXNoWCCp4LzEZtUb7LvlPDWJdYyaWaIYoeT/+3Fv28kuNz7NAqJjdXJseCpzZWxmI2p1bWJmPWMycGEuYXNzZXJ0aW9ucy9jMnBhLmFjdGlvbnMudjJkaGFzaFggl2dOQ2MoiI4Eqdy1Fwo/kMfn2U1ZDN0x2/dp99qupWeiY3VybHgpc2VsZiNqdW1iZj1jMnBhLmFzc2VydGlvbnMvYzJwYS5oYXNoLmRhdGFkaGFzaFgg/nWhcTb0eNz7Z3FTUe89aWierNDvQ53SSnIEUAlmx1R0Y2xhaW1fZ2VuZXJhdG9yX2luZm+jZG5hbWVvQW50aHJvcGljIEZpbGVzZ3ZlcnNpb25lMS4wLjBrc3BlY1ZlcnNpb25lMi40LjAAABA4anVtYgAAAChqdW1kYzJjcwARABCAAACqADibcQNjMnBhLnNpZ25hdHVyZQAAABAIY2JvctKEWQISogEmGCFZAgowggIGMIIBjaADAgECAhRA5aAK7sI50L64g/oGQgU9Z1UTADAKBggqhkjOPQQDAzBJMRcwFQYDVQQKEw5BbnRocm9waWMsIFBCQzEuMCwGA1UEAxMlQW50aHJvcGljIENvbnRlbnQgQ3JlZGVudGlhbHMgUm9vdCBDQTAeFw0yNjA4MDcxODQzNTZaFw0yODA4MDYxOTQzNTZaMEQxFzAVBgNVBAoTDkFudGhyb3BpYywgUEJDMSkwJwYDVQQDEyBBbnRocm9waWMgQ2xhdWRlIENvbnRlbnQgU2lnbmluZzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABJh6CmvLUBgFFNU0vUKlOVtE6djd17L5SuwX0LemFisBM3dkd/3cyjxFA3Qo5S46fX0/ihY0VZ7mfb9KF703t5OjWDBWMA4GA1UdDwEB/wQEAwIHgDAVBgNVHSUEDjAMBgorBgEEAYPoXgIBMAwGA1UdEwEB/wQCMAAwHwYDVR0jBBgwFoAUzlHiBIFOZFsj+OPEz5o+nMHXXMIwCgYIKoZIzj0EAwMDZwAwZAIwMXMdFJ4BetLLVY7ORuE9noqbbAZOZn/aArXyTwFAZfKrPzxF2vPoJNf1+UCdg1XGAjBwX1zd9WGqYkqmL5SFqw1QySjr1zJfpJM9+1rdDwSPLMOPOjKuiXjoU/pUUeG9RwmhY3BhZFkNngAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPZYQNuEPrvTJlQVuywt8NTUGWvk44V6xkwifNAbdnhz/Rv3n5F0D2RQ457JbNXv1JETW7LZ50wrSF42v29y6kcYveg=</c2pa:manifest></metadata></svg>

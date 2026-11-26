@@ -13,7 +13,18 @@ export const SEVERITY = {
   LOW_BATTERY: 'warning',
   DEVICE_OFFLINE: 'serious',
   DEVICE_ONLINE: 'info',
+  /* queda/batida cancelada no botao ("Estou bem", firmware >= 1.5): fica no historico, sem alarme */
+  DISMISSED: 'info',
+  /* ancora rapida (2 cliques no botao ou painel, firmware >= 1.8) */
+  ANCHOR_CREATED: 'info',
+  ANCHOR_REMOVED: 'info',
+  ANCHOR_EXPIRED: 'info',
+  ANCHOR_FAILED: 'warning',
 };
+
+const INDOOR_TTL_MS = 90000;       /* local por Wi-Fi vale por 90 s depois da ultima assinatura (3 varreduras) */
+const GPS_LOST_MS = 15000;         /* sem posicao de GPS ha 15 s: a assinatura de Wi-Fi passa a valer */
+const ANCHOR_POS_MAX_AGE = 600000; /* ancora sem posicao no evento usa a ultima posicao, se tiver ate 10 min */
 
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 /* o firmware manda -1 quando o sensor nao detectou nada */
@@ -40,7 +51,7 @@ const normalizers = {
     distL: dist(p.distL), rawL: dist(p.rawL),
     distR: dist(p.distR), rawR: dist(p.rawR),
     bzL: num(p.bzL), bzR: num(p.bzR),
-    thr: num(p.thr), angle: num(p.angle), pot: num(p.pot),
+    thr: num(p.thr), pot: num(p.pot),
     near: num(p.near), /* NEAR_MISS_CM do firmware: o painel usa esse valor quando vier */
     deviceT: num(p.t),
   }),
@@ -54,6 +65,22 @@ const normalizers = {
     /* gMax = maior modulo desde a ultima mensagem (o firmware mede a 100 Hz); tilt = inclinacao em graus */
     return { ax, ay, az, gx: num(p.gx), gy: num(p.gy), gz: num(p.gz), g, gMax: num(p.gMax), tilt: num(p.tilt) };
   },
+  /* assinatura de Wi-Fi (firmware >= 1.8): as redes mais fortes quando o GPS nao pega */
+  wifi: (p) => ({
+    aps: (Array.isArray(p.aps) ? p.aps : []).slice(0, 5)
+      .filter((a) => a && typeof a.bssid === 'string' && /^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$/.test(a.bssid))
+      .map((a) => ({ bssid: a.bssid.toUpperCase(), rssi: num(a.rssi), ssid: typeof a.ssid === 'string' ? a.ssid.slice(0, 32) : '' })),
+  }),
+  /* calibracao assistida (firmware >= 1.7): progresso (running) e resultado (done/failed/reset/cancelled) */
+  calibration: (p) => ({
+    state: ['running', 'done', 'failed', 'reset', 'cancelled'].includes(p.calib) ? p.calib : 'unknown',
+    ok: typeof p.ok === 'boolean' ? p.ok : null, reason: typeof p.reason === 'string' ? p.reason : null,
+    elapsedS: num(p.elapsed), durationS: num(p.duration), steps: num(p.steps),
+    stepMean: num(p.stepMean), stepStd: num(p.stepStd), stepMax: num(p.stepMax),
+    noiseL: num(p.noiseL) != null && p.noiseL >= 0 ? p.noiseL : null, noiseR: num(p.noiseR) != null && p.noiseR >= 0 ? p.noiseR : null,
+    impactBefore: num(p.impactBefore), impactAfter: num(p.impactAfter) ?? num(p.impG),
+    hystBefore: num(p.hystBefore), hystAfter: num(p.hystAfter) ?? num(p.hyst),
+  }),
   /* teste dos ultrassonicos (comando "diag"): resultado por lado */
   diag: (p) => {
     const side = (s) => s && typeof s === 'object' ? {
@@ -71,6 +98,11 @@ const normalizers = {
     autoBroker: typeof p.auto === 'boolean' ? p.auto : null, queued: num(p.q),
     /* firmware >= 1.4: a placa esta conectada ao broker MQTT (pelo cabo da para ver quando nao esta) */
     mqtt: typeof p.mq === 'boolean' ? p.mq : null,
+    /* firmware >= 1.6: economia de energia ("active"/"idle") e atuador da linguagem haptica ("buzzer"/"motor") */
+    powerState: p.pwr === 'idle' || p.pwr === 'active' ? p.pwr : null,
+    actuator: p.act === 'motor' || p.act === 'buzzer' ? p.act : null,
+    /* firmware >= 1.7: limiares em uso (calibrados ou de fabrica) e calibracao em andamento */
+    impactG: num(p.impG), hystCm: num(p.hyst), calibrating: p.cal === true,
     portal: p.portal === true, lowLatency: p.lowlat == null ? null : Boolean(p.lowlat),
     /* portal e teste de rede nova (firmware >= 1.3) */
     ap: typeof p.ap === 'string' ? p.ap : null,
@@ -89,6 +121,8 @@ function classify(channel, payload) {
   const c = channel.toLowerCase();
   if (c === 'pong' || 'pong' in payload) return 'pong';
   if (c === 'diag' || 'diag' in payload) return 'diag';
+  if (c === 'calib' || 'calib' in payload) return 'calibration';
+  if (c === 'wifi' || 'aps' in payload) return 'wifi';
   if (c === 'events' || c === 'event') return 'event';
   if (c === 'location' || c === 'gps') return 'location';
   if (c === 'imu' || c === 'motion') return 'imu';
@@ -109,6 +143,7 @@ export class Hub extends EventEmitter {
     this.lastPersist = new Map(); /* `${device}:${kind}` -> ts */
     this.rule = new Map(); /* estado das regras por dispositivo */
     this.commandSenders = [];
+    this.zones = null; /* server/zones.js, ligado pelo index.js (ancoras rapidas) */
     this.recentEvents = new Map(); /* chave do evento -> ts, para descartar duplicatas */
     this.pings = new Map(); /* id do ping -> { deviceId, sentAt } */
     this.pingSeq = 0;
@@ -126,7 +161,7 @@ export class Hub extends EventEmitter {
   }
 
   publicDevice(d) {
-    return { id: d.id, name: d.name, online: d.online, lastSeen: d.lastSeen, source: d.source, latest: d.latest };
+    return { id: d.id, name: d.name, online: d.online, lastSeen: d.lastSeen, source: d.source, latest: d.latest, calibratedAt: d.calibratedAt ?? null };
   }
 
   listDevices() { return [...this.devices.values()].map((d) => this.publicDevice(d)); }
@@ -158,6 +193,10 @@ export class Hub extends EventEmitter {
       const evtType = event ?? type ?? 'UNKNOWN';
       if (this.isDuplicateEvent(id, evtType, num(t), rest.side, now)) return;
       if (!mqttActive) this.touch(id, now, source);
+      if (evtType === 'ANCHOR_TOGGLE' || evtType === 'quick_anchor_toggle') {
+        this.toggleAnchor(id, rest, 'botão'); /* o pedido vira ANCHOR_CREATED/REMOVED/FAILED */
+        return;
+      }
       this.addEvent(id, evtType, { ...rest, deviceT: num(t) });
       return;
     }
@@ -169,10 +208,19 @@ export class Hub extends EventEmitter {
     const normalize = normalizers[kind] ?? ((p) => p);
     const reading = normalize(data);
     device.latest[kind] = { ts: now, ...reading };
-    this.persist(id, kind, now, reading);
+    if (kind === 'calibration') {
+      /* progresso nao vai para o banco; o resultado vai para o historico de calibracoes */
+      if (['done', 'failed', 'reset'].includes(reading.state)) {
+        this.db.insertCalibration(id, now, reading.state !== 'failed', reading);
+        if (reading.state !== 'failed') device.calibratedAt = now;
+      }
+    } else {
+      this.persist(id, kind, now, reading);
+    }
     this.emit('reading', { deviceId: id, kind, ts: now, data: reading });
 
     if (kind === 'location') this.ruleGeofence(id, reading);
+    if (kind === 'wifi') this.onFingerprint(id, device, reading, now);
     if (kind === 'imu') this.ruleImpact(id, reading, now);
     if (kind === 'status') this.ruleBattery(id, reading);
   }
@@ -310,6 +358,78 @@ export class Hub extends EventEmitter {
 
   /* ---------- regras (base para o controle parental) ---------- */
 
+  /* ---------- ambiente interno por assinatura de Wi-Fi ---------- */
+
+  /* local conhecido ativo (casou ha menos de 90 s), ou null */
+  indoorOf(d, now = Date.now()) {
+    const i = d?.latest?.indoor;
+    return i?.placeName && now - i.ts < INDOOR_TTL_MS ? i : null;
+  }
+
+  onFingerprint(id, device, reading, now) {
+    const loc = device.latest.location;
+    const gpsLost = !loc || loc.source === 'wifi_indoor' || now - loc.ts > GPS_LOST_MS;
+    /* melhor casamento: rede cadastrada vista com sinal >= min_rssi; o sinal mais forte ganha */
+    let best = null;
+    for (const ap of reading.aps) {
+      for (const p of this.db.placesByBssid?.(ap.bssid) ?? []) {
+        if (ap.rssi != null && ap.rssi >= p.minRssi && (!best || ap.rssi > best.rssi)) best = { place: p, rssi: ap.rssi, bssid: ap.bssid };
+      }
+    }
+    const indoor = best && gpsLost
+      ? { ts: now, source: 'wifi_indoor', placeName: best.place.name, placeId: best.place.id, bssid: best.bssid, rssi: best.rssi,
+        isSafeZone: best.place.isSafeZone, lat: best.place.lat, lon: best.place.lng }
+      : { ts: now, source: null, placeName: null, gpsLost };
+    device.latest.indoor = indoor;
+    this.emit('reading', { deviceId: id, kind: 'indoor', ts: now, data: indoor });
+    if (!indoor.placeName || indoor.lat == null || indoor.lon == null) return;
+    /* posicao do local cadastrado vira a posicao atual (marcada como Wi-Fi, nao GPS) */
+    const pos = { lat: indoor.lat, lon: indoor.lon, accuracyM: 30, speed: null, sats: null, source: 'wifi_indoor', placeName: indoor.placeName };
+    device.latest.location = { ts: now, ...pos };
+    this.persist(id, 'location', now, pos);
+    this.emit('reading', { deviceId: id, kind: 'location', ts: now, data: pos });
+    this.ruleGeofence(id, pos);
+  }
+
+  /* ---------- ancora rapida (zona segura dinamica, uma por dispositivo) ---------- */
+
+  anchorDefaults() {
+    return { radiusM: this.config.anchor?.radiusM ?? 100, durationMs: (this.config.anchor?.hours ?? 4) * 3600000 };
+  }
+
+  createAnchor(id, { lat, lon, radiusM, durationMs } = {}, by = 'painel') {
+    if (!this.zones) return { error: 'Zonas indisponíveis.' };
+    const d = this.devices.get(id);
+    const loc = d?.latest?.location;
+    const now = Date.now();
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      if (!loc || loc.lat == null || now - loc.ts > ANCHOR_POS_MAX_AGE) {
+        this.addEvent(id, 'ANCHOR_FAILED', { reason: 'sem posição', by });
+        return { error: 'Sem posição recente do dispositivo (GPS ou local por Wi-Fi) para criar a âncora.', status: 409 };
+      }
+      lat = loc.lat;
+      lon = loc.lon;
+    }
+    const def = this.anchorDefaults();
+    const out = this.zones.addAnchor({ deviceId: id, lat, lon, radiusM: radiusM ?? def.radiusM, durationMs: durationMs ?? def.durationMs, now });
+    if (out.error) return out;
+    this.addEvent(id, 'ANCHOR_CREATED', { zone: out.zone.name, lat: out.zone.lat, lon: out.zone.lon, radiusM: out.zone.radiusM, expiresAt: out.zone.expiresAt, by });
+    return out;
+  }
+
+  removeAnchor(id, by = 'painel') {
+    const z = this.zones?.removeAnchor(id);
+    if (z) this.addEvent(id, 'ANCHOR_REMOVED', { zone: z.name, by });
+    return z;
+  }
+
+  /* 2 cliques: se ja tem ancora, desliga; se nao tem, cria no ponto que veio (ou na ultima posicao) */
+  toggleAnchor(id, data, by) {
+    if (this.zones?.anchorFor(id)) return { removed: this.removeAnchor(id, by) };
+    const lat = num(data.lat), lon = num(data.lon ?? data.lng);
+    return this.createAnchor(id, lat != null && lon != null ? { lat, lon } : {}, by);
+  }
+
   /* zonas mudaram pelo painel: a proxima posicao vale como "primeira leitura" (sem alerta falso de saida) */
   resetZones() {
     for (const [id, st] of this.rule) this.rule.set(id, { ...st, zone: undefined });
@@ -317,8 +437,12 @@ export class Hub extends EventEmitter {
 
   ruleGeofence(id, loc) {
     const zones = this.config.safeZones ?? [];
-    if (!zones.length || loc.lat == null || loc.lon == null) return;
-    const inside = zones.find((z) => haversineM(loc.lat, loc.lon, z.lat, z.lon) <= z.radiusM) ?? null;
+    if ((!zones.length && !this.indoorOf(this.devices.get(id))) || loc.lat == null || loc.lon == null) return;
+    let inside = zones.find((z) => haversineM(loc.lat, loc.lon, z.lat, z.lon) <= z.radiusM) ?? null;
+    /* dentro de um local conhecido por Wi-Fi marcado como seguro: um GPS ruim de dentro de casa
+       nao pode virar "saiu da zona segura" */
+    const indoor = this.indoorOf(this.devices.get(id));
+    if (!inside && indoor?.isSafeZone) inside = { name: indoor.placeName };
     const st = this.rule.get(id) ?? {};
     const prev = st.zone; /* undefined = primeira leitura */
     if (prev !== undefined && prev?.name !== inside?.name) {

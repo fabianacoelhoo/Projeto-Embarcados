@@ -3,6 +3,7 @@
 #include "net.h"
 
 #if ENABLE_MQTT
+#include "wifi_fingerprint.h"
 #include <DNSServer.h>
 #include <Preferences.h>
 #include <PubSubClient.h>
@@ -21,7 +22,7 @@ struct NetConfig {
 
 static NetConfig cfg;   /* em uso (salva na flash) */
 static NetConfig trial; /* em teste: so vira cfg se conectar */
-static const char *CH_NAMES[CH_COUNT] = {"telemetry", "events", "location", "imu", "status", "pong", "diag"};
+static const char *CH_NAMES[CH_COUNT] = {"telemetry", "events", "location", "imu", "status", "pong", "diag", "calib", "wifi"};
 static char topics[CH_COUNT][64];
 static char cmdTopic[64];
 static char clientId[40];
@@ -694,8 +695,82 @@ void netBegin(bool forcePortal) {
   Serial.println("[NET] Dica: para trocar de rede, digite aqui  wifi \"nome da rede\" \"senha\"  ou de 3 cliques no botao (abre o portal).");
 }
 
+static volatile bool powerSaveWanted = false;
+static bool powerSaveApplied = false;
+void netSetPowerSave(bool save) { powerSaveWanted = save; }
+bool netJsonField(const char *json, const char *key, char *out, size_t len) { return jsonField(json, key, out, len); }
+
+/*----------------------------------------------------- assinatura de Wi-Fi (GPS sem sinal) */
+static volatile bool scanWanted = false;
+static bool scanRunning = false;
+static uint32_t scanStartedAt = 0;
+static char scanJson[360];
+static volatile bool scanReady = false;
+
+void netRequestWifiScan() { scanWanted = true; }
+
+int netTakeWifiScan(char *buf, size_t len) {
+  if (!scanReady) return 0;
+  size_t n = strlen(scanJson);
+  scanReady = false;
+  if (n + 1 > len) return 0;
+  memcpy(buf, scanJson, n + 1);
+  return (int)n;
+}
+
+/* varredura passiva e assincrona: o radio visita os canais entre os pacotes da conexao atual,
+   entao o MQTT continua conectado; o resultado chega em alguns netService() depois */
+static void serviceWifiScan(uint32_t now) {
+  if (scanWanted && !scanRunning) {
+    scanWanted = false;
+    if (portal || testState == TEST_RUNNING) return; /* o radio esta ocupado com outra coisa */
+    int16_t r = WiFi.scanNetworks(true, false, true, WIFI_FP_SCAN_MS_PER_CHAN);
+    if (r == WIFI_SCAN_FAILED) {
+      Serial.println("[WIFI-FP] A varredura nao comecou; tento na proxima.");
+      return;
+    }
+    scanRunning = true;
+    scanStartedAt = now;
+  }
+  if (!scanRunning) return;
+  int16_t n = WiFi.scanComplete();
+  if (n == WIFI_SCAN_RUNNING) {
+    if (now - scanStartedAt > WIFI_FP_SCAN_TIMEOUT_MS) {
+      WiFi.scanDelete();
+      scanRunning = false;
+    }
+    return;
+  }
+  scanRunning = false;
+  if (n < 0) {
+    WiFi.scanDelete();
+    return;
+  }
+  static ApInfo all[20];
+  uint8_t m = 0;
+  for (int16_t i = 0; i < n && m < 20; i++, m++) {
+    snprintf(all[m].bssid, sizeof(all[m].bssid), "%s", WiFi.BSSIDstr(i).c_str());
+    all[m].rssi = (int8_t)WiFi.RSSI(i);
+    snprintf(all[m].ssid, sizeof(all[m].ssid), "%s", WiFi.SSID(i).c_str());
+  }
+  WiFi.scanDelete();
+  ApInfo top[WIFI_FP_TOP];
+  uint8_t k = topAps(all, m, top, WIFI_FP_TOP);
+  if (fingerprintJson(scanJson, sizeof(scanJson), top, k, (unsigned long)now) > 0) scanReady = true;
+}
+
 void netService() {
   uint32_t now = millis();
+
+  /* economia de energia pedida pela TaskImu: modem-sleep (WIFI_PS_MIN_MODEM via WiFi.setSleep(true)),
+     que mantem a associacao e o keep-alive do MQTT; ao acordar, volta ao modo de baixa latencia */
+  bool wantSave = powerSaveWanted;
+  if (wantSave != powerSaveApplied) {
+    powerSaveApplied = wantSave;
+    WiFi.setSleep(wantSave || !NET_LOW_LATENCY);
+    markDirty();
+  }
+  serviceWifiScan(now);
 
   if (portalRequested) {
     portalRequested = false;
@@ -860,7 +935,7 @@ int netStatusAppend(char *buf, size_t len) {
   }
   add(snprintf(buf + n, len - n, ",\"broker\":\"%s:%u\",\"auto\":%s,\"mq\":%s,\"q\":%u,\"lowlat\":%d",
                brokerKnown ? brokerIp.toString().c_str() : "", brokerPort, brokerAuto() ? "true" : "false",
-               netMqttConnected() ? "true" : "false", pendingCount, NET_LOW_LATENCY));
+               netMqttConnected() ? "true" : "false", pendingCount, (NET_LOW_LATENCY && !powerSaveApplied) ? 1 : 0));
   add(snprintf(buf + n, len - n, ",\"portal\":%s,\"ap\":\"%s\"", portal ? "true" : "false", apName));
   if (lastErr[0]) add(snprintf(buf + n, len - n, ",\"werr\":\"%s\"", lastErr));
   if (testState != TEST_IDLE) {
@@ -884,6 +959,10 @@ bool netPortalActive() { return false; }
 bool netTesting() { return false; }
 bool netTakeStatusRequest() { return false; }
 bool netMqttConnected() { return false; }
+void netSetPowerSave(bool) {}
+void netRequestWifiScan() {}
+int netTakeWifiScan(char *, size_t) { return 0; }
+bool netJsonField(const char *, const char *, char *, size_t) { return false; }
 const char *netDeviceId() { return DEVICE_ID; }
 int netStatusAppend(char *, size_t) { return 0; }
 

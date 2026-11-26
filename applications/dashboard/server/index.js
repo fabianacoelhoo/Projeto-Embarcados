@@ -12,6 +12,7 @@ import { hostWifi, savedPassword } from './hostwifi.js';
 import { startDiscovery } from './discovery.js';
 import { createAuth } from './auth.js';
 import { createZones } from './zones.js';
+import { computeHeatmap, parseTime } from './heatmap.js';
 
 const db = openDb(config.dbFile);
 const hub = new Hub({ db, config });
@@ -21,13 +22,15 @@ hub.commandSenders.push((deviceId, command) => usb.send(deviceId, command));
 const dataDir = path.dirname(config.dbFile);
 /* senha do painel para outros aparelhos (no próprio computador abre direto) */
 const auth = createAuth({ dataDir, password: config.auth?.password || null, enabled: config.auth?.enabled !== false });
-/* zonas seguras editáveis pelo painel; ficam em data/zones.json */
+/* zonas seguras (fixas e âncoras rápidas) no SQLite; o data/zones.json antigo é importado uma vez */
 const zones = createZones({
+  db,
   dataDir,
   initial: config.safeZones ?? [],
   onChange: (list) => { config.safeZones = list; hub.resetZones(); broadcast({ type: 'zones', zones: list }); },
 });
 config.safeZones = zones.list();
+hub.zones = zones;
 
 /* pedidos vindos do próprio computador (o navegador do PC); a senha do Wi-Fi nunca sai para a rede */
 const isLocal = (req) => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress);
@@ -62,6 +65,8 @@ const localIps = () => Object.values(os.networkInterfaces()).flat()
 const publicConfig = (req) => ({
   thresholds: config.thresholds,
   safeZones: zones.list(),
+  wifiPlaces: db.places(),
+  anchor: { radiusM: config.anchor?.radiusM ?? 100, hours: config.anchor?.hours ?? 4 },
   /* a senha só aparece para quem abriu o painel no próprio computador */
   auth: { enabled: auth.enabled, remote: !isLocal(req), password: auth.enabled && isLocal(req) ? auth.password : undefined },
   offlineAfterMs: config.offlineAfterMs,
@@ -91,6 +96,11 @@ app.get('/api/devices/:id/readings', (req, res) => {
   res.json(db.readings(req.params.id, kind, Date.now() - minutes * 60000));
 });
 
+/* historico de calibracoes (feitas, que falharam e restauracoes de fabrica), mais recente primeiro */
+app.get('/api/devices/:id/calibrations', (req, res) => {
+  res.json(db.calibrations(req.params.id, Math.min(Number(req.query.limit ?? 20), 100)));
+});
+
 app.patch('/api/devices/:id', (req, res) => {
   const name = typeof req.body?.name === 'string' ? req.body.name.trim().slice(0, 60) : null;
   const d = hub.renameDevice(req.params.id, name);
@@ -100,7 +110,9 @@ app.patch('/api/devices/:id', (req, res) => {
 
 /* comandos que o painel pode mandar para a placa (o resto e recusado).
    Vao pelo Wi-Fi (MQTT) e, com a placa no USB e o servidor lendo a Serial, tambem pelo cabo. */
-const PANEL_COMMANDS = new Set(['locate', 'portal', 'wifi', 'diag', 'server']);
+const PANEL_COMMANDS = new Set(['locate', 'portal', 'wifi', 'diag', 'server', 'haptic', 'actuator', 'calibrate_start', 'calibrate_stop', 'calibrate_reset', 'wifi_scan']);
+/* padroes da linguagem haptica (firmware >= 1.6, include/haptic_engine.h) */
+const HAPTIC_PATTERNS = ['static', 'proximity', 'approach', 'prealert', 'heartbeat', 'confirm', 'locate'];
 const isIpv4 = (s) => /^\d{1,3}(\.\d{1,3}){3}$/.test(s) && s.split('.').every((n) => Number(n) <= 255);
 function buildCommand(body) {
   const cmd = body?.cmd;
@@ -110,6 +122,20 @@ function buildCommand(body) {
     const host = typeof body.host === 'string' && body.host.trim() ? body.host.trim() : 'auto';
     if (host !== 'auto' && !isIpv4(host)) return { error: 'Servidor: use "auto" ou um IP como 192.168.0.10.' };
     return { command: { cmd, host } };
+  }
+  if (cmd === 'haptic') {
+    if (!HAPTIC_PATTERNS.includes(body.pattern)) return { error: `Padrão inválido (aceitos: ${HAPTIC_PATTERNS.join(', ')}).` };
+    return { command: { cmd, pattern: body.pattern } };
+  }
+  if (cmd === 'calibrate_start') {
+    /* calibracao assistida: 10 a 120 s andando (padrao 30) */
+    const s = body.duration_s == null ? 30 : Number(body.duration_s);
+    if (!Number.isInteger(s) || s < 10 || s > 120) return { error: 'Duração da calibração: de 10 a 120 segundos.' };
+    return { command: { cmd, duration_s: s } };
+  }
+  if (cmd === 'actuator') {
+    if (body.mode !== 'buzzer' && body.mode !== 'motor') return { error: 'Atuador: use "buzzer" ou "motor".' };
+    return { command: { cmd, mode: body.mode } };
   }
   if (cmd !== 'wifi') return { command: { cmd } };
   const ssid = typeof body.ssid === 'string' ? body.ssid.trim() : '';
@@ -174,6 +200,60 @@ app.delete('/api/zones/:id', (req, res) => {
   res.status(out.error ? out.status ?? 400 : 200).json(out.error ? { error: out.error } : { ok: true });
 });
 
+/* ---------------- âncora rápida (zona segura dinâmica) ---------------- */
+/* POST {deviceId?, radiusM?, hours?, lat?, lng?}: sem lat/lng usa a posição atual do dispositivo */
+app.post('/api/safe-zones/anchor', (req, res) => {
+  const b = req.body ?? {};
+  const deviceId = typeof b.deviceId === 'string' && b.deviceId ? b.deviceId : config.defaultDeviceId;
+  const radiusM = b.radiusM == null ? undefined : Number(b.radiusM);
+  const hours = b.hours == null ? undefined : Number(b.hours);
+  if (radiusM !== undefined && !(radiusM >= 20 && radiusM <= 5000)) return res.status(400).json({ error: 'O raio vai de 20 m a 5.000 m.' });
+  if (hours !== undefined && !(hours > 0 && hours <= 24)) return res.status(400).json({ error: 'A âncora dura de alguns minutos a 24 h.' });
+  const lat = b.lat == null ? undefined : Number(b.lat), lon = b.lng ?? b.lon;
+  const out = hub.createAnchor(deviceId, { lat, lon: lon == null ? undefined : Number(lon), radiusM, durationMs: hours ? hours * 3600000 : undefined });
+  res.status(out.error ? out.status ?? 400 : 201).json(out.error ? { error: out.error } : out.zone);
+});
+app.delete('/api/safe-zones/anchor', (req, res) => {
+  const deviceId = String(req.query.deviceId ?? req.body?.deviceId ?? config.defaultDeviceId);
+  const z = hub.removeAnchor(deviceId);
+  res.status(z ? 200 : 404).json(z ? { ok: true, zone: z } : { error: 'Nenhuma âncora ativa para esse dispositivo.' });
+});
+
+/* ---------------- mapa de calor de barreiras urbanas ---------------- */
+/* GET /api/heatmap?from=<iso|ms>&to=<iso|ms>&min_severity=info|warning|serious|critical&types=NEAR_MISS&deviceId= */
+app.get('/api/heatmap', (req, res) => {
+  const to = parseTime(req.query.to, Date.now());
+  const from = parseTime(req.query.from, to - 7 * 86400000);
+  if (from == null || to == null || from > to) return res.status(400).json({ error: 'Período inválido: use datas ISO (2026-11-25) ou milissegundos, com from antes de to.' });
+  const minSeverity = String(req.query.min_severity ?? 'info');
+  if (!['info', 'warning', 'serious', 'critical'].includes(minSeverity)) return res.status(400).json({ error: 'min_severity: info, warning, serious ou critical.' });
+  const types = String(req.query.types ?? 'NEAR_MISS').split(',').map((s) => s.trim()).filter((s) => /^[A-Z_]{2,30}$/.test(s));
+  res.json(computeHeatmap(db, { from, to, minSeverity, types: types.length ? types : ['NEAR_MISS'], deviceId: req.query.deviceId || null }));
+});
+
+/* ---------------- locais conhecidos por Wi-Fi (fallback do GPS em ambiente interno) ---------------- */
+app.get('/api/wifi-places', (req, res) => res.json(db.places()));
+app.post('/api/wifi-places', (req, res) => {
+  const b = req.body ?? {};
+  const name = typeof b.name === 'string' ? b.name.trim().slice(0, 40) : '';
+  const bssid = typeof b.bssid === 'string' ? b.bssid.trim().toUpperCase() : '';
+  const minRssi = b.minRssi == null ? -80 : Math.round(Number(b.minRssi));
+  const lat = b.lat == null || b.lat === '' ? null : Number(b.lat), lng = b.lng == null || b.lng === '' ? null : Number(b.lng);
+  if (!name) return res.status(400).json({ error: 'Dê um nome para o local (ex.: Casa, CESAR School).' });
+  if (!/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/.test(bssid)) return res.status(400).json({ error: 'BSSID inválido (formato AA:BB:CC:DD:EE:FF).' });
+  if (!(minRssi >= -100 && minRssi <= -20)) return res.status(400).json({ error: 'Sinal mínimo entre -100 e -20 dBm.' });
+  if ((lat == null) !== (lng == null) || (lat != null && !(Math.abs(lat) <= 90 && Math.abs(lng) <= 180))) return res.status(400).json({ error: 'Posição inválida.' });
+  if (db.placesByBssid(bssid).some((p) => p.name.toLowerCase() === name.toLowerCase())) return res.status(409).json({ error: 'Essa rede já está cadastrada com esse nome.' });
+  const place = db.insertPlace({ name, bssid, minRssi, lat, lng, isSafeZone: b.isSafeZone !== false });
+  broadcast({ type: 'wifiPlaces', places: db.places() });
+  res.status(201).json(place);
+});
+app.delete('/api/wifi-places/:id', (req, res) => {
+  if (!db.deletePlace(Number(req.params.id))) return res.status(404).json({ error: 'Local não encontrado.' });
+  broadcast({ type: 'wifiPlaces', places: db.places() });
+  res.json({ ok: true });
+});
+
 app.get('/api/events', (req, res) => {
   res.json(db.events({ deviceId: req.query.deviceId || undefined, limit: Math.min(Number(req.query.limit ?? 100), 1000) }));
 });
@@ -208,6 +288,11 @@ startMqtt(hub, config.mqtt).catch((err) => {
   process.exit(1);
 });
 usb.start().catch((err) => console.warn(`[USB] ${err.message}`));
+
+/* âncoras rápidas vencidas: a cada 60 s saem das zonas e entram na linha do tempo */
+setInterval(() => {
+  for (const z of zones.expire(Date.now())) hub.addEvent(z.deviceId ?? config.defaultDeviceId, 'ANCHOR_EXPIRED', { zone: z.name, lat: z.lat, lon: z.lon });
+}, 60000).unref();
 
 server.listen(config.httpPort, () => {
   console.log(`[HTTP] Dashboard em http://localhost:${config.httpPort}`);

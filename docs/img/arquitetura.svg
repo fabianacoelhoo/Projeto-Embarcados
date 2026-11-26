@@ -1,88 +1,119 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1700" height="900" viewBox="0 0 1700 900" font-family="Inter, Arial, Helvetica, sans-serif">
-<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#374151"/></marker><marker id="arp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#d97706"/></marker></defs>
-<rect width="100%" height="100%" fill="#fff"/>
-<text x="60" y="58" font-size="28" font-weight="700" fill="#1f2937">EchoMap — Arquitetura e fluxo de comunicação</text>
-<text x="60" y="90" font-size="16" fill="#6b7280">Dado do sensor até o painel dos responsáveis · linhas cheias = implementado · tracejado = próxima etapa</text>
-<line x1="60" y1="112" x2="1640" y2="112" stroke="#FF6000" stroke-width="3"/>
-<rect x="60" y="140" width="470" height="700" rx="16" fill="#ea580c" fill-opacity="0.06" stroke="#ea580c" stroke-opacity="0.45" stroke-width="2"/>
-<text x="80" y="172" font-size="15" font-weight="700" letter-spacing="1" fill="#ea580c">1 · DISPOSITIVO (EDGE)</text>
-<rect x="600" y="140" width="520" height="700" rx="16" fill="#2563eb" fill-opacity="0.06" stroke="#2563eb" stroke-opacity="0.45" stroke-width="2"/>
-<text x="620" y="172" font-size="15" font-weight="700" letter-spacing="1" fill="#2563eb">2 · SERVIDOR LOCAL (PC)</text>
-<rect x="1190" y="140" width="450" height="700" rx="16" fill="#16a34a" fill-opacity="0.06" stroke="#16a34a" stroke-opacity="0.45" stroke-width="2"/>
-<text x="1210" y="172" font-size="15" font-weight="700" letter-spacing="1" fill="#16a34a">3 · RESPONSÁVEIS</text>
-<rect x="90" y="190" width="410" height="140" rx="10" fill="#fff" stroke="#ea580c" stroke-width="2"/>
-<text x="106" y="218" font-size="16" font-weight="700" fill="#1f2937">Sensores e atuadores</text>
-<text x="106" y="242" font-size="13" fill="#6b7280">2× HC-SR04 · GPS NEO-6M · MPU-6050</text>
-<text x="106" y="261" font-size="13" fill="#6b7280">Potenciômetro (limiar 20–200 cm) · Botão</text>
-<text x="106" y="280" font-size="13" fill="#6b7280">LED RGB + 2 buzzers passivos</text>
-<rect x="90" y="366" width="410" height="200" rx="10" fill="#fff" stroke="#ea580c" stroke-width="2"/>
-<text x="106" y="394" font-size="16" font-weight="700" fill="#1f2937">ESP32 · FreeRTOS (7 tasks)</text>
-<text x="106" y="418" font-size="13" fill="#6b7280">Core 1: TaskSensors · TaskStatusLed · TaskBuzzer</text>
-<text x="106" y="437" font-size="13" fill="#6b7280">Core 0: TaskButton · TaskImu · TaskGps · TaskComms</text>
-<text x="106" y="456" font-size="13" fill="#6b7280">Queda e impacto a 200 Hz · inclinação</text>
-<text x="106" y="475" font-size="13" fill="#6b7280">Eventos NEAR_MISS, CRASH, FALL e IMPACT</text>
-<text x="106" y="494" font-size="13" fill="#6b7280">Telemetria e IMU a cada 200 ms · posição 1×/s</text>
-<rect x="90" y="602" width="410" height="90" rx="10" fill="#fffbeb" stroke="#d97706" stroke-width="2" stroke-dasharray="8 6"/>
-<text x="106" y="630" font-size="16" font-weight="700" fill="#1f2937">Motores de vibração</text>
-<text x="106" y="654" font-size="13" fill="#6b7280">substituem os buzzers (alerta tátil por lado)</text>
-<rect x="90" y="720" width="410" height="96" rx="10" fill="#f9fafb" stroke="#9ca3af" stroke-width="2"/>
-<text x="106" y="748" font-size="16" font-weight="700" fill="#1f2937">Transporte</text>
-<text x="106" y="772" font-size="13" fill="#6b7280">MQTT sobre Wi-Fi 2,4 GHz (TCP :1883)</text>
-<text x="106" y="791" font-size="13" fill="#6b7280">ou USB Serial 115200 · payload JSON</text>
-<path d="M295,330 L295,364" fill="none" stroke="#374151" stroke-width="2.5" marker-end="url(#ar)"/>
-<path d="M295,568 L295,602" fill="none" stroke="#d97706" stroke-width="2.5" stroke-dasharray="9 7" marker-end="url(#arp)"/>
-<rect x="630" y="190" width="460" height="110" rx="10" fill="#fff" stroke="#2563eb" stroke-width="2"/>
-<text x="646" y="218" font-size="16" font-weight="700" fill="#1f2937">Broker MQTT embutido (Aedes)</text>
-<text x="646" y="242" font-size="13" fill="#6b7280">porta 1883 · echomap/&lt;id&gt;/&lt;canal&gt;</text>
-<text x="646" y="261" font-size="13" fill="#6b7280">ou broker externo (MQTT_URL)</text>
-<rect x="630" y="336" width="460" height="184" rx="10" fill="#fff" stroke="#2563eb" stroke-width="2"/>
-<text x="646" y="364" font-size="16" font-weight="700" fill="#1f2937">Back-end Node.js</text>
-<text x="646" y="388" font-size="13" fill="#6b7280">Express (API REST) + WebSocket /ws</text>
-<text x="646" y="407" font-size="13" fill="#6b7280">hub.js: normaliza leituras e gera eventos</text>
-<text x="646" y="426" font-size="13" fill="#6b7280">Regras: zona segura, impacto, bateria,</text>
-<text x="646" y="445" font-size="13" fill="#6b7280">dispositivo offline</text>
-<text x="646" y="464" font-size="13" fill="#6b7280">Fonte alternativa: Serial (serialport)</text>
-<rect x="630" y="556" width="460" height="96" rx="10" fill="#fff" stroke="#2563eb" stroke-width="2"/>
-<text x="646" y="584" font-size="16" font-weight="700" fill="#1f2937">SQLite (node:sqlite)</text>
-<text x="646" y="608" font-size="13" fill="#6b7280">devices · readings · events</text>
-<text x="646" y="627" font-size="13" fill="#6b7280">leituras 1×/s · retenção de 30 dias</text>
-<rect x="630" y="690" width="460" height="120" rx="10" fill="#f9fafb" stroke="#9ca3af" stroke-width="2"/>
-<text x="646" y="718" font-size="16" font-weight="700" fill="#1f2937">Simulador da ESP32 (tools/simulator.js)</text>
-<text x="646" y="742" font-size="13" fill="#6b7280">publica no broker o mesmo JSON do firmware</text>
-<text x="646" y="761" font-size="13" fill="#6b7280">para testar o painel sem a placa</text>
-<path d="M860,300 L860,334" fill="none" stroke="#374151" stroke-width="2.5" marker-end="url(#ar)"/>
-<text x="872" y="322" font-size="12" fill="#6b7280">subscribe echomap/#</text>
-<path d="M860,520 L860,554" fill="none" stroke="#374151" stroke-width="2.5" marker-end="url(#ar)" marker-start="url(#ar)"/>
-<rect x="1220" y="190" width="390" height="280" rx="10" fill="#fff" stroke="#16a34a" stroke-width="2"/>
-<text x="1236" y="218" font-size="16" font-weight="700" fill="#1f2937">Dashboard web (navegador)</text>
-<text x="1236" y="242" font-size="13" fill="#6b7280">HTML/CSS/JS + Leaflet (mapa)</text>
-<text x="1236" y="261" font-size="13" fill="#6b7280">• Ao redor agora (esq./dir.)</text>
-<text x="1236" y="280" font-size="13" fill="#6b7280">• Gráfico de distância + limiar</text>
-<text x="1236" y="299" font-size="13" fill="#6b7280">• Ocorrências com “Ciente”</text>
-<text x="1236" y="318" font-size="13" fill="#6b7280">• Localização e zona segura</text>
-<text x="1236" y="337" font-size="13" fill="#6b7280">• Queda, impacto e inclinação</text>
-<text x="1236" y="356" font-size="13" fill="#6b7280">• Notificações do navegador</text>
-<text x="1236" y="375" font-size="13" fill="#6b7280">• Zonas seguras editáveis no mapa</text>
-<text x="1236" y="394" font-size="13" fill="#6b7280">• Senha para abrir em outro aparelho</text>
-<rect x="1220" y="506" width="390" height="110" rx="10" fill="#fff" stroke="#16a34a" stroke-width="2"/>
-<text x="1236" y="534" font-size="16" font-weight="700" fill="#1f2937">Responsáveis</text>
-<text x="1236" y="558" font-size="13" fill="#6b7280">pais/cuidadores de crianças,</text>
-<text x="1236" y="577" font-size="13" fill="#6b7280">idosos ou pessoas vulneráveis</text>
-<rect x="1220" y="656" width="390" height="124" rx="10" fill="#fff" stroke="#16a34a" stroke-width="2"/>
-<text x="1236" y="684" font-size="16" font-weight="700" fill="#1f2937">Comandos ao dispositivo</text>
-<text x="1236" y="708" font-size="13" fill="#6b7280">POST /api/devices/:id/command</text>
-<text x="1236" y="727" font-size="13" fill="#6b7280">→ echomap/&lt;id&gt;/cmd: buzzer, portal, Wi-Fi, servidor</text>
-<path d="M1415,470 L1415,504" fill="none" stroke="#374151" stroke-width="2.5" marker-end="url(#ar)" marker-start="url(#ar)"/>
-<path d="M502,410 L560,410 L560,250 L628,250" fill="none" stroke="#374151" stroke-width="2.5" marker-end="url(#ar)"/>
-<text x="531" y="400" font-size="12" text-anchor="middle" font-weight="600" fill="#1f2937">publish</text>
-<text x="552" y="344" font-size="12" text-anchor="end" fill="#1f2937">telemetry · events</text>
-<text x="552" y="360" font-size="12" text-anchor="end" fill="#1f2937">location · imu</text>
-<path d="M628,280 L585,280 L585,500 L502,500" fill="none" stroke="#374151" stroke-width="2.5" marker-end="url(#ar)"/>
-<text x="543" y="490" font-size="12" text-anchor="middle" font-weight="600" fill="#1f2937">…/cmd</text>
-<path d="M1092,380 L1218,380" fill="none" stroke="#374151" stroke-width="2.5" marker-end="url(#ar)"/>
-<text x="1155" y="368" font-size="12" text-anchor="middle" font-weight="600" fill="#1f2937">WebSocket</text>
-<path d="M1092,440 L1218,440" fill="none" stroke="#374151" stroke-width="2.5" marker-end="url(#ar)" marker-start="url(#ar)"/>
-<text x="1155" y="428" font-size="12" text-anchor="middle" font-weight="600" fill="#1f2937">REST /api</text>
-<path d="M1218,718 L1160,718 L1160,490 L1092,490" fill="none" stroke="#374151" stroke-width="2.5" marker-end="url(#ar)"/>
-<text x="1153" y="620" font-size="12" text-anchor="end" font-weight="600" fill="#1f2937">comando</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="1900" height="920" viewBox="0 0 1900 920" font-family="DejaVu Sans, Arial, Helvetica, sans-serif" xmlns:c2pa="http://c2pa.org/manifest">
+<defs><marker id="ponta" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 z" fill="#475569"/></marker></defs>
+<rect x="0" y="0" width="1900" height="920" rx="0" fill="#ffffff" stroke="none" stroke-width="1.5"/>
+<text x="50" y="54" font-size="28" fill="#1f2937" font-weight="700" text-anchor="start">EchoMap — Arquitetura do sistema (firmware 1.9)</text>
+<text x="50" y="84" font-size="14" fill="#6b7280" font-weight="400" text-anchor="start">Do colete ao painel dos responsáveis · gerado por docs/img/gerar_arquitetura.py · tracejado = previsto, ainda não montado</text>
+<line x1="50" y1="102" x2="1850" y2="102" stroke="#FF6000" stroke-width="3"/>
+<text x="50" y="136" font-size="15" fill="#FF6000" font-weight="700" text-anchor="start">1 · COLETE (VESTÍVEL)</text>
+<text x="510" y="136" font-size="15" fill="#FF6000" font-weight="700" text-anchor="start">2 · ESP32 · FreeRTOS</text>
+<text x="1000" y="136" font-size="15" fill="#FF6000" font-weight="700" text-anchor="start">3 · SERVIDOR LOCAL (PC)</text>
+<text x="1470" y="136" font-size="15" fill="#FF6000" font-weight="700" text-anchor="start">4 · RESPONSÁVEIS</text>
+<rect x="50" y="152" width="410" height="138" rx="10" fill="#ffffff" stroke="#0f766e" stroke-width="2"/>
+<text x="64" y="178" font-size="15" fill="#0f766e" font-weight="700" text-anchor="start">Case central (bolso 78 × 160)</text>
+<text x="64" y="202" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">ESP32 DevKit 38 pinos (D0WD-V3, CP2102)</text>
+<text x="64" y="220" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">MPU-6050 em prateleira rígida e plana</text>
+<text x="64" y="238" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">Potenciômetro WH148: limiar 20–200 cm</text>
+<text x="64" y="256" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">LED RGB 5 mm · push-button 6×6 mm</text>
+<text x="64" y="274" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">USB-C acessível por fora</text>
+<rect x="50" y="304" width="410" height="120" rx="10" fill="#ffffff" stroke="#0f766e" stroke-width="2"/>
+<text x="64" y="330" font-size="15" fill="#0f766e" font-weight="700" text-anchor="start">2× suporte “farol” na alça de 60 mm</text>
+<text x="64" y="354" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">HC-SR04 (esquerdo / direito), cone de 15° livre</text>
+<text x="64" y="372" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">Atuador do mesmo lado, encostado no peito:</text>
+<text x="64" y="390" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">buzzer passivo (montado hoje) ou módulo MV50</text>
+<text x="64" y="408" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">Catraca sem parafuso: fita de 1,6 a 2,8 mm</text>
+<rect x="50" y="438" width="410" height="84" rx="10" fill="#ffffff" stroke="#0f766e" stroke-width="2"/>
+<text x="64" y="464" font-size="15" fill="#0f766e" font-weight="700" text-anchor="start">Case do GPS no ombro (perfil 11,4 mm)</text>
+<text x="64" y="488" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">NEO-6M (GY-GPS6MV2) + antena cerâmica</text>
+<text x="64" y="506" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">1,2 mm de plástico sobre a antena (céu livre)</text>
+<rect x="50" y="536" width="410" height="84" rx="10" fill="#ffffff" stroke="#64748b" stroke-width="2"/>
+<text x="64" y="562" font-size="15" fill="#64748b" font-weight="700" text-anchor="start">Mecânica 3D (hardware/cad)</text>
+<text x="64" y="586" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">build123d paramétrico · STL/STEP · renders</text>
+<text x="64" y="604" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">verify.py: colisão, snap-fit, balanço</text>
+<rect x="50" y="634" width="410" height="66" rx="10" fill="#ffffff" stroke="#9ca3af" stroke-width="2" stroke-dasharray="6 4"/>
+<text x="64" y="660" font-size="15" fill="#9ca3af" font-weight="700" text-anchor="start">Bateria 3,7 V + TP4056 + MT3608</text>
+<text x="64" y="684" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">previsto: medição no GPIO34 (reservado)</text>
+<rect x="510" y="152" width="440" height="156" rx="10" fill="#ffffff" stroke="#1d4ed8" stroke-width="2"/>
+<text x="524" y="178" font-size="15" fill="#1d4ed8" font-weight="700" text-anchor="start">Core 1 (tempo real dos sensores)</text>
+<text x="524" y="202" font-size="12.5" fill="#111827" font-weight="600" text-anchor="start">TaskSensors · 60 ms · prioridade 2</text>
+<text x="524" y="220" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">2× HC-SR04 alternados, filtro EMA, TTC por lado</text>
+<text x="524" y="238" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">NEAR_MISS só no crítico (≤ 1,5 s ou &lt; 25 cm)</text>
+<text x="524" y="256" font-size="12.5" fill="#111827" font-weight="600" text-anchor="start">TaskHaptic · 10 ms · linguagem háptica</text>
+<text x="524" y="274" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">7 padrões por lado, em buzzer ou motor (PWM)</text>
+<text x="524" y="292" font-size="12.5" fill="#111827" font-weight="600" text-anchor="start">TaskStatusLed · 20 ms · cor do LED RGB</text>
+<rect x="510" y="322" width="440" height="174" rx="10" fill="#ffffff" stroke="#1d4ed8" stroke-width="2"/>
+<text x="524" y="348" font-size="15" fill="#1d4ed8" font-weight="700" text-anchor="start">Core 0 (eventos e rede)</text>
+<text x="524" y="372" font-size="12.5" fill="#111827" font-weight="600" text-anchor="start">TaskImu · 5 ms (200 Hz) · prioridade 3</text>
+<text x="524" y="390" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">queda, batida, inclinação · pré-alerta de 5 s</text>
+<text x="524" y="408" font-size="12.5" fill="#111827" font-weight="600" text-anchor="start">TaskButton · interrupção · gestos</text>
+<text x="524" y="426" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">1 clique: radar ↔ autoteste · 2: âncora rápida</text>
+<text x="524" y="444" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">3: portal Wi-Fi · 1,5 s: SOS · pré-alerta: “Estou bem”</text>
+<text x="524" y="462" font-size="12.5" fill="#111827" font-weight="600" text-anchor="start">TaskGps · 20 ms · NMEA (TinyGPSPlus)</text>
+<text x="524" y="480" font-size="12.5" fill="#111827" font-weight="600" text-anchor="start">TaskComms · 20 ms · Wi-Fi, MQTT, Serial, comandos</text>
+<rect x="510" y="510" width="440" height="138" rx="10" fill="#ffffff" stroke="#1d4ed8" stroke-width="2"/>
+<text x="524" y="536" font-size="15" fill="#1d4ed8" font-weight="700" text-anchor="start">Serviços do firmware</text>
+<text x="524" y="560" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">Economia: parado 2 min → sensores 1 Hz + modem-sleep</text>
+<text x="524" y="578" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">Calibração assistida (30 s andando) salva na NVS</text>
+<text x="524" y="596" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">Assinatura Wi-Fi (BSSID) quando o GPS some 15 s</text>
+<text x="524" y="614" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">Portal cativo de Wi-Fi · descoberta do servidor (auto)</text>
+<text x="524" y="632" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">Mutex do estado · fila de eventos · semáforo da ISR</text>
+<rect x="510" y="690" width="920" height="156" rx="10" fill="#ffffff" stroke="#7c3aed" stroke-width="2"/>
+<text x="524" y="716" font-size="15" fill="#7c3aed" font-weight="700" text-anchor="start">Comunicação em dois canais (mesmo JSON)</text>
+<text x="524" y="740" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">Wi-Fi 2,4 GHz → MQTT TCP :1883 · echomap/&lt;id&gt;/&lt;canal&gt;</text>
+<text x="524" y="758" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">Descoberta UDP :47801: placa com servidor “auto” acha o PC</text>
+<text x="524" y="776" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">Cabo USB: Serial 115200, porta detectada sozinha</text>
+<text x="524" y="794" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">Com os dois ligados, o servidor descarta duplicatas</text>
+<text x="524" y="812" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">Canais: telemetry · events · location · imu · status</text>
+<text x="524" y="830" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">pong · diag · calib · wifi    |    comandos: …/cmd</text>
+<rect x="1000" y="152" width="430" height="246" rx="10" fill="#ffffff" stroke="#b45309" stroke-width="2"/>
+<text x="1014" y="178" font-size="15" fill="#b45309" font-weight="700" text-anchor="start">Node.js 22 (applications/dashboard)</text>
+<text x="1014" y="202" font-size="12.5" fill="#111827" font-weight="600" text-anchor="start">Broker MQTT embutido (Aedes) :1883</text>
+<text x="1014" y="220" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">só o servidor publica em …/cmd</text>
+<text x="1014" y="238" font-size="12.5" fill="#111827" font-weight="600" text-anchor="start">hub.js: normaliza Wi-Fi e USB, gera eventos</text>
+<text x="1014" y="256" font-size="12.5" fill="#111827" font-weight="600" text-anchor="start">Regras de alerta</text>
+<text x="1014" y="274" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">NEAR_MISS · CRASH/SOS · FALL · IMPACT · DISMISSED</text>
+<text x="1014" y="292" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">zona segura fixa + âncora rápida (100 m, 4 h)</text>
+<text x="1014" y="310" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">fallback interno: local conhecido pelo Wi-Fi</text>
+<text x="1014" y="328" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">dispositivo offline · bateria (regra pronta)</text>
+<text x="1014" y="346" font-size="12.5" fill="#111827" font-weight="600" text-anchor="start">Mapa de calor: quase colisões × GPS (~5 m)</text>
+<text x="1014" y="364" font-size="12.5" fill="#111827" font-weight="600" text-anchor="start">API REST /api + WebSocket /ws</text>
+<text x="1014" y="382" font-size="12.5" fill="#111827" font-weight="600" text-anchor="start">Senha do painel fora do próprio PC</text>
+<rect x="1000" y="412" width="430" height="102" rx="10" fill="#ffffff" stroke="#b45309" stroke-width="2"/>
+<text x="1014" y="438" font-size="15" fill="#b45309" font-weight="700" text-anchor="start">SQLite (node:sqlite)</text>
+<text x="1014" y="462" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">devices · readings (1/s) · events · calibrations</text>
+<text x="1014" y="480" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">safe_zones · known_wifi_places</text>
+<text x="1014" y="498" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">migrate() idempotente na partida</text>
+<rect x="1000" y="528" width="430" height="84" rx="10" fill="#ffffff" stroke="#b45309" stroke-width="2"/>
+<text x="1014" y="554" font-size="15" fill="#b45309" font-weight="700" text-anchor="start">Simulador e testes</text>
+<text x="1014" y="578" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">tools/simulator.js: mesmo JSON do firmware</text>
+<text x="1014" y="596" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">npm test (painel, eventos, calibração, fase 4, USB)</text>
+<rect x="1470" y="152" width="380" height="210" rx="10" fill="#ffffff" stroke="#be185d" stroke-width="2"/>
+<text x="1484" y="178" font-size="15" fill="#be185d" font-weight="700" text-anchor="start">Dashboard web (7 telas)</text>
+<text x="1484" y="202" font-size="12.5" fill="#111827" font-weight="600" text-anchor="start">Início: estado geral e últimos alertas</text>
+<text x="1484" y="220" font-size="12.5" fill="#111827" font-weight="600" text-anchor="start">Ao vivo: esquerda/direita, distância e limiar</text>
+<text x="1484" y="238" font-size="12.5" fill="#111827" font-weight="600" text-anchor="start">Ocorrências + detalhe do alerta (“Ciente”)</text>
+<text x="1484" y="256" font-size="12.5" fill="#111827" font-weight="600" text-anchor="start">Mapa: trajeto, zonas seguras, âncora,</text>
+<text x="1484" y="274" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">mapa de calor e locais por Wi-Fi</text>
+<text x="1484" y="292" font-size="12.5" fill="#111827" font-weight="600" text-anchor="start">Movimento: queda, batida, inclinação</text>
+<text x="1484" y="310" font-size="12.5" fill="#111827" font-weight="600" text-anchor="start">Dispositivo: Wi-Fi, comandos, calibração,</text>
+<text x="1484" y="328" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">teste da linguagem háptica, latência</text>
+<text x="1484" y="346" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">Notificações do navegador · Leaflet (mapa)</text>
+<rect x="1470" y="376" width="380" height="84" rx="10" fill="#ffffff" stroke="#be185d" stroke-width="2"/>
+<text x="1484" y="402" font-size="15" fill="#be185d" font-weight="700" text-anchor="start">Responsáveis</text>
+<text x="1484" y="426" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">pais, cuidadores de crianças, idosos</text>
+<text x="1484" y="444" font-size="12.5" fill="#374151" font-weight="400" text-anchor="start">ou pessoas com deficiência visual</text>
+<line x1="460" y1="260" x2="508" y2="260" stroke="#475569" stroke-width="2.4" marker-end="url(#ponta)"/>
+<text x="484.0" y="250.0" font-size="11.5" fill="#475569" font-weight="600" text-anchor="middle">sensores</text>
+<line x1="508" y1="300" x2="460" y2="300" stroke="#475569" stroke-width="2.4" marker-end="url(#ponta)"/>
+<text x="484.0" y="318.0" font-size="11.5" fill="#475569" font-weight="600" text-anchor="middle">atuadores</text>
+<line x1="950" y1="300" x2="998" y2="300" stroke="#475569" stroke-width="2.4" marker-end="url(#ponta)"/>
+<text x="974.0" y="292.0" font-size="11.5" fill="#475569" font-weight="600" text-anchor="middle">MQTT/USB</text>
+<line x1="998" y1="360" x2="950" y2="360" stroke="#475569" stroke-width="2.4" marker-end="url(#ponta)"/>
+<text x="974.0" y="378.0" font-size="11.5" fill="#475569" font-weight="600" text-anchor="middle">…/cmd</text>
+<line x1="1430" y1="300" x2="1468" y2="300" stroke="#475569" stroke-width="2.4" marker-end="url(#ponta)"/>
+<text x="1449.0" y="292.0" font-size="11.5" fill="#475569" font-weight="600" text-anchor="middle">WS</text>
+<line x1="1468" y1="360" x2="1430" y2="360" stroke="#475569" stroke-width="2.4" marker-end="url(#ponta)"/>
+<text x="1449.0" y="378.0" font-size="11.5" fill="#475569" font-weight="600" text-anchor="middle">REST</text>
+<line x1="730" y1="650" x2="730" y2="688" stroke="#7c3aed" stroke-width="2.4" marker-end="url(#ponta)"/>
+<line x1="1215" y1="688" x2="1215" y2="614" stroke="#7c3aed" stroke-width="2.4" marker-end="url(#ponta)"/>
+<text x="50" y="890" font-size="12.5" fill="#6b7280" font-weight="400" text-anchor="start">Fonte: esp32-esp8266/no-principal (config.h, main.cpp, net.cpp), applications/dashboard/server, hardware/cad. Bateria: ainda não medida (GPIO34 reservado).</text>
+<metadata><c2pa:manifest>AAAWgmp1bWIAAAAeanVtZGMycGEAEQAQgAAAqgA4m3EDYzJwYQAAABZcanVtYgAAAEdqdW1kYzJtYQARABCAAACqADibcQN1cm46YzJwYToyMmFhNjEzYi1mZDEyLTQ0NTEtOTFlYi0yNWNhYzZhNTY5NmMAAAADl2p1bWIAAAApanVtZGMyYXMAEQAQgAAAqgA4m3EDYzJwYS5hc3NlcnRpb25zAAAAALxqdW1iAAAARGp1bWRjYm9yABEAEIAAAKoAOJtxE2MycGEuaW5ncmVkaWVudC52MwAAAAAYYzJzaKhlI3lFGGzmVd/i8PB0vGoAAABwY2JvcqNpZGM6Zm9ybWF0bWltYWdlL3N2Zyt4bWxqaW5zdGFuY2VJRHgseG1wOmlpZDo0MjAxODQ1ZS01NjMxLTQ1NzUtODNiZi1jYzhmZmRmZTIxZWRscmVsYXRpb25zaGlwaHBhcmVudE9mAAAB4mp1bWIAAABBanVtZGNib3IAEQAQgAAAqgA4m3ETYzJwYS5hY3Rpb25zLnYyAAAAABhjMnNoOt87K/dRe7pPdiH1ACBQvAAAAZljYm9yomdhY3Rpb25zgqJmYWN0aW9ua2MycGEub3BlbmVkanBhcmFtZXRlcnOha2luZ3JlZGllbnRzgaJjdXJseC1zZWxmI2p1bWJmPWMycGEuYXNzZXJ0aW9ucy9jMnBhLmluZ3JlZGllbnQudjNkaGFzaFgghslKCnXqHUUCfaAVNa3swwL4IB4/lBePcSrc7TkMReikZmFjdGlvbngdY29tLmFudGhyb3BpYy5jbGF1ZGUucHJvdmlkZWRqcGFyYW1ldGVyc6F4H2NvbS5hbnRocm9waWMub3JpZ2luLWNvbmZpZGVuY2VndW5rbm93bmtkZXNjcmlwdGlvbnhmQ2xhdWRlIHByb3ZpZGVkIHRoaXMgZmlsZSBhdCB0aGUgcmVxdWVzdCBvZiBhIHVzZXIgYW5kIG1heSBoYXZlIGNyZWF0ZWQgb3IgbW9kaWZpZWQgdGhlIGZpbGUgY29udGVudHMubXNvZnR3YXJlQWdlbnShZG5hbWVmQ2xhdWRlcmFsbEFjdGlvbnNJbmNsdWRlZPUAAADIanVtYgAAAEBqdW1kY2JvcgARABCAAACqADibcRNjMnBhLmhhc2guZGF0YQAAAAAYYzJzaOdO4iJ9VK1QF/1QbAa1B+wAAACAY2JvcqVjYWxnZnNoYTI1NmNwYWRMAAAAAAAAAAAAAAAAZGhhc2hYIDoOtsO6sMtKSam9aNZPHOaSpqJp206yu22TniI88LRoZG5hbWVuanVtYmYgbWFuaWZlc3RqZXhjbHVzaW9uc4GiZXN0YXJ0GT4EZmxlbmd0aBkeBAAAAj5qdW1iAAAAJ2p1bWRjMmNsABEAEIAAAKoAOJtxA2MycGEuY2xhaW0udjIAAAACD2Nib3KlY2FsZ2ZzaGEyNTZpc2lnbmF0dXJleE1zZWxmI2p1bWJmPS9jMnBhL3VybjpjMnBhOjIyYWE2MTNiLWZkMTItNDQ1MS05MWViLTI1Y2FjNmE1Njk2Yy9jMnBhLnNpZ25hdHVyZWppbnN0YW5jZUlEeCx4bXA6aWlkOjU3NzU0YzgxLWE0ZmItNDY2OS1iMzgzLWJiMjRiOTg3NjZmY3JjcmVhdGVkX2Fzc2VydGlvbnODomN1cmx4LXNlbGYjanVtYmY9YzJwYS5hc3NlcnRpb25zL2MycGEuaW5ncmVkaWVudC52M2RoYXNoWCCGyUoKdeodRQJ9oBU1rezDAvggHj+UF49xKtztOQxF6KJjdXJseCpzZWxmI2p1bWJmPWMycGEuYXNzZXJ0aW9ucy9jMnBhLmFjdGlvbnMudjJkaGFzaFgg5ucF1YCZ1ZcQEpSkq01HzZzzDF9kMvzawiaLDqHME/iiY3VybHgpc2VsZiNqdW1iZj1jMnBhLmFzc2VydGlvbnMvYzJwYS5oYXNoLmRhdGFkaGFzaFggp5SLeVean66N+FSNsV1S99SCU+BAK10Urcox32OCPA10Y2xhaW1fZ2VuZXJhdG9yX2luZm+jZG5hbWVvQW50aHJvcGljIEZpbGVzZ3ZlcnNpb25lMS4wLjBrc3BlY1ZlcnNpb25lMi40LjAAABA4anVtYgAAAChqdW1kYzJjcwARABCAAACqADibcQNjMnBhLnNpZ25hdHVyZQAAABAIY2JvctKEWQISogEmGCFZAgowggIGMIIBjaADAgECAhRA5aAK7sI50L64g/oGQgU9Z1UTADAKBggqhkjOPQQDAzBJMRcwFQYDVQQKEw5BbnRocm9waWMsIFBCQzEuMCwGA1UEAxMlQW50aHJvcGljIENvbnRlbnQgQ3JlZGVudGlhbHMgUm9vdCBDQTAeFw0yNjA4MDcxODQzNTZaFw0yODA4MDYxOTQzNTZaMEQxFzAVBgNVBAoTDkFudGhyb3BpYywgUEJDMSkwJwYDVQQDEyBBbnRocm9waWMgQ2xhdWRlIENvbnRlbnQgU2lnbmluZzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABJh6CmvLUBgFFNU0vUKlOVtE6djd17L5SuwX0LemFisBM3dkd/3cyjxFA3Qo5S46fX0/ihY0VZ7mfb9KF703t5OjWDBWMA4GA1UdDwEB/wQEAwIHgDAVBgNVHSUEDjAMBgorBgEEAYPoXgIBMAwGA1UdEwEB/wQCMAAwHwYDVR0jBBgwFoAUzlHiBIFOZFsj+OPEz5o+nMHXXMIwCgYIKoZIzj0EAwMDZwAwZAIwMXMdFJ4BetLLVY7ORuE9noqbbAZOZn/aArXyTwFAZfKrPzxF2vPoJNf1+UCdg1XGAjBwX1zd9WGqYkqmL5SFqw1QySjr1zJfpJM9+1rdDwSPLMOPOjKuiXjoU/pUUeG9RwmhY3BhZFkNngAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPZYQGOVuU/0d6Xol0AI5aQa+VSrykzNEHTcuITo/df9M884mZ3UxqtyApv73m6JbQBOeGWnV801z4tzo1CZtU1xIfM=</c2pa:manifest></metadata></svg>

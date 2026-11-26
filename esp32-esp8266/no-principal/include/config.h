@@ -25,7 +25,7 @@
 #define MQTT_BROKER_IP "auto" /* "auto" = acha o PC do dashboard sozinho; ou um IP fixo (se ele parar de responder e o painel se anunciar em outro IP, a placa passa para "auto" sozinha) */
 #endif
 
-#define FW_VERSION "1.4.0"
+#define FW_VERSION "1.9.0"
 #define DEVICE_ID "node1" /* ID padrao no painel (pode ser trocado no portal) */
 #define MQTT_BROKER_PORT 1883
 #define MQTT_TOPIC_PREFIX "echomap" /* topicos: echomap/<id>/telemetry, events, location, imu, status, pong, cmd */
@@ -40,7 +40,7 @@
 #define PORTAL_TIMEOUT_MS 300000         /* fecha sozinho apos 5 min sem uso (se ja houver rede salva) */
 #define NET_PORTAL_AFTER_FAIL_MS 15000   /* Wi-Fi sem conectar por 15 s: abre o portal sozinho (a Serial segue ativa) */
 #define PORTAL_BUTTON_HOLD_MS 2000       /* segurar o botao ao ligar por 2 s tambem abre o portal */
-#define TRIPLE_CLICK_MS 1500             /* 3 cliques dentro desse tempo abrem o portal */
+/* 3 cliques (cada um ate CLICK_GAP_MS depois do anterior) abrem o portal: ver "Gestos do botao" */
 #define NET_TEST_TIMEOUT_MS 20000        /* rede nova: tempo maximo do teste antes de voltar para a anterior */
 #define LOCATE_MS 4000                   /* "tocar buzzer" pelo painel: duracao do bipe */
 
@@ -84,15 +84,31 @@
 #define BUZZER_CHANNEL_R 2
 #define BUZZER_FREQ_HZ 2000 /* tom fixo; o que varia com a distancia e o volume */
 
+/* ----- Atuador da linguagem haptica (include/haptic_engine.h) -----
+ * Os padroes (obstaculo parado, aproximacao rapida, pre-alerta, batimento, confirmacao) sao os mesmos;
+ * muda so como sao tocados nos pinos 13/14:
+ *   ACTUATOR_BUZZER_PWM:       buzzer passivo, tom fixo de BUZZER_FREQ_HZ, intensidade pelo duty
+ *   ACTUATOR_HAPTIC_MOTOR_PWM: motor de vibracao (moeda ERM via transistor/MOSFET, ou entrada PWM de um
+ *                              driver como o DRV2605L), PWM de HAPTIC_MOTOR_PWM_HZ, intensidade pelo duty
+ * O padrao de fabrica e ACTUATOR_MODE; "atuador motor|buzzer" (Serial) ou {"cmd":"actuator","mode":"motor"}
+ * troca na hora e grava na NVS (namespace echomap_cfg), que passa a valer no boot. */
+#define ACTUATOR_BUZZER_PWM 0
+#define ACTUATOR_HAPTIC_MOTOR_PWM 1
+#define ACTUATOR_MODE ACTUATOR_BUZZER_PWM
+#define HAPTIC_MOTOR_PWM_HZ 20000   /* acima do audivel: o motor nao chia */
+#define HAPTIC_MOTOR_MIN_DUTY 0.35f /* abaixo disso o motor moeda nao gira: intensidade 0..1 vira 35..100% */
+#define HAPTIC_PERIOD_MS 10         /* passo do sequenciador (TaskHaptic) */
+#define HEARTBEAT_PERIOD_MS 600000UL /* batimento a cada 10 min, so com Wi-Fi e servidor conectados */
+#define CFG_NAMESPACE "echomap_cfg" /* NVS das configuracoes do usuario (atuador; calibracao na Fase 3) */
+
 /* Distancias pensadas para pessoas andando na rua: alguem passando a ~1,2 m ja
  * entra no alcance (volume baixo) e o volume sobe ate o maximo a 30 cm. */
 #define BUZZER_START_CM 120.0f  /* comeca a apitar, no volume minimo */
 #define BUZZER_FULL_CM 30.0f    /* daqui para perto: volume maximo */
-#define BUZZER_MIN_VOLUME 0.15f /* volume (0..1) logo ao entrar no alcance */
 #define BUZZER_HYST_CM 10.0f    /* so desliga ao passar de START + HYST (evita liga/desliga na borda) */
 #define BUZZER_CONFIRM_SAMPLES 2 /* leituras seguidas para ligar/desligar (filtra eco espurio) */
 
-/* ----- GPS u-blox NEO-6M (GY-NEO6MV2) na UART2 -----
+/* ----- GPS u-blox NEO-6M (GY-GPS6MV2) na UART2 -----
  * TX do GPS -> GPIO16 (RX2 da ESP32) · RX do GPS -> GPIO17 (TX2) · VCC 3V3 · GND.
  * O modulo manda sentencas NMEA a 9600 baud; o fix pode levar alguns minutos
  * no primeiro uso e precisa de ceu aberto (dentro de casa costuma nao pegar). */
@@ -143,10 +159,75 @@
 /* ----- Calibracao / limiares ----- */
 #define DIST_MIN_CM 20.0f
 #define DIST_MAX_CM 200.0f
-#define NEAR_MISS_CM 50.0f /* alguem passou a menos de meio metro (vai na telemetria: o painel usa o mesmo valor) */
-#define NEAR_MISS_HYST_CM 10.0f /* so rearma o NEAR_MISS depois de passar de NEAR_MISS_CM + HYST */
-#define NEAR_MISS_CONFIRM_SAMPLES 2   /* leituras seguidas perto antes de alertar (filtra eco espurio) */
-#define NEAR_MISS_COOLDOWN_MS 10000   /* intervalo minimo entre dois alertas do mesmo lado */
+/* ----- Quase colisao por tempo ate o impacto (TTC, include/ttc_detector.h) -----
+ * Ocorrencia NEAR_MISS so quando e critico: TTC <= TTC_CRITICAL_S a ate TTC_MAX_DIST_CM, ou
+ * leitura <= TTC_CLOSE_CM em TTC_CLOSE_SAMPLES leituras seguidas. Parede ou pessoa parada ao lado
+ * (sem aproximacao) so gera o aviso local: o padrao haptico "obstaculo parado" (pulso curto e suave). */
+#define TTC_V_MIN_CM_S 15.0f      /* abaixo disso o obstaculo esta parado */
+#define TTC_CRITICAL_S 1.5f       /* tempo ate o impacto que vira alerta */
+#define TTC_MAX_DIST_CM 150.0f    /* o TTC so vale ate essa distancia */
+#define TTC_CLOSE_CM 25.0f        /* perto demais, mesmo parado */
+#define TTC_CLOSE_SAMPLES 3       /* leituras validas seguidas <= TTC_CLOSE_CM */
+#define TTC_STATIC_MAX_CM 120.0f  /* faixa do aviso local para obstaculo parado */
+#define TTC_COOLDOWN_MS 3000      /* intervalo minimo entre duas ocorrencias do mesmo lado */
+#define TTC_CONFIRM_SAMPLES 2     /* leituras seguidas com TTC critico (filtra ruido) */
+#define TTC_MAX_GAP_MS 500        /* amostra mais velha que isso nao entra no calculo da velocidade */
+#define TTC_DROPOUT_RESET 3       /* falhas seguidas que zeram a janela (obstaculo sumiu) */
+#define NEAR_MISS_CM TTC_CLOSE_CM /* vai na telemetria ("near"): o painel desenha a faixa critica com o mesmo valor */
+
+/* ----- Pre-alerta "Estou bem" (include/alert_fsm.h) -----
+ * Queda ou batida confirmada abre PRE_ALERT_MS de aviso local (LED ambar + bipes que aceleram).
+ * 1 clique curto no botao cancela (vai ao painel como DISMISSED, gravidade info);
+ * sem clique, o alerta vai normalmente. */
+#define PRE_ALERT_MS 5000
+
+/* ----- Economia de energia guiada pelo MPU (include/power_manager.h) -----
+ * Parado por POWER_IDLE_AFTER_MS: ultrassonicos a 1 Hz (SENSOR_IDLE_PERIOD_MS) e Wi-Fi em modem-sleep
+ * (o MQTT continua conectado). Qualquer movimento, giro ou clique volta tudo na hora. */
+#define POWER_IDLE_AFTER_MS 120000UL
+#define POWER_MOTION_G 0.06f        /* |g - 1| acima disso e movimento */
+#define POWER_MOTION_STD_G 0.03f    /* desvio padrao recente de g acima disso e movimento (balanco continuo) */
+#define POWER_MOTION_GYRO_DPS 12.0f /* giro acima disso e movimento */
+#define POWER_VAR_ALPHA 0.02f       /* media movel do desvio padrao (~250 ms a 200 Hz) */
+#define SENSOR_IDLE_PERIOD_MS 1000  /* periodo dos ultrassonicos em economia */
+
+/* ----- Calibracao assistida (include/calibration.h) -----
+ * "Iniciar calibracao" no painel, {"cmd":"calibrate_start","duration_s":30} ou "calibrar" na Serial:
+ * a pessoa anda em linha reta num corredor livre. No fim:
+ *   limiar de batida = max(CAL_MIN_IMPACT_G, maior pico de passo x CAL_IMPACT_FACTOR), ate CAL_MAX_IMPACT_G
+ *   histerese dos ultrassonicos = CAL_HYST_K x ruido do eco, entre CAL_HYST_MIN_CM e CAL_HYST_MAX_CM
+ * Aplicado na hora e salvo na NVS (CFG_NAMESPACE); "calibrar padrao" volta para IMPACT_G e BUZZER_HYST_CM. */
+#define CAL_DEFAULT_DURATION_S 30
+#define CAL_MIN_DURATION_S 10
+#define CAL_MAX_DURATION_S 120
+#define CAL_STEP_MIN_G 1.15f        /* pico acima disso conta como passo */
+#define CAL_STEP_REFRACTORY_MS 250  /* dois passos nunca ficam mais perto que isso */
+#define CAL_IMPACT_FACTOR 1.6f
+#define CAL_MIN_IMPACT_G 2.5f       /* acima de FALL_IMPACT_G (2 g) */
+#define CAL_MAX_IMPACT_G 4.5f       /* abaixo de HARD_IMPACT_G (5 g): correr na calibracao nao esconde batidas */
+#define CAL_HYST_K 3.0f
+#define CAL_HYST_MIN_CM 5.0f
+#define CAL_HYST_MAX_CM 30.0f
+#define CAL_MIN_STEPS 10            /* menos passos: calibracao invalida, nada muda */
+#define CAL_MIN_ECHO_SAMPLES 20     /* menos leituras seguidas validas num lado: lado ignorado */
+#define CAL_MAX_ECHO_JUMP_CM 20.0f  /* salto maior entre leituras e outro objeto, nao ruido */
+#define CAL_PROGRESS_MS 1000        /* progresso para o painel a cada 1 s */
+
+/* ----- Gestos do botao (include/click_classifier.h) -----
+ * 1 clique = troca o modo (depois de CLICK_GAP_MS sem outro clique) | 2 cliques = ancora rapida
+ * 3 cliques = portal de Wi-Fi | clique longo = SOS (CRASH) | no pre-alerta, 1 clique = "Estou bem" (na hora) */
+#define CLICK_GAP_MS 450
+
+/* ----- Assinatura de Wi-Fi quando o GPS nao pega (include/wifi_fingerprint.h) -----
+ * GPS sem posicao (ou com menos de WIFI_FP_MIN_SATS satelites) ha WIFI_FP_GPS_LOST_MS: varredura passiva e
+ * assincrona a cada WIFI_FP_EVERY_MS (a conexao MQTT continua), e as WIFI_FP_TOP redes mais fortes vao ao
+ * servidor, que reconhece locais cadastrados ("Casa", "CESAR School"). */
+#define WIFI_FP_GPS_LOST_MS 15000
+#define WIFI_FP_EVERY_MS 30000
+#define WIFI_FP_MIN_SATS 3
+#define WIFI_FP_TOP 3
+#define WIFI_FP_SCAN_MS_PER_CHAN 120 /* varredura passiva: tempo em cada canal */
+#define WIFI_FP_SCAN_TIMEOUT_MS 8000
 #define SENSOR_DROPOUT_HOLD 3   /* leituras perdidas seguidas antes de considerar "nada no alcance" */
 
 /* ----- Periodos das tasks (ms) ----- */

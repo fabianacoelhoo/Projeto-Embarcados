@@ -9,6 +9,14 @@
 #include <math.h>
 #include "config.h"
 #include "imu_detector.h"
+#include "ttc_detector.h" /* quase colisao por tempo ate o impacto */
+#include "alert_fsm.h"    /* pre-alerta "Estou bem" de queda/batida */
+#include "power_manager.h" /* economia de energia guiada pelo MPU */
+#include "haptic_engine.h" /* linguagem haptica: padroes -> buzzer ou motor */
+#include "calibration.h"   /* calibracao assistida (30 s andando) */
+#include "click_classifier.h" /* 1, 2 e 3 cliques */
+#include "wifi_fingerprint.h" /* assinatura de Wi-Fi quando o GPS nao pega */
+#include <Preferences.h>   /* NVS: configuracoes do usuario (namespace echomap_cfg) */
 
 #if ENABLE_GPS
 #include <TinyGPS++.h>
@@ -23,8 +31,8 @@
 /*=====================================================*/
 /* Tipos                                                 */
 /*=====================================================*/
-enum Mode { MODE_RADAR = 0, MODE_SIM360 = 1, MODE_SELFTEST = 2 };
-enum EventType { EVT_NEAR_MISS, EVT_CRASH, EVT_FALL, EVT_IMPACT };
+enum Mode { MODE_RADAR = 0, MODE_SELFTEST = 1, MODE_COUNT = 2 };
+enum EventType { EVT_NEAR_MISS, EVT_CRASH, EVT_FALL, EVT_IMPACT, EVT_DISMISSED, EVT_ANCHOR };
 
 struct SideState {
   float rawCm = -1;
@@ -33,6 +41,7 @@ struct SideState {
   uint8_t nearHits = 0;
   uint8_t farHits = 0;
   uint8_t misses = 0;   /* leituras perdidas seguidas */
+  TtcLevel level = TtcLevel::Clear; /* do detector de TTC: estatico limita o volume do buzzer */
 };
 
 struct SensorState {
@@ -41,29 +50,32 @@ struct SensorState {
   float potNormalized = 0;
 };
 
-/* menor distancia valida entre os dois lados (-1 se nenhum detectou nada) */
-float closestCm(const SensorState &s) {
-  if (s.left.filteredCm < 0) return s.right.filteredCm;
-  if (s.right.filteredCm < 0) return s.left.filteredCm;
-  return min(s.left.filteredCm, s.right.filteredCm);
-}
-
 struct AppState {
   Mode mode = MODE_RADAR;
   float lastThr = DIST_MIN_CM;
-  float lastAngle = 0;
   float buzzVolL = 0; /* volume atual de cada buzzer (0..1), so para telemetria */
   float buzzVolR = 0;
 };
 
+/* sem valor padrao nos campos: no C++11 do core isso impediria o AppEvent{...}.
+   Use makeEvent() para os casos simples. */
 struct AppEvent {
   EventType type;
-  float value;  /* cm para NEAR_MISS, g para FALL/IMPACT */
+  float value;    /* cm para NEAR_MISS, g para FALL/IMPACT/DISMISSED */
   uint32_t t;
-  char side; /* 'L'/'R' para NEAR_MISS, '-' quando nao se aplica */
-  float tilt;   /* inclinacao (graus) que confirmou a queda; -1 quando nao se aplica
-                   (sem valor padrao aqui: no C++11 do core isso impediria o AppEvent{...}) */
+  char side;      /* 'L'/'R' para NEAR_MISS, '-' quando nao se aplica */
+  float tilt;     /* inclinacao (graus) que confirmou a queda; -1 quando nao se aplica */
+  float ttc;      /* NEAR_MISS: tempo ate o impacto (s); -1 quando foi por "perto demais" */
+  float vel;      /* NEAR_MISS: velocidade de aproximacao (cm/s) */
+  uint8_t cause;  /* DISMISSED: AlertCause do alerta cancelado; NEAR_MISS: TtcReason; ANCHOR: 1 = tem posicao */
+  float lat;      /* ANCHOR: posicao do GPS no momento dos 2 cliques */
+  float lon;
 };
+
+AppEvent makeEvent(EventType type, float value, char side) {
+  AppEvent e{type, value, (uint32_t)millis(), side, -1.0f, -1.0f, 0.0f, 0, 0.0f, 0.0f};
+  return e;
+}
 
 struct GpsState {
   bool hasFix = false;     /* posicao valida e recente */
@@ -102,10 +114,77 @@ volatile uint32_t crashFlashUntil = 0;
 TinyGPSPlus gps;
 #endif
 
-volatile uint32_t locateUntil = 0;  /* "tocar buzzer" pedido pelo painel */
+/* pedidos para a TaskHaptic (de qualquer task): tocar ou parar um padrao */
+struct HapticRequest {
+  HapticPattern pattern;
+  uint8_t sides;
+  bool stop;
+};
+QueueHandle_t hapticQueue = NULL;
+volatile uint8_t actuatorMode = ACTUATOR_MODE;
+volatile int8_t actuatorRequest = -1; /* troca de atuador pedida (aplicada pela TaskHaptic) */
+
+void haptic(HapticPattern p, uint8_t sides = HAPTIC_BOTH) {
+  if (!hapticQueue) return;
+  HapticRequest r{p, sides, false};
+  xQueueSend(hapticQueue, &r, 0);
+}
+void hapticStop(HapticPattern p) {
+  if (!hapticQueue) return;
+  HapticRequest r{p, HAPTIC_BOTH, true};
+  xQueueSend(hapticQueue, &r, 0);
+}
+
+/* limiares que a calibracao assistida ajusta (salvos na NVS, aplicados sem reiniciar) */
+volatile float runtimeImpactG = IMPACT_G;     /* limiar de batida (ImuDetector) */
+volatile float runtimeHystCm = BUZZER_HYST_CM; /* histerese da faixa de aviso dos ultrassonicos */
+static const CalibConfig CAL_CFG = {CAL_STEP_MIN_G,   CAL_STEP_REFRACTORY_MS, CAL_IMPACT_FACTOR, CAL_MIN_IMPACT_G,
+                                    CAL_MAX_IMPACT_G, CAL_HYST_K,             CAL_HYST_MIN_CM,   CAL_HYST_MAX_CM,
+                                    CAL_MIN_STEPS,    CAL_MIN_ECHO_SAMPLES,   CAL_MAX_ECHO_JUMP_CM};
+Calibrator calibrator(CAL_CFG); /* sempre com stateMutex: TaskImu e TaskSensors alimentam, TaskComms comanda */
+volatile bool calibrating = false;
+
+/* economia de energia: decidida na TaskImu (PowerManager), aplicada aqui */
+TaskHandle_t sensorTaskHandle = NULL;
+volatile bool powerIdle = false;
+volatile bool wakeRequested = false; /* botao: a TaskImu acorda na proxima amostra */
+
+void applyPowerChange(PowerChange c) {
+  if (c == PowerChange::None) return;
+  bool idle = c == PowerChange::EnterIdle;
+  powerIdle = idle;
+  netSetPowerSave(idle); /* aplicado pela TaskComms no proximo netService() */
+  if (!idle && sensorTaskHandle) xTaskNotifyGive(sensorTaskHandle); /* ultrassonicos voltam na hora */
+  if (idle) {
+    Serial.printf("[ENERGIA] Parado ha %lu s: economia (ultrassonicos a 1 Hz, Wi-Fi em modem-sleep).\n",
+                  (unsigned long)(POWER_IDLE_AFTER_MS / 1000));
+  } else {
+    Serial.println("[ENERGIA] Movimento: modo ativo.");
+  }
+}
 bool bootPortalRequested = false;    /* botao segurado ao ligar */
 volatile bool sensorsPaused = false; /* teste de sensores em andamento: a leitura normal espera */
 volatile bool diagRequested = false; /* "sensores" na Serial ou "Testar sensores" no painel */
+
+/* pre-alerta "Estou bem": TaskImu dispara e avanca o tempo, TaskButton cancela (sempre com stateMutex) */
+AlertFsm alertFsm(PRE_ALERT_MS);
+volatile uint32_t preAlertSince = 0;     /* millis() do inicio do pre-alerta; 0 = nenhum */
+volatile uint32_t confirmFeedbackUntil = 0; /* bip curto + LED verde: alerta cancelado */
+
+/* resultado do pre-alerta vira evento: queda/batida confirmada, ou descartada pelo usuario */
+void queueAlertOutcome(AlertAction action, const PendingAlert &p) {
+  if (action == AlertAction::None) return;
+  AppEvent e = makeEvent(EVT_DISMISSED, p.value, '-');
+  e.t = p.t;
+  e.tilt = p.tilt;
+  e.cause = (uint8_t)p.cause;
+  if (action == AlertAction::Confirm) e.type = p.cause == AlertCause::Fall ? EVT_FALL : EVT_IMPACT;
+  if (e.type != EVT_FALL) e.tilt = -1.0f;
+  xQueueSend(eventQueue, &e, 0);
+  preAlertSince = 0;
+  hapticStop(HapticPattern::PreAlert);
+  if (action == AlertAction::Dismiss) haptic(HapticPattern::Confirm);
+}
 
 /*=====================================================*/
 /* Botao - ISR                                           */
@@ -189,21 +268,6 @@ void computeRadar(const SensorState &s, float thrCm, uint32_t now, float &r, flo
   r *= pulse; g *= pulse; b *= pulse;
 }
 
-void computeSim360(const SensorState &s, float &r, float &g, float &b) {
-  float closest = closestCm(s);
-  float magnitude = 0.0f;
-  if (closest >= 0) {
-    float ref = DIST_MAX_CM * 0.5f;
-    magnitude = constrain((ref - closest) / ref, 0.0f, 1.0f);
-  }
-
-  if (magnitude > 0.5f) {
-    r = 1.0f; g = 0.0f; b = 1.0f; /* magenta: obstaculo perto */
-  } else {
-    r = 0.0f; g = 0.0f; b = 1.0f; /* azul: varredura normal */
-  }
-}
-
 void computeSelftest(uint32_t now, float &r, float &g, float &b) {
   int phase = (now / 600) % 4;
   switch (phase) {
@@ -221,7 +285,7 @@ void computeCrashFlash(float &r, float &g, float &b) {
 /*=====================================================*/
 /* Saida: buzzers (1 por sensor, canal LEDC dedicado)    */
 /*=====================================================*/
-/* frequencia fixa (configurada no setup); o volume muda pelo duty. A amplitude da
+/* frequencia fixa (configurada em actuatorSetup); o volume muda pelo duty. A amplitude da
    fundamental de uma onda quadrada e proporcional a sin(pi * duty): 50% e o maximo */
 void setBuzzerVolume(uint8_t channel, float volume) {
   uint32_t duty = 0;
@@ -232,13 +296,6 @@ void setBuzzerVolume(uint8_t channel, float volume) {
   ledcWrite(channel, duty);
 }
 
-float buzzerVolume(const SideState &side, float prevVolume) {
-  if (!side.inRange) return 0.0f;
-  if (side.filteredCm < 0) return prevVolume; /* leitura perdida isolada: mantem o volume */
-  float t = (BUZZER_START_CM - side.filteredCm) / (BUZZER_START_CM - BUZZER_FULL_CM);
-  t = constrain(t, 0.0f, 1.0f);
-  return BUZZER_MIN_VOLUME + t * (1.0f - BUZZER_MIN_VOLUME);
-}
 
 /*=====================================================*/
 /* Task 1 - Sensores (2x HC-SR04, potenciometro)         */
@@ -258,7 +315,7 @@ void updateSide(SideState &side, float raw) {
 
   /* liga/desliga do buzzer usa a leitura bruta (sem atraso do filtro), com histerese
      e confirmacao por leituras seguidas para ignorar ecos isolados */
-  float limit = side.inRange ? (BUZZER_START_CM + BUZZER_HYST_CM) : BUZZER_START_CM;
+  float limit = side.inRange ? (BUZZER_START_CM + runtimeHystCm) : BUZZER_START_CM;
   bool near = (raw >= 0 && raw <= limit);
   if (near) {
     side.farHits = 0;
@@ -271,33 +328,24 @@ void updateSide(SideState &side, float raw) {
   }
 }
 
-/* quase colisao: precisa ficar perto por NEAR_MISS_CONFIRM_SAMPLES leituras seguidas, rearma so depois de
-   sair da faixa (histerese) e respeita NEAR_MISS_COOLDOWN_MS por lado, para uma pessoa parada perto ou um
-   eco que falha e volta nao virarem dezenas de alertas */
-struct NearState {
-  bool active = false;
-  uint8_t count = 0;
-  uint32_t lastAlertAt = 0;
-};
+/* quase colisao por TTC (include/ttc_detector.h): cada lado tem o seu detector, com mediana,
+   velocidade de aproximacao e cooldown proprios. So o critico vira ocorrencia NEAR_MISS. */
+static const TtcConfig TTC_CFG = {TTC_V_MIN_CM_S, TTC_CRITICAL_S,      TTC_MAX_DIST_CM, TTC_CLOSE_CM,
+                                  TTC_CLOSE_SAMPLES, TTC_STATIC_MAX_CM, TTC_COOLDOWN_MS, TTC_CONFIRM_SAMPLES,
+                                  TTC_MAX_GAP_MS,  TTC_DROPOUT_RESET};
 
-bool updateNear(NearState &n, float filteredCm) {
-  bool nearNow = filteredCm >= 0 && filteredCm < (n.active ? NEAR_MISS_CM + NEAR_MISS_HYST_CM : NEAR_MISS_CM);
-  n.count = nearNow ? (n.count < 255 ? n.count + 1 : 255) : 0;
-  if (!n.active && n.count >= NEAR_MISS_CONFIRM_SAMPLES) {
-    n.active = true;
-    uint32_t now = millis();
-    if (n.lastAlertAt == 0 || now - n.lastAlertAt >= NEAR_MISS_COOLDOWN_MS) {
-      n.lastAlertAt = now;
-      return true;
-    }
-  } else if (n.active && !nearNow) {
-    n.active = false;
-  }
-  return false;
+void reportNearMiss(const TtcResult &r, char side) {
+  if (!r.report) return;
+  AppEvent evt = makeEvent(EVT_NEAR_MISS, r.distCm, side);
+  evt.ttc = r.reason == TtcReason::Ttc ? r.ttcS : -1.0f;
+  evt.vel = r.velocityCmS;
+  evt.cause = (uint8_t)r.reason;
+  xQueueSend(eventQueue, &evt, 0);
+  if (r.reason == TtcReason::Ttc) haptic(HapticPattern::FastApproach, side == 'L' ? HAPTIC_LEFT : HAPTIC_RIGHT);
 }
 
 void TaskSensors(void *pvParameters) {
-  NearState nearL, nearR;
+  TtcDetector ttcL(TTC_CFG), ttcR(TTC_CFG);
 
   for (;;) {
     if (sensorsPaused) {
@@ -306,70 +354,110 @@ void TaskSensors(void *pvParameters) {
     }
     /* leitura sequencial com intervalo para evitar eco cruzado entre os dois HC-SR04 */
     float rawL = readDistanceCm(PIN_TRIG_L, PIN_ECHO_L);
+    uint32_t tL = millis();
     vTaskDelay(pdMS_TO_TICKS(SENSOR_GAP_MS));
     float rawR = readDistanceCm(PIN_TRIG_R, PIN_ECHO_R);
+    uint32_t tR = millis();
+    TtcResult resL = ttcL.update(rawL, tL);
+    TtcResult resR = ttcR.update(rawR, tR);
 
     int potRaw = analogRead(PIN_POT);
 
     xSemaphoreTake(stateMutex, portMAX_DELAY);
     updateSide(sensorState.left, rawL);
     updateSide(sensorState.right, rawR);
+    calibrator.addEcho(0, rawL); /* so registra durante a calibracao */
+    calibrator.addEcho(1, rawR);
+    sensorState.left.level = resL.level;
+    sensorState.right.level = resR.level;
     sensorState.potNormalized = potRaw / 4095.0f;
-    float filteredL = sensorState.left.filteredCm;
-    float filteredR = sensorState.right.filteredCm;
     xSemaphoreGive(stateMutex);
 
-    if (updateNear(nearL, filteredL)) {
-      AppEvent evt{EVT_NEAR_MISS, filteredL, (uint32_t)millis(), 'L', -1.0f};
-      xQueueSend(eventQueue, &evt, 0);
-    }
-    if (updateNear(nearR, filteredR)) {
-      AppEvent evt{EVT_NEAR_MISS, filteredR, (uint32_t)millis(), 'R', -1.0f};
-      xQueueSend(eventQueue, &evt, 0);
-    }
+    reportNearMiss(resL, 'L');
+    reportNearMiss(resR, 'R');
 
-    vTaskDelay(pdMS_TO_TICKS(SENSOR_PERIOD_MS));
+    /* em economia, 1 leitura por segundo; acordar (movimento ou botao) interrompe a espera na hora */
+    ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(powerIdle ? SENSOR_IDLE_PERIOD_MS : SENSOR_PERIOD_MS));
   }
 }
 
 /*=====================================================*/
 /* Task 2 - Botao (clique curto = modo, longo = CRASH)   */
 /*=====================================================*/
+/* 2 cliques: ancora rapida (zona segura dinamica) no ponto atual; o servidor liga ou desliga */
+void requestQuickAnchor() {
+  AppEvent evt = makeEvent(EVT_ANCHOR, 0, '-');
+#if ENABLE_GPS
+  xSemaphoreTake(stateMutex, portMAX_DELAY);
+  if (gpsState.hasFix) {
+    evt.lat = (float)gpsState.lat;
+    evt.lon = (float)gpsState.lon;
+    evt.cause = 1; /* tem posicao */
+  }
+  xSemaphoreGive(stateMutex);
+#endif
+  xQueueSend(eventQueue, &evt, 0);
+  haptic(HapticPattern::Confirm);
+  confirmFeedbackUntil = millis() + 400;
+  Serial.printf("[ANCORA] 2 cliques: pedindo a ancora rapida %s.\n", evt.cause ? "na posicao do GPS" : "(sem GPS: o servidor usa a ultima posicao)");
+}
+
+void handleGesture(ClickGesture g) {
+  if (g == ClickGesture::Single) {
+    xSemaphoreTake(stateMutex, portMAX_DELAY);
+    appState.mode = (Mode)((appState.mode + 1) % MODE_COUNT);
+    xSemaphoreGive(stateMutex);
+  } else if (g == ClickGesture::Double) {
+    requestQuickAnchor();
+  } else if (g == ClickGesture::Triple) {
+    netRequestPortal();
+  }
+}
+
 void TaskButton(void *pvParameters) {
+  ClickClassifier clicks(CLICK_GAP_MS);
   for (;;) {
-    if (xSemaphoreTake(buttonSemaphore, portMAX_DELAY) == pdTRUE) {
-      vTaskDelay(pdMS_TO_TICKS(BUTTON_DEBOUNCE_MS));
-      if (digitalRead(PIN_BUTTON) != LOW) continue; /* ruido */
-
-      /* o alerta do clique longo sai assim que completa 1,5 s, sem esperar soltar o botao */
-      uint32_t pressStart = millis();
-      bool longFired = false;
-      while (digitalRead(PIN_BUTTON) == LOW) {
-        if (!longFired && millis() - pressStart >= BUTTON_LONGPRESS_MS) {
-          longFired = true;
-          AppEvent evt{EVT_CRASH, 0, (uint32_t)millis(), '-', -1.0f};
-          xQueueSend(eventQueue, &evt, 0);
-          crashFlashUntil = millis() + CRASH_FLASH_MS;
-        }
-        vTaskDelay(pdMS_TO_TICKS(10));
-      }
-
-      if (!longFired) {
-        xSemaphoreTake(stateMutex, portMAX_DELAY);
-        appState.mode = (Mode)((appState.mode + 1) % 3);
-        xSemaphoreGive(stateMutex);
-
-        /* 3 cliques rapidos abrem o portal de Wi-Fi (como sao 3 modos, o modo volta a ser o mesmo) */
-        static uint32_t clicks[3] = {0, 0, 0};
-        clicks[0] = clicks[1];
-        clicks[1] = clicks[2];
-        clicks[2] = millis();
-        if (clicks[0] != 0 && clicks[2] - clicks[0] <= TRIPLE_CLICK_MS) {
-          clicks[0] = clicks[1] = clicks[2] = 0;
-          netRequestPortal();
-        }
-      }
+    /* espera um aperto, mas acorda a cada 20 ms para fechar 1 ou 2 cliques quando a janela passa */
+    if (xSemaphoreTake(buttonSemaphore, pdMS_TO_TICKS(20)) != pdTRUE) {
+      handleGesture(clicks.tick(millis()));
+      continue;
     }
+    vTaskDelay(pdMS_TO_TICKS(BUTTON_DEBOUNCE_MS));
+    if (digitalRead(PIN_BUTTON) != LOW) continue; /* ruido */
+    wakeRequested = true; /* qualquer clique sai da economia de energia */
+
+    /* o alerta do clique longo sai assim que completa 1,5 s, sem esperar soltar o botao */
+    uint32_t pressStart = millis();
+    bool longFired = false;
+    while (digitalRead(PIN_BUTTON) == LOW) {
+      if (!longFired && millis() - pressStart >= BUTTON_LONGPRESS_MS) {
+        longFired = true;
+        clicks.reset();
+        AppEvent evt = makeEvent(EVT_CRASH, 0, '-');
+        xQueueSend(eventQueue, &evt, 0);
+        crashFlashUntil = millis() + CRASH_FLASH_MS;
+      }
+      vTaskDelay(pdMS_TO_TICKS(10));
+    }
+    if (longFired) continue;
+
+    /* durante o pre-alerta, o clique curto e o "Estou bem": cancela na hora, sem esperar a
+       classificacao de 1/2/3 cliques, e nao troca o modo */
+    xSemaphoreTake(stateMutex, portMAX_DELAY);
+    bool inPreAlert = alertFsm.inPreAlert();
+    AlertAction action = inPreAlert ? alertFsm.cancel(millis()) : AlertAction::None;
+    PendingAlert pending = alertFsm.pending();
+    xSemaphoreGive(stateMutex);
+    if (inPreAlert) {
+      clicks.reset();
+      queueAlertOutcome(action, pending);
+      if (action == AlertAction::Dismiss) {
+        confirmFeedbackUntil = millis() + 400; /* LED verde; a TaskHaptic toca a confirmacao */
+        Serial.println("[ALERTA] Cancelado pelo botao (\"Estou bem\").");
+      }
+      continue;
+    }
+    handleGesture(clicks.click(millis())); /* 3 cliques sai aqui; 1 e 2 saem no tick */
   }
 }
 
@@ -388,11 +476,23 @@ void TaskStatusLed(void *pvParameters) {
     xSemaphoreGive(stateMutex);
 
     float thr = DIST_MIN_CM + s.potNormalized * (DIST_MAX_CM - DIST_MIN_CM);
-    float angle = 0.0f;
     float r = 0, g = 0, b = 0;
 
+    uint32_t preSince = preAlertSince;
     if (now < crashFlashUntil) {
       computeCrashFlash(r, g, b);
+    } else if (preSince != 0) {
+      /* ambar piscando cada vez mais rapido: queda/batida, aperte o botao se estiver tudo bem */
+      float p = constrain((now - preSince) / (float)PRE_ALERT_MS, 0.0f, 1.0f);
+      uint32_t half = 300 - (uint32_t)(p * 220.0f);
+      float on = ((now / half) % 2) ? 1.0f : 0.05f;
+      r = on; g = 0.45f * on; b = 0.0f;
+    } else if ((int32_t)(confirmFeedbackUntil - now) > 0) {
+      r = 0.0f; g = 1.0f; b = 0.0f; /* verde: alerta cancelado */
+    } else if (calibrating) {
+      /* azul pulsando rapido (2x por segundo): calibracao, pode andar */
+      float p = 0.5f + 0.5f * sinf(now / 80.0f);
+      r = 0.0f; g = 0.1f * p; b = 0.2f + 0.8f * p;
     } else if (netTesting()) {
       /* ciano piscando rapido: testando uma rede Wi-Fi nova */
       float on = ((now / 120) % 2) ? 1.0f : 0.1f;
@@ -403,9 +503,6 @@ void TaskStatusLed(void *pvParameters) {
       r = 0.0f; g = 0.25f * p; b = p;
     } else if (mode == MODE_RADAR) {
       computeRadar(s, thr, now, r, g, b);
-    } else if (mode == MODE_SIM360) {
-      angle = s.potNormalized * 360.0f;
-      computeSim360(s, r, g, b);
     } else {
       computeSelftest(now, r, g, b);
     }
@@ -414,7 +511,6 @@ void TaskStatusLed(void *pvParameters) {
 
     xSemaphoreTake(stateMutex, portMAX_DELAY);
     appState.lastThr = thr;
-    appState.lastAngle = angle;
     xSemaphoreGive(stateMutex);
 
     vTaskDelay(pdMS_TO_TICKS(STATUS_PERIOD_MS));
@@ -422,40 +518,79 @@ void TaskStatusLed(void *pvParameters) {
 }
 
 /*=====================================================*/
-/* Task 4 - Buzzers (1 por sensor)                       */
+/* Task 4 - Haptica (sequenciador de padroes -> buzzer ou motor) */
 /*=====================================================*/
-void TaskBuzzer(void *pvParameters) {
-  /* cada buzzer responde so ao ultrassonico do seu lado; mais perto = mais alto */
-  float volL = 0.0f;
-  float volR = 0.0f;
+/* intensidade 0..1 no atuador escolhido (o mesmo canal LEDC; muda a frequencia e a curva do duty) */
+void actuatorSetup(uint8_t mode) {
+  uint32_t freq = mode == ACTUATOR_HAPTIC_MOTOR_PWM ? HAPTIC_MOTOR_PWM_HZ : BUZZER_FREQ_HZ;
+  ledcSetup(BUZZER_CHANNEL_L, freq, 10);
+  ledcSetup(BUZZER_CHANNEL_R, freq, 10);
+  ledcWrite(BUZZER_CHANNEL_L, 0);
+  ledcWrite(BUZZER_CHANNEL_R, 0);
+}
+
+void actuatorWrite(uint8_t channel, float level) {
+  if (actuatorMode == ACTUATOR_HAPTIC_MOTOR_PWM) {
+    /* motor: abaixo de HAPTIC_MOTOR_MIN_DUTY ele nao gira, entao 0..1 vira MIN..100% (0 = parado) */
+    float duty = level <= 0.0f ? 0.0f : HAPTIC_MOTOR_MIN_DUTY + constrain(level, 0.0f, 1.0f) * (1.0f - HAPTIC_MOTOR_MIN_DUTY);
+    ledcWrite(channel, (uint32_t)(duty * 1023.0f));
+  } else {
+    setBuzzerVolume(channel, level);
+  }
+}
+
+/* fundo de cada lado conforme o detector de TTC: parado = pulso espacado e suave; aproximando = mais
+   rapido e forte quanto mais perto (BUZZER_START_CM .. BUZZER_FULL_CM) */
+void setSideAmbient(HapticEngine &engine, uint8_t side, const SideState &s) {
+  float closeness = s.filteredCm < 0 ? 0.0f
+      : constrain((BUZZER_START_CM - s.filteredCm) / (BUZZER_START_CM - BUZZER_FULL_CM), 0.0f, 1.0f);
+  HapticPattern p = HapticPattern::None;
+  if (s.level == TtcLevel::Critical || s.level == TtcLevel::Approaching) p = HapticPattern::Proximity;
+  /* parado: a faixa de aviso tem histerese (liga a BUZZER_START_CM, desliga so depois de + runtimeHystCm,
+     calibrada pelo ruido do eco), para o aviso nao piscar com alguem parado na borda */
+  else if (s.inRange) p = HapticPattern::StaticObstacle;
+  engine.setAmbient(side, p, closeness);
+}
+
+void TaskHaptic(void *pvParameters) {
+  const HapticConfig cfg = {PRE_ALERT_MS, LOCATE_MS};
+  HapticEngine engine(cfg);
+  float shownL = 0.0f, shownR = 0.0f; /* para a telemetria: pico que decai, nao pisca a cada pulso */
 
   for (;;) {
     uint32_t now = millis();
-    if ((int32_t)(locateUntil - now) > 0) {
-      /* "tocar buzzer" pelo painel: bipes fortes nos dois lados para achar o dispositivo */
-      float v = ((now / 150) % 2) ? 1.0f : 0.0f;
-      setBuzzerVolume(BUZZER_CHANNEL_L, v);
-      setBuzzerVolume(BUZZER_CHANNEL_R, v);
-      vTaskDelay(pdMS_TO_TICKS(STATUS_PERIOD_MS));
-      continue;
+    int8_t req = actuatorRequest;
+    if (req >= 0) {
+      actuatorRequest = -1;
+      actuatorMode = (uint8_t)req;
+      actuatorSetup(actuatorMode);
+    }
+
+    HapticRequest rq;
+    while (xQueueReceive(hapticQueue, &rq, 0) == pdTRUE) {
+      if (rq.stop) engine.stop(rq.pattern, rq.sides);
+      else engine.play(rq.pattern, rq.sides, now);
     }
 
     xSemaphoreTake(stateMutex, portMAX_DELAY);
     SideState left = sensorState.left;
     SideState right = sensorState.right;
     xSemaphoreGive(stateMutex);
+    setSideAmbient(engine, HAPTIC_LEFT, left);
+    setSideAmbient(engine, HAPTIC_RIGHT, right);
 
-    volL = buzzerVolume(left, volL);
-    volR = buzzerVolume(right, volR);
-    setBuzzerVolume(BUZZER_CHANNEL_L, volL);
-    setBuzzerVolume(BUZZER_CHANNEL_R, volR);
+    HapticOutput out = engine.tick(now);
+    actuatorWrite(BUZZER_CHANNEL_L, out.left);
+    actuatorWrite(BUZZER_CHANNEL_R, out.right);
 
+    shownL = max(out.left, shownL * 0.95f);
+    shownR = max(out.right, shownR * 0.95f);
     xSemaphoreTake(stateMutex, portMAX_DELAY);
-    appState.buzzVolL = volL;
-    appState.buzzVolR = volR;
+    appState.buzzVolL = shownL;
+    appState.buzzVolR = shownR;
     xSemaphoreGive(stateMutex);
 
-    vTaskDelay(pdMS_TO_TICKS(STATUS_PERIOD_MS));
+    vTaskDelay(pdMS_TO_TICKS(HAPTIC_PERIOD_MS));
   }
 }
 
@@ -652,6 +787,8 @@ void TaskImu(void *pvParameters) {
                                  IMPACT_G, IMU_PEAK_WINDOW_MS, IMU_EVENT_COOLDOWN_MS,
                                  FALL_CONFIRM_MS, FALL_TILT_DEG, HARD_IMPACT_G};
   ImuDetector detector(cfg);
+  const PowerConfig pwrCfg = {POWER_MOTION_G, POWER_MOTION_STD_G, POWER_MOTION_GYRO_DPS, POWER_VAR_ALPHA, POWER_IDLE_AFTER_MS};
+  PowerManager power(pwrCfg);
   uint32_t readErrors = 0;
   TickType_t lastWake = xTaskGetTickCount();
 
@@ -686,18 +823,45 @@ void TaskImu(void *pvParameters) {
       }
 #endif
 
+      /* economia de energia: parado por POWER_IDLE_AFTER_MS -> economia; qualquer movimento ou clique acorda */
+      float gyroMag = sqrtf(gx * gx + gy * gy + gz * gz);
+      if (wakeRequested) {
+        wakeRequested = false;
+        applyPowerChange(power.wake(millis()));
+      }
+      applyPowerChange(power.update(g, gyroMag, millis()));
+      if (detector.impactG() != runtimeImpactG) detector.setImpactG(runtimeImpactG); /* calibracao ou "padrao" */
+
       float peak, evtTilt;
       ImuEvent evt = detector.update(g, tilt, millis(), peak, evtTilt);
       if (evt == ImuEvent::Jump) {
         Serial.printf("[IMU] Pulo/passo forte ignorado (pico %.2f g, inclinacao %.0f graus: continuou de pe).\n", peak, evtTilt);
-      } else if (evt != ImuEvent::None) {
-        AppEvent e{evt == ImuEvent::Fall ? EVT_FALL : EVT_IMPACT, peak, (uint32_t)millis(), '-',
-                   evt == ImuEvent::Fall ? evtTilt : -1.0f};
-        xQueueSend(eventQueue, &e, 0);
       }
+
+      /* queda/batida confirmada abre o pre-alerta "Estou bem"; o alerta so sai depois de PRE_ALERT_MS */
+      uint32_t nowMs = millis();
+      xSemaphoreTake(stateMutex, portMAX_DELAY);
+      bool opened = false;
+      if (evt == ImuEvent::Fall || evt == ImuEvent::Impact) {
+        opened = alertFsm.trigger(evt == ImuEvent::Fall ? AlertCause::Fall : AlertCause::Impact, peak,
+                                  evt == ImuEvent::Fall ? evtTilt : -1.0f, nowMs);
+        if (opened) {
+          preAlertSince = nowMs | 1;
+          haptic(HapticPattern::PreAlert);
+        }
+      }
+      AlertAction action = alertFsm.tick(nowMs);
+      PendingAlert pending = alertFsm.pending();
+      xSemaphoreGive(stateMutex);
+      if (opened) {
+        Serial.printf("[ALERTA] %s (%.2f g). Aperte o botao 1 vez em %d s se estiver tudo bem.\n",
+                      evt == ImuEvent::Fall ? "Queda detectada" : "Batida detectada", peak, PRE_ALERT_MS / 1000);
+      }
+      queueAlertOutcome(action, pending);
 
       xSemaphoreTake(stateMutex, portMAX_DELAY);
       imuState.ready = true;
+      calibrator.addAccel(g, millis()); /* so registra durante a calibracao */
       imuState.ax = ax; imuState.ay = ay; imuState.az = az;
       imuState.gx = gx; imuState.gy = gy; imuState.gz = gz;
       imuState.g = g;
@@ -709,6 +873,14 @@ void TaskImu(void *pvParameters) {
       xSemaphoreTake(stateMutex, portMAX_DELAY);
       imuState.ready = false;
       xSemaphoreGive(stateMutex);
+    }
+    if (readErrors > 0) {
+      /* sem leitura do MPU, o pre-alerta que ja estava aberto ainda precisa vencer e mandar o alerta */
+      xSemaphoreTake(stateMutex, portMAX_DELAY);
+      AlertAction action = alertFsm.tick(millis());
+      PendingAlert pending = alertFsm.pending();
+      xSemaphoreGive(stateMutex);
+      queueAlertOutcome(action, pending);
     }
 
     vTaskDelayUntil(&lastWake, pdMS_TO_TICKS(IMU_PERIOD_MS));
@@ -728,7 +900,6 @@ void publishLine(NetChannel ch, const char *json) {
 const char *modeToString(Mode m) {
   switch (m) {
     case MODE_RADAR: return "RADAR";
-    case MODE_SIM360: return "SIM360";
     default: return "SELFTEST";
   }
 }
@@ -738,7 +909,6 @@ void publishTelemetry() {
   SensorState s = sensorState;
   Mode mode = appState.mode;
   float thr = appState.lastThr;
-  float angle = appState.lastAngle;
   float volL = appState.buzzVolL;
   float volR = appState.buzzVolR;
   xSemaphoreGive(stateMutex);
@@ -750,21 +920,39 @@ void publishTelemetry() {
            "\"distL\":%.1f,\"rawL\":%.1f,"
            "\"distR\":%.1f,\"rawR\":%.1f,"
            "\"bzL\":%.2f,\"bzR\":%.2f,"
-           "\"thr\":%.0f,\"angle\":%.0f,\"pot\":%.2f,\"near\":%.0f}",
+           "\"thr\":%.0f,\"pot\":%.2f,\"near\":%.0f}",
            (unsigned long)millis(), modeToString(mode),
            s.left.filteredCm, s.left.rawCm,
            s.right.filteredCm, s.right.rawCm,
            volL, volR,
-           thr, angle, s.potNormalized, NEAR_MISS_CM);
+           thr, s.potNormalized, NEAR_MISS_CM);
 
   publishLine(CH_TELEMETRY, buf);
 }
 
+const char *alertCauseName(uint8_t cause) {
+  return cause == (uint8_t)AlertCause::Fall ? "FALL" : "IMPACT";
+}
+
 void emitEvent(const AppEvent &evt) {
-  char buf[112];
-  if (evt.type == EVT_NEAR_MISS) {
-    snprintf(buf, sizeof(buf), "{\"event\":\"NEAR_MISS\",\"side\":\"%c\",\"value\":%.1f,\"t\":%lu}",
+  char buf[160];
+  if (evt.type == EVT_NEAR_MISS && evt.cause == (uint8_t)TtcReason::Ttc) {
+    snprintf(buf, sizeof(buf),
+             "{\"event\":\"NEAR_MISS\",\"side\":\"%c\",\"value\":%.1f,\"reason\":\"ttc\",\"ttc\":%.2f,\"v\":%.0f,\"t\":%lu}",
+             evt.side, evt.value, evt.ttc, evt.vel, (unsigned long)evt.t);
+  } else if (evt.type == EVT_NEAR_MISS) {
+    snprintf(buf, sizeof(buf), "{\"event\":\"NEAR_MISS\",\"side\":\"%c\",\"value\":%.1f,\"reason\":\"close\",\"t\":%lu}",
              evt.side, evt.value, (unsigned long)evt.t);
+  } else if (evt.type == EVT_ANCHOR && evt.cause) {
+    /* 2 cliques: liga/desliga a ancora rapida (o servidor decide: cria se nao houver, remove se houver) */
+    snprintf(buf, sizeof(buf), "{\"event\":\"ANCHOR_TOGGLE\",\"type\":\"quick_anchor_toggle\",\"lat\":%.6f,\"lng\":%.6f,\"t\":%lu}",
+             evt.lat, evt.lon, (unsigned long)evt.t);
+  } else if (evt.type == EVT_ANCHOR) {
+    snprintf(buf, sizeof(buf), "{\"event\":\"ANCHOR_TOGGLE\",\"type\":\"quick_anchor_toggle\",\"t\":%lu}", (unsigned long)evt.t);
+  } else if (evt.type == EVT_DISMISSED) {
+    /* queda/batida cancelada pelo usuario ("Estou bem"): o painel registra sem alarme */
+    snprintf(buf, sizeof(buf), "{\"event\":\"DISMISSED\",\"cause\":\"%s\",\"value\":%.2f,\"unit\":\"g\",\"t\":%lu}",
+             alertCauseName(evt.cause), evt.value, (unsigned long)evt.t);
   } else if (evt.type == EVT_FALL && evt.tilt >= 0) {
     snprintf(buf, sizeof(buf), "{\"event\":\"FALL\",\"value\":%.2f,\"unit\":\"g\",\"tilt\":%.0f,\"t\":%lu}",
              evt.value, evt.tilt, (unsigned long)evt.t);
@@ -784,6 +972,9 @@ void publishStatus() {
   char buf[640];
   int n = snprintf(buf, sizeof(buf), "{\"fw\":\"%s\",\"up\":%lu,\"heap\":%lu",
                    FW_VERSION, (unsigned long)(millis() / 1000), (unsigned long)ESP.getFreeHeap());
+  n += snprintf(buf + n, sizeof(buf) - n, ",\"pwr\":\"%s\",\"act\":\"%s\",\"impG\":%.2f,\"hyst\":%.1f,\"cal\":%s",
+                powerIdle ? "idle" : "active", actuatorMode == ACTUATOR_HAPTIC_MOTOR_PWM ? "motor" : "buzzer",
+                runtimeImpactG, runtimeHystCm, calibrating ? "true" : "false");
   n += netStatusAppend(buf + n, sizeof(buf) - n - 24);
   snprintf(buf + n, sizeof(buf) - n, ",\"t\":%lu}", (unsigned long)millis());
   publishLine(CH_STATUS, buf);
@@ -939,12 +1130,218 @@ static void runSensorDiag() {
 }
 
 /* comandos do painel (MQTT ou cabo) e da Serial que nao sao de rede */
+/*=====================================================*/
+/* Calibracao assistida                                  */
+/*=====================================================*/
+volatile bool statusNow = false; /* publicar o status no proximo ciclo (limiares mudaram) */
+
+void saveCalibration() {
+  Preferences prefs;
+  if (!prefs.begin(CFG_NAMESPACE, false)) return;
+  prefs.putFloat("impactG", runtimeImpactG);
+  prefs.putFloat("hystCm", runtimeHystCm);
+  prefs.end();
+}
+
+/* no boot: limiares calibrados (se houver e estiverem numa faixa valida) */
+void loadCalibration() {
+  Preferences prefs;
+  if (!prefs.begin(CFG_NAMESPACE, false)) return;
+  float impact = prefs.getFloat("impactG", IMPACT_G);
+  float hyst = prefs.getFloat("hystCm", BUZZER_HYST_CM);
+  prefs.end();
+  if (impact >= CAL_MIN_IMPACT_G && impact <= CAL_MAX_IMPACT_G) runtimeImpactG = impact;
+  if (hyst >= CAL_HYST_MIN_CM && hyst <= CAL_HYST_MAX_CM) runtimeHystCm = hyst;
+  if (runtimeImpactG != IMPACT_G || runtimeHystCm != BUZZER_HYST_CM) {
+    Serial.printf("[CALIB] Limiares calibrados: batida %.2f g, histerese %.1f cm.\n", runtimeImpactG, runtimeHystCm);
+  }
+}
+
+void startCalibration(uint32_t durationS) {
+  if (durationS < CAL_MIN_DURATION_S) durationS = CAL_MIN_DURATION_S;
+  if (durationS > CAL_MAX_DURATION_S) durationS = CAL_MAX_DURATION_S;
+  xSemaphoreTake(stateMutex, portMAX_DELAY);
+  calibrator.start(millis(), durationS * 1000UL);
+  xSemaphoreGive(stateMutex);
+  calibrating = true;
+  wakeRequested = true; /* sai da economia: precisa dos sensores no ritmo normal */
+  haptic(HapticPattern::Confirm);
+  statusNow = true;
+  Serial.printf("[CALIB] Calibrando por %lu s: ande em linha reta num corredor livre, no seu passo normal.\n",
+                (unsigned long)durationS);
+}
+
+void publishCalibState(const char *state) {
+  char buf[96];
+  snprintf(buf, sizeof(buf), "{\"calib\":\"%s\",\"impG\":%.2f,\"hyst\":%.1f,\"t\":%lu}", state, runtimeImpactG,
+           runtimeHystCm, (unsigned long)millis());
+  publishLine(CH_CALIB, buf);
+}
+
+void stopCalibration() {
+  if (!calibrating) return;
+  xSemaphoreTake(stateMutex, portMAX_DELAY);
+  calibrator.cancel();
+  xSemaphoreGive(stateMutex);
+  calibrating = false;
+  statusNow = true;
+  Serial.println("[CALIB] Calibracao cancelada; os limiares nao mudaram.");
+  publishCalibState("cancelled");
+}
+
+/* "Restaurar padroes de fabrica": limiares do config.h e NVS limpa */
+void resetCalibration() {
+  stopCalibration();
+  float impactBefore = runtimeImpactG, hystBefore = runtimeHystCm;
+  runtimeImpactG = IMPACT_G;
+  runtimeHystCm = BUZZER_HYST_CM;
+  Preferences prefs;
+  if (prefs.begin(CFG_NAMESPACE, false)) {
+    prefs.remove("impactG");
+    prefs.remove("hystCm");
+    prefs.end();
+  }
+  haptic(HapticPattern::Confirm);
+  statusNow = true;
+  Serial.printf("[CALIB] Padroes de fabrica: batida %.2f g, histerese %.1f cm.\n", runtimeImpactG, runtimeHystCm);
+  char buf[200];
+  snprintf(buf, sizeof(buf),
+           "{\"calib\":\"reset\",\"type\":\"calibration_result\",\"ok\":true,\"impactBefore\":%.2f,\"impactAfter\":%.2f,"
+           "\"hystBefore\":%.1f,\"hystAfter\":%.1f,\"t\":%lu}",
+           impactBefore, runtimeImpactG, hystBefore, runtimeHystCm, (unsigned long)millis());
+  publishLine(CH_CALIB, buf);
+}
+
+/* chamado pela TaskComms a cada ciclo: progresso a cada 1 s e o resultado no fim */
+void serviceCalibration(uint32_t now) {
+  static uint32_t lastProgress = 0;
+  if (!calibrating) return;
+  xSemaphoreTake(stateMutex, portMAX_DELAY);
+  bool due = calibrator.due(now);
+  uint32_t elapsed = calibrator.elapsedMs(now), duration = calibrator.durationMs();
+  uint16_t steps = calibrator.steps();
+  CalibResult r;
+  if (due) r = calibrator.finish(runtimeImpactG, runtimeHystCm);
+  xSemaphoreGive(stateMutex);
+
+  if (!due) {
+    if (now - lastProgress >= CAL_PROGRESS_MS) {
+      lastProgress = now;
+      char buf[112];
+      snprintf(buf, sizeof(buf), "{\"calib\":\"running\",\"elapsed\":%.1f,\"duration\":%lu,\"steps\":%u,\"t\":%lu}",
+               elapsed / 1000.0f, (unsigned long)(duration / 1000), steps, (unsigned long)now);
+      publishLine(CH_CALIB, buf);
+    }
+    return;
+  }
+
+  calibrating = false;
+  statusNow = true;
+  bool ok = r.status == CalibStatus::Done;
+  if (ok) {
+    runtimeImpactG = r.impactAfter; /* a TaskImu aplica no detector na proxima amostra */
+    runtimeHystCm = r.hystAfter;
+    saveCalibration();
+    haptic(HapticPattern::Confirm);
+    Serial.printf("[CALIB] Pronto: %u passos (pico %.2f g). Batida %.2f -> %.2f g, histerese %.1f -> %.1f cm.\n", r.steps,
+                  r.stepMax, r.impactBefore, r.impactAfter, r.hystBefore, r.hystAfter);
+  } else {
+    Serial.printf("[CALIB] Nao deu: so %u passos (minimo %d). Ande no seu passo normal durante toda a calibracao.\n",
+                  r.steps, CAL_MIN_STEPS);
+  }
+  char buf[360];
+  snprintf(buf, sizeof(buf),
+           "{\"calib\":\"%s\",\"type\":\"calibration_result\",\"ok\":%s,\"reason\":\"%s\",\"duration\":%lu,"
+           "\"steps\":%u,\"stepMean\":%.2f,\"stepStd\":%.3f,\"stepMax\":%.2f,\"noiseL\":%.2f,\"noiseR\":%.2f,"
+           "\"impactBefore\":%.2f,\"impactAfter\":%.2f,\"hystBefore\":%.1f,\"hystAfter\":%.1f,\"t\":%lu}",
+           ok ? "done" : "failed", ok ? "true" : "false", r.reason, (unsigned long)(duration / 1000), r.steps, r.stepMean,
+           r.stepStd, r.stepMax, r.noiseL, r.noiseR, r.impactBefore, r.impactAfter, r.hystBefore, r.hystAfter,
+           (unsigned long)now);
+  publishLine(CH_CALIB, buf);
+}
+
+/* assinatura de Wi-Fi: a TaskComms decide (GPS ruim ha 15 s, a cada 30 s); o painel pode pedir na hora */
+static const FingerprintConfig FP_CFG = {WIFI_FP_GPS_LOST_MS, WIFI_FP_EVERY_MS, WIFI_FP_MIN_SATS};
+FingerprintScheduler fingerprint(FP_CFG); /* so a TaskComms usa (comandos tambem rodam nela) */
+
+/* nome do padrao (JSON "pattern" ou Serial "vibrar <nome>"), em ingles ou portugues */
+HapticPattern patternByName(const char *n) {
+  if (!strcmp(n, "static") || !strcmp(n, "estatico")) return HapticPattern::StaticObstacle;
+  if (!strcmp(n, "proximity") || !strcmp(n, "proximidade")) return HapticPattern::Proximity;
+  if (!strcmp(n, "approach") || !strcmp(n, "aproximacao")) return HapticPattern::FastApproach;
+  if (!strcmp(n, "prealert") || !strcmp(n, "prealerta")) return HapticPattern::PreAlert;
+  if (!strcmp(n, "heartbeat") || !strcmp(n, "batimento")) return HapticPattern::Heartbeat;
+  if (!strcmp(n, "confirm") || !strcmp(n, "confirmacao")) return HapticPattern::Confirm;
+  if (!strcmp(n, "locate") || !strcmp(n, "localizar")) return HapticPattern::Locate;
+  return HapticPattern::None;
+}
+
+/* troca buzzer <-> motor na hora e grava na NVS (vale no proximo boot) */
+bool setActuator(const char *mode) {
+  int8_t m = !strcmp(mode, "motor") ? ACTUATOR_HAPTIC_MOTOR_PWM : !strcmp(mode, "buzzer") ? ACTUATOR_BUZZER_PWM : -1;
+  if (m < 0) {
+    Serial.println("[HAPTICA] Use: atuador buzzer | atuador motor");
+    return true;
+  }
+  Preferences prefs;
+  if (prefs.begin(CFG_NAMESPACE, false)) {
+    prefs.putUChar("actuator", (uint8_t)m);
+    prefs.end();
+  }
+  actuatorRequest = m;
+  Serial.printf("[HAPTICA] Atuador: %s (salvo).\n", mode);
+  haptic(HapticPattern::Confirm);
+  return true;
+}
+
 bool onPanelCommand(const char *cmd, const char *json) {
-  (void)json;
   if (strcmp(cmd, "locate") == 0) {
-    locateUntil = millis() + LOCATE_MS;
+    haptic(HapticPattern::Locate);
     Serial.println("[APP] Painel pediu para tocar o buzzer.");
     return true;
+  }
+  /* testar um padrao da linguagem haptica: {"cmd":"haptic","pattern":"approach"} ou "vibrar approach" */
+  if (strcmp(cmd, "haptic") == 0 || strncmp(cmd, "vibrar", 6) == 0) {
+    char name[16] = "";
+    if (json) netJsonField(json, "pattern", name, sizeof(name));
+    else if (cmd[6] == ' ') snprintf(name, sizeof(name), "%s", cmd + 7);
+    HapticPattern p = patternByName(name);
+    if (p == HapticPattern::None) {
+      Serial.println("[HAPTICA] Padroes: static, proximity, approach, prealert, heartbeat, confirm, locate");
+    } else {
+      haptic(p);
+      Serial.printf("[HAPTICA] Tocando \"%s\".\n", name);
+    }
+    return true;
+  }
+  /* calibracao: {"cmd":"calibrate_start","duration_s":30}, calibrate_stop, calibrate_reset;
+     na Serial: "calibrar", "calibrar 20", "calibrar parar", "calibrar padrao" */
+  if (strcmp(cmd, "calibrate_start") == 0) {
+    char dur[8] = "";
+    if (json) netJsonField(json, "duration_s", dur, sizeof(dur));
+    startCalibration(dur[0] ? (uint32_t)atoi(dur) : CAL_DEFAULT_DURATION_S);
+    return true;
+  }
+  if (strcmp(cmd, "calibrate_stop") == 0) { stopCalibration(); return true; }
+  /* varredura de Wi-Fi agora (para cadastrar o local atual no painel), mesmo com GPS bom */
+  if (strcmp(cmd, "wifi_scan") == 0 || strcmp(cmd, "escanear") == 0) {
+    fingerprint.force();
+    Serial.println("[WIFI-FP] Varredura pedida.");
+    return true;
+  }
+  if (strcmp(cmd, "calibrate_reset") == 0) { resetCalibration(); return true; }
+  if (strncmp(cmd, "calibrar", 8) == 0 && (cmd[8] == '\0' || cmd[8] == ' ')) {
+    const char *arg = cmd[8] == ' ' ? cmd + 9 : "";
+    if (!strcmp(arg, "parar")) stopCalibration();
+    else if (!strcmp(arg, "padrao")) resetCalibration();
+    else startCalibration(arg[0] ? (uint32_t)atoi(arg) : CAL_DEFAULT_DURATION_S);
+    return true;
+  }
+  if (strcmp(cmd, "actuator") == 0 || strncmp(cmd, "atuador", 7) == 0) {
+    char mode[12] = "";
+    if (json) netJsonField(json, "mode", mode, sizeof(mode));
+    else if (cmd[7] == ' ') snprintf(mode, sizeof(mode), "%s", cmd + 8);
+    return setActuator(mode);
   }
   if (strcmp(cmd, "diag") == 0 || strcmp(cmd, "sensores") == 0) {
     diagRequested = true; /* roda no ciclo da TaskComms, fora do callback do MQTT */
@@ -957,6 +1354,7 @@ void TaskComms(void *pvParameters) {
   TickType_t lastWake = xTaskGetTickCount();
   uint32_t lastTelemetry = 0;
   uint32_t lastStatus = 0;
+  uint32_t lastHeartbeat = millis();
 #if ENABLE_GPS
   uint32_t lastLocation = 0;
 #endif
@@ -995,6 +1393,35 @@ void TaskComms(void *pvParameters) {
     if (diagRequested) {
       diagRequested = false;
       runSensorDiag();
+    }
+
+    serviceCalibration(now);
+
+    /* GPS sem sinal (ou pedido do painel): varre o Wi-Fi e manda as 3 redes mais fortes */
+    static uint32_t lastFpCheck = 0;
+    if (now - lastFpCheck >= 1000) {
+      lastFpCheck = now;
+      bool fix = false;
+      uint32_t sats = 0;
+#if ENABLE_GPS
+      xSemaphoreTake(stateMutex, portMAX_DELAY);
+      fix = gpsState.hasFix;
+      sats = gpsState.sats;
+      xSemaphoreGive(stateMutex);
+#endif
+      if (fingerprint.shouldScan(now, fix, sats)) netRequestWifiScan();
+    }
+    static char fpBuf[360];
+    if (netTakeWifiScan(fpBuf, sizeof(fpBuf)) > 0) publishLine(CH_WIFI, fpBuf);
+    if (statusNow) {
+      statusNow = false;
+      lastStatus = 0; /* sai no fim deste ciclo */
+    }
+
+    /* batimento: a cada 10 min, so com Wi-Fi e servidor conectados e sem pre-alerta (sinal de "tudo ok") */
+    if (now - lastHeartbeat >= HEARTBEAT_PERIOD_MS) {
+      lastHeartbeat = now;
+      if (netMqttConnected() && preAlertSince == 0) haptic(HapticPattern::Heartbeat);
     }
 
     if (now - lastTelemetry >= TELEMETRY_PERIOD_MS) {
@@ -1037,20 +1464,25 @@ void setup() {
   pinMode(PIN_RGB_G, OUTPUT);
   pinMode(PIN_RGB_B, OUTPUT);
 
-  /* timer dos buzzers configurado uma unica vez (frequencia fixa, 10 bits); dai em diante
-     so o duty muda. Tambem evita o ledcWrite(canal, 0) gravar duty 1 em canal sem resolucao */
-  ledcSetup(BUZZER_CHANNEL_L, BUZZER_FREQ_HZ, 10);
-  ledcSetup(BUZZER_CHANNEL_R, BUZZER_FREQ_HZ, 10);
-  ledcWrite(BUZZER_CHANNEL_L, 0);
-  ledcWrite(BUZZER_CHANNEL_R, 0);
+  /* atuador: buzzer ou motor (padrao do config.h, ou o que foi salvo na NVS com "atuador ...").
+     Timer configurado antes do attach: evita o ledcWrite(canal, 0) gravar duty 1 em canal sem resolucao */
+  Preferences prefs;
+  if (prefs.begin(CFG_NAMESPACE, false)) {
+    uint8_t saved = prefs.getUChar("actuator", ACTUATOR_MODE);
+    actuatorMode = saved == ACTUATOR_HAPTIC_MOTOR_PWM ? ACTUATOR_HAPTIC_MOTOR_PWM : ACTUATOR_BUZZER_PWM;
+    prefs.end();
+  }
+  actuatorSetup(actuatorMode);
+  loadCalibration();
   ledcAttachPin(PIN_BUZZER_L, BUZZER_CHANNEL_L);
   ledcAttachPin(PIN_BUZZER_R, BUZZER_CHANNEL_R);
 
   stateMutex = xSemaphoreCreateMutex();
   eventQueue = xQueueCreate(10, sizeof(AppEvent));
+  hapticQueue = xQueueCreate(8, sizeof(HapticRequest));
   buttonSemaphore = xSemaphoreCreateBinary();
 
-  if (stateMutex == NULL || eventQueue == NULL || buttonSemaphore == NULL) {
+  if (stateMutex == NULL || eventQueue == NULL || buttonSemaphore == NULL || hapticQueue == NULL) {
     Serial.println("[ERRO] Falha ao criar primitivos do FreeRTOS.");
     while (true) delay(1000);
   }
@@ -1068,9 +1500,9 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(PIN_BUTTON), buttonISR, FALLING);
 
   /* Core 1: leitura de sensores e atuacao (timing critico, longe do Wi-Fi) */
-  xTaskCreatePinnedToCore(TaskSensors, "TaskSensors", 3072, NULL, 2, NULL, 1);
+  xTaskCreatePinnedToCore(TaskSensors, "TaskSensors", 3072, NULL, 2, &sensorTaskHandle, 1);
   xTaskCreatePinnedToCore(TaskStatusLed, "TaskStatusLed", 3072, NULL, 1, NULL, 1);
-  xTaskCreatePinnedToCore(TaskBuzzer, "TaskBuzzer", 2048, NULL, 1, NULL, 1);
+  xTaskCreatePinnedToCore(TaskHaptic, "TaskHaptic", 3072, NULL, 1, NULL, 1);
 
   /* Core 0: botao, IMU, GPS e comunicacao (serial/MQTT).
      A IMU fica no core 0 para nao interromper o pulseIn() dos HC-SR04 no core 1. */

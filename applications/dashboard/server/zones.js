@@ -2,8 +2,10 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
-/* Zonas seguras editáveis pelo painel (aba Mapa). Ficam em data/zones.json;
-   na primeira vez, o arquivo nasce com as zonas de config.json (safeZones). */
+/* Zonas seguras, guardadas no SQLite (tabela safe_zones):
+   - "fixed": cadastradas na aba Mapa (Casa, Escola...);
+   - "dynamic": âncora rápida (2 cliques no botão ou "Criar âncora aqui"), uma por dispositivo, com expires_at.
+   Na primeira vez, importa data/zones.json (versão anterior) ou, sem ele, as safeZones do config.json. */
 
 const MAX_ZONES = 20;
 
@@ -14,8 +16,8 @@ export function validateZone(z, base = {}) {
     if (!name) return { error: 'Dê um nome para a zona (ex.: Casa, Escola).' };
     out.name = name;
   }
-  if (z.lat !== undefined || z.lon !== undefined) {
-    const lat = Number(z.lat), lon = Number(z.lon);
+  if (z.lat !== undefined || z.lon !== undefined || z.lng !== undefined) {
+    const lat = Number(z.lat), lon = Number(z.lon ?? z.lng);
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
       return { error: 'Posição inválida: clique no mapa para escolher o centro da zona.' };
     }
@@ -31,48 +33,87 @@ export function validateZone(z, base = {}) {
   return { zone: out };
 }
 
-export function createZones({ dataDir, initial = [], onChange = () => {} }) {
-  const file = path.join(dataDir, 'zones.json');
-  let zones = [];
-  try {
-    zones = JSON.parse(fs.readFileSync(file, 'utf8'));
-  } catch {
-    zones = initial.map((z) => validateZone(z).zone).filter(Boolean);
-  }
-  zones = zones.map((z) => ({ id: z.id ?? crypto.randomBytes(4).toString('hex'), ...z }));
+const newId = () => crypto.randomBytes(4).toString('hex');
 
-  const write = () => {
-    fs.mkdirSync(dataDir, { recursive: true });
-    fs.writeFileSync(file, `${JSON.stringify(zones, null, 2)}\n`);
-  };
-  const save = () => { write(); onChange(zones); };
-  if (!fs.existsSync(file)) write();
+export function createZones({ db, dataDir, initial = [], onChange = () => {} }) {
+  /* migração de dados: zones.json (Fase 1/2) -> tabela, uma vez só (tabela vazia) */
+  if (db.zoneCount() === 0) {
+    const file = dataDir ? path.join(dataDir, 'zones.json') : null;
+    let source = initial;
+    let fromFile = false;
+    try {
+      if (file && fs.existsSync(file)) {
+        source = JSON.parse(fs.readFileSync(file, 'utf8'));
+        fromFile = true;
+      }
+    } catch { /* arquivo corrompido: fica com o config */ }
+    for (const z of source) {
+      const { zone } = validateZone(z);
+      if (zone) db.insertZone({ id: z.id ?? newId(), ...zone, type: 'fixed' });
+    }
+    if (fromFile) {
+      /* o arquivo fica como cópia de segurança, mas deixa de ser usado */
+      try { fs.renameSync(file, `${file}.importado`); } catch { /* sem permissão: segue */ }
+    }
+  }
+
+  const active = (now = Date.now()) => db.zones().filter((z) => z.type !== 'dynamic' || z.expiresAt == null || z.expiresAt > now);
+  const changed = () => onChange(active());
+  const fixedCount = () => db.zones().filter((z) => z.type === 'fixed').length;
 
   return {
-    list: () => zones,
+    list: () => active(),
     add(body) {
-      if (zones.length >= MAX_ZONES) return { error: `Limite de ${MAX_ZONES} zonas.` };
+      if (fixedCount() >= MAX_ZONES) return { error: `Limite de ${MAX_ZONES} zonas.` };
       const { zone, error } = validateZone(body ?? {});
       if (error) return { error };
-      const z = { id: crypto.randomBytes(4).toString('hex'), ...zone };
-      zones = [...zones, z];
-      save();
+      const z = db.insertZone({ id: newId(), ...zone, type: 'fixed' });
+      changed();
       return { zone: z };
     },
     update(id, body) {
-      const cur = zones.find((z) => z.id === id);
+      const cur = db.zone(id);
       if (!cur) return { error: 'Zona não encontrada.', status: 404 };
+      if (cur.type === 'dynamic') return { error: 'Âncora rápida não se edita: remova e crie de novo.', status: 409 };
       const { zone, error } = validateZone(body ?? {}, cur);
       if (error) return { error };
-      zones = zones.map((z) => (z.id === id ? zone : z));
-      save();
-      return { zone };
+      const z = db.updateZone({ ...zone, id });
+      changed();
+      return { zone: z };
     },
     remove(id) {
-      if (!zones.some((z) => z.id === id)) return { error: 'Zona não encontrada.', status: 404 };
-      zones = zones.filter((z) => z.id !== id);
-      save();
+      if (!db.deleteZone(id)) return { error: 'Zona não encontrada.', status: 404 };
+      changed();
       return { ok: true };
+    },
+
+    /* ---------- âncora rápida (zona dinâmica, uma por dispositivo) ---------- */
+    anchorFor(deviceId, now = Date.now()) {
+      const a = db.anchorOf(deviceId);
+      return a && (a.expiresAt == null || a.expiresAt > now) ? a : null;
+    },
+    addAnchor({ deviceId, lat, lon, radiusM, durationMs, name = 'Âncora rápida', now = Date.now() }) {
+      const { zone, error } = validateZone({ name, lat, lon, radiusM });
+      if (error) return { error };
+      const old = db.anchorOf(deviceId);
+      if (old) db.deleteZone(old.id); /* uma âncora por dispositivo: a nova substitui */
+      const z = db.insertZone({ id: newId(), ...zone, type: 'dynamic', expiresAt: now + durationMs, deviceId, createdAt: now });
+      changed();
+      return { zone: z };
+    },
+    removeAnchor(deviceId) {
+      const a = db.anchorOf(deviceId);
+      if (!a) return null;
+      db.deleteZone(a.id);
+      changed();
+      return a;
+    },
+    /* job periódico: apaga âncoras vencidas e devolve quais eram (para registrar na linha do tempo) */
+    expire(now = Date.now()) {
+      const gone = db.expiredZones(now);
+      for (const z of gone) db.deleteZone(z.id);
+      if (gone.length) changed();
+      return gone;
     },
   };
 }

@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createAuth } from '../server/auth.js';
 import { createZones, validateZone } from '../server/zones.js';
+import { openDb } from '../server/db.js';
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'echomap-test-'));
 let n = 0;
@@ -54,18 +55,32 @@ test('validacao das zonas', () => {
   assert.ok(validateZone({ name: 'X', lat: 0, lon: 0, radiusM: 10 }).error);
 });
 
-test('zonas: nascem do config, persistem e avisam a cada mudanca', () => {
+test('zonas: nascem do config, persistem no banco e avisam a cada mudanca', () => {
   const zdir = path.join(dir, 'z');
+  const db = openDb(path.join(zdir, 'echomap.db'));
   const changes = [];
-  const z = createZones({ dataDir: zdir, initial: [{ name: 'Casa', lat: -8.109656, lon: -34.906301, radiusM: 100 }], onChange: (l) => changes.push(l.length) });
+  const z = createZones({ db, dataDir: zdir, initial: [{ name: 'Casa', lat: -8.109656, lon: -34.906301, radiusM: 100 }], onChange: (l) => changes.push(l.length) });
   assert.equal(z.list().length, 1);
+  assert.equal(z.list()[0].type, 'fixed');
   assert.equal(changes.length, 0);
   const { zone } = z.add({ name: 'Escola', lat: -8.11, lon: -34.9, radiusM: 200 });
   assert.equal(z.update(zone.id, { radiusM: 300 }).zone.radiusM, 300);
-  assert.equal(createZones({ dataDir: zdir, initial: [] }).list().length, 2); /* lido do arquivo, nao do config */
+  assert.equal(createZones({ db, dataDir: zdir, initial: [] }).list().length, 2); /* lido do banco, nao do config */
   assert.equal(z.remove(zone.id).ok, true);
   assert.equal(z.remove('nao-existe').status, 404);
   assert.deepEqual(changes, [2, 2, 1]);
+  db.raw.close();
+});
+
+test('zonas: o data/zones.json da versao anterior e importado uma vez para o banco', () => {
+  const zdir = path.join(dir, 'antigo');
+  fs.mkdirSync(zdir, { recursive: true });
+  fs.writeFileSync(path.join(zdir, 'zones.json'), JSON.stringify([{ id: 'ab12cd34', name: 'Casa', lat: -8.109656, lon: -34.906301, radiusM: 100 }]));
+  const db = openDb(path.join(zdir, 'echomap.db'));
+  const z = createZones({ db, dataDir: zdir, initial: [{ name: 'Outra', lat: 1, lon: 1, radiusM: 50 }] });
+  assert.deepEqual(z.list().map((x) => [x.id, x.name]), [['ab12cd34', 'Casa']]);
+  assert.ok(fs.existsSync(path.join(zdir, 'zones.json.importado')) && !fs.existsSync(path.join(zdir, 'zones.json')));
+  db.raw.close();
 });
 
 fs.rmSync(dir, { recursive: true, force: true });
