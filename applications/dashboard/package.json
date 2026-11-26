@@ -12,7 +12,8 @@
     "test": "node tools/test-panel.mjs && node tools/test-events.mjs && node tools/test-calibration.mjs && node tools/test-phase4.mjs && node tools/test-usb.mjs"
   },
   "dependencies": {
-    "@fontsource/atkinson-hyperlegible": "^5.3.0",
+    "@fontsource/jetbrains-mono": "^5.3.0",
+    "@fontsource/plus-jakarta-sans": "^5.3.0",
     "aedes": "^1.2.0",
     "express": "^4.21.2",
     "leaflet": "1.9.4",

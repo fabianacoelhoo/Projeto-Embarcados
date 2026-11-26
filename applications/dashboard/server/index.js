@@ -40,7 +40,7 @@ const app = express();
 app.use(express.json({ limit: '32kb' }));
 
 /* quem não está no próprio computador precisa entrar com a senha (cookie de sessão) */
-const OPEN_PATHS = new Set(['/login.html', '/api/login', '/favicon.ico']);
+const OPEN_PATHS = new Set(['/login.html', '/tokens.css', '/api/login', '/favicon.ico']);
 app.use((req, res, next) => {
   if (auth.allowed(req) || OPEN_PATHS.has(req.path) || req.path.startsWith('/vendor/fonts/')) return next();
   if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Entre com a senha do painel.', login: true });
@@ -57,7 +57,9 @@ app.post('/api/logout', (req, res) => { res.setHeader('Set-Cookie', auth.logoutC
 app.use(express.static(path.join(ROOT, 'public')));
 app.use('/vendor/leaflet', express.static(path.join(ROOT, 'node_modules', 'leaflet', 'dist')));
 app.use('/vendor/qrcode', express.static(path.join(ROOT, 'node_modules', 'qrcode-generator', 'dist')));
-app.use('/vendor/fonts', express.static(path.join(ROOT, 'node_modules', '@fontsource', 'atkinson-hyperlegible', 'files'), { maxAge: '30d' }));
+/* fontes servidas localmente (o painel funciona sem internet): Plus Jakarta Sans na interface e JetBrains Mono nos números */
+app.use('/vendor/fonts/sans', express.static(path.join(ROOT, 'node_modules', '@fontsource', 'plus-jakarta-sans', 'files'), { maxAge: '30d' }));
+app.use('/vendor/fonts/mono', express.static(path.join(ROOT, 'node_modules', '@fontsource', 'jetbrains-mono', 'files'), { maxAge: '30d' }));
 
 const localIps = () => Object.values(os.networkInterfaces()).flat()
   .filter((i) => i && i.family === 'IPv4' && !i.internal).map((i) => i.address);

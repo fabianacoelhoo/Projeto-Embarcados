@@ -3,10 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#f3f5f4">
+  <meta name="theme-color" content="#F7F8FA">
   <title>EchoMap</title>
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='4' fill='%230e7c73'/%3E%3Cpath d='M9 9a10 10 0 0 0 0 14M23 9a10 10 0 0 1 0 14' fill='none' stroke='%230e7c73' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='3.5' fill='%232348C5'/%3E%3Cpath d='M9.5 9.5a9 9 0 0 0 0 13M22.5 9.5a9 9 0 0 1 0 13' fill='none' stroke='%232348C5' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="preload" href="/vendor/fonts/sans/plus-jakarta-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/vendor/fonts/mono/jetbrains-mono-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/vendor/leaflet/leaflet.css">
+  <link rel="stylesheet" href="/tokens.css">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -15,27 +18,35 @@
   <div class="shell">
     <nav class="rail" aria-label="Principal">
       <a class="brand" href="#/">
-        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="4"/><path d="M9 9a10 10 0 0 0 0 14M23 9a10 10 0 0 1 0 14M5 5a15.5 15.5 0 0 0 0 22M27 5a15.5 15.5 0 0 1 0 22"/></svg>
+        <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="3.5"/><path d="M9.5 9.5a9 9 0 0 0 0 13M22.5 9.5a9 9 0 0 1 0 13M5 5a15.5 15.5 0 0 0 0 22M27 5a15.5 15.5 0 0 1 0 22"/></svg>
         <span>EchoMap</span>
       </a>
       <ul class="nav" id="nav">
-        <li><a href="#/" data-route="inicio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z"/></svg><span>Início</span></a></li>
-        <li><a href="#/ao-vivo" data-route="ao-vivo"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2.5"/><path d="M7.5 7.5a6.4 6.4 0 0 0 0 9M16.5 7.5a6.4 6.4 0 0 1 0 9M4.4 4.4a10.8 10.8 0 0 0 0 15.2M19.6 4.4a10.8 10.8 0 0 1 0 15.2"/></svg><span>Ao vivo</span></a></li>
-        <li><a href="#/ocorrencias" data-route="ocorrencias"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15zM10 20.5a2 2 0 0 0 4 0"/></svg><span>Ocorrências</span><b class="count" id="navCount" hidden></b></a></li>
-        <li><a href="#/mapa" data-route="mapa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-6.1-6.5-11a6.5 6.5 0 0 1 13 0c0 4.9-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg><span>Mapa</span></a></li>
-        <li class="wide-only"><a href="#/movimento" data-route="movimento"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l2.5-6 5 12 2.5-6h4"/></svg><span>Movimento</span></a></li>
-        <li><a href="#/dispositivo" data-route="dispositivo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span>Dispositivo</span></a></li>
+        <li><a href="#/" data-route="inicio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9v11a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9"/></svg><span>Início</span></a></li>
+        <li><a href="#/ao-vivo" data-route="ao-vivo"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M4.9 4.9a10 10 0 0 0 0 14.2M19.1 4.9a10 10 0 0 1 0 14.2"/></svg><span>Ao vivo</span></a></li>
+        <li><a href="#/ocorrencias" data-route="ocorrencias"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><span>Ocorrências</span><b class="count num" id="navCount" hidden></b></a></li>
+        <li><a href="#/mapa" data-route="mapa"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg><span>Mapa</span></a></li>
+        <li class="wide-only"><a href="#/movimento" data-route="movimento"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><span>Movimento</span></a></li>
+        <li><a href="#/dispositivo" data-route="dispositivo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg><span>Dispositivo</span></a></li>
       </ul>
       <div class="rail-foot">
         <span class="link-state" id="linkState"><i></i><span>Conectando ao servidor</span></span>
-        <button class="quiet" id="themeBtn" type="button">Tema escuro</button>
       </div>
     </nav>
 
     <main class="main">
-      <div id="placeBadge" class="place-band" hidden role="status"></div>
-      <div id="alertBand" class="alert-band" hidden role="alert"></div>
-      <div id="view" class="view" tabindex="-1"></div>
+      <header class="statusbar" aria-label="Estado do dispositivo">
+        <div class="sb-items" id="statusBar"></div>
+        <button class="icon-btn" id="themeBtn" type="button" aria-label="Tema escuro" title="Tema escuro">
+          <svg class="i-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+          <svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+        </button>
+      </header>
+      <div class="main-inner">
+        <div id="placeBadge" class="place-band" hidden role="status"></div>
+        <div id="alertBand" class="alert-band" hidden role="alert"></div>
+        <div id="view" class="view" tabindex="-1"></div>
+      </div>
     </main>
   </div>
 
