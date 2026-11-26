@@ -4,9 +4,15 @@
      node tools/simulator.js --all         -> + GPS e MPU-6050 (igual ao firmware atual) e bateria (futuro)
      node tools/simulator.js --gps --imu --status --device node2 --url mqtt://192.168.0.10:1883
      node tools/simulator.js --all --discover   -> acha o servidor pelo anuncio UDP, como o firmware com "auto"
-   Responde a ping (latencia) e a "locate"/"portal" vindos do painel, como o firmware 1.2. */
+     node tools/simulator.js --all --cancelar 0.5 -> metade das quedas/batidas e cancelada no "Estou bem"
+     node tools/simulator.js --all --economia  -> alterna 40 s ativo / 40 s em economia de energia (status "pwr")
+     node tools/simulator.js --all --interno   -> sem GPS (dentro de casa): manda a assinatura de Wi-Fi a cada 30 s
+     node tools/simulator.js --all --ancora    -> 10 s depois de conectar, "2 cliques" no botao (ancora rapida)
+   Responde aos comandos do painel e gera os eventos como o firmware 1.5: NEAR_MISS pelo mesmo
+   detector de TTC (tools/ttc.mjs) e queda/batida so depois dos 5 s do pre-alerta (ou DISMISSED). */
 import dgram from 'node:dgram';
 import mqtt from 'mqtt';
+import { TtcDetector, nearMissEvent } from './ttc.mjs';
 
 const args = process.argv.slice(2);
 const flag = (name) => args.includes(`--${name}`) || args.includes('--all');
@@ -18,8 +24,10 @@ const opt = (name, def) => {
 let url = opt('url', 'mqtt://localhost:1883');
 const deviceId = opt('device', 'node1');
 const prefix = opt('prefix', 'echomap');
-const home = { lat: Number(opt('lat', -23.5505)), lon: Number(opt('lon', -46.6333)) };
-const NEAR_MISS_CM = 50; /* igual ao config.h */
+const home = { lat: Number(opt('lat', -8.109656)), lon: Number(opt('lon', -34.906301)) }; /* zona Casa do config.json */
+const NEAR_MISS_CM = 25; /* TTC_CLOSE_CM do config.h: vai na telemetria como "near" */
+const PRE_ALERT_MS = 5000; /* igual ao config.h */
+const cancelRate = Math.min(1, Math.max(0, Number(opt('cancelar', 0.4))));
 
 const topic = (ch) => `${prefix}/${deviceId}/${ch}`;
 let client = null;
@@ -30,7 +38,7 @@ const millis = () => Date.now() - start;
 const noise = (a) => (Math.random() - 0.5) * 2 * a;
 
 let filtL = -1, filtR = -1;
-let nearL = false, nearR = false;
+const ttcL = new TtcDetector(), ttcR = new TtcDetector();
 let mode = 'RADAR';
 
 function sideDistance(tSec, phase) {
@@ -65,16 +73,31 @@ function tickTelemetry() {
     distL: +filtL.toFixed(1), rawL: +rawL.toFixed(1),
     distR: +filtR.toFixed(1), rawR: +rawR.toFixed(1),
     bzL: +volume(filtL).toFixed(2), bzR: +volume(filtR).toFixed(2),
-    thr: Math.round(thr), angle: mode === 'SIM360' ? Math.round(pot * 360) : 0, pot: +pot.toFixed(2),
+    thr: Math.round(thr), pot: +pot.toFixed(2),
     near: NEAR_MISS_CM,
   });
 
-  const isNearL = filtL >= 0 && filtL < NEAR_MISS_CM;
-  const isNearR = filtR >= 0 && filtR < NEAR_MISS_CM;
-  if (isNearL && !nearL) pub('events', { event: 'NEAR_MISS', side: 'L', value: +filtL.toFixed(1), t: millis() });
-  if (isNearR && !nearR) pub('events', { event: 'NEAR_MISS', side: 'R', value: +filtR.toFixed(1), t: millis() });
-  nearL = isNearL;
-  nearR = isNearR;
+  /* so o critico vira ocorrencia (TTC <= 1,5 s ou <= 25 cm por 3 leituras), com 3 s de cooldown por lado */
+  const now = millis();
+  const rl = ttcL.update(rawL, now);
+  const rr = ttcR.update(rawR, now);
+  if (rl.report) pub('events', nearMissEvent(rl, 'L', now));
+  if (rr.report) pub('events', nearMissEvent(rr, 'R', now));
+}
+
+/* pre-alerta "Estou bem": o firmware segura queda/batida por 5 s; se o usuario clicar, vira DISMISSED */
+function imuAlert(type, value, extra = {}) {
+  const t = millis();
+  console.log(`[SIM] ${type} detectado: pre-alerta de ${PRE_ALERT_MS / 1000} s`);
+  setTimeout(() => {
+    if (Math.random() < cancelRate) {
+      pub('events', { event: 'DISMISSED', cause: type, value, unit: 'g', t });
+      console.log(`[SIM] ${type} cancelado pelo botao ("Estou bem")`);
+    } else {
+      pub('events', { event: type, value, unit: 'g', ...extra, t });
+      console.log(`[SIM] ${type} confirmado`);
+    }
+  }, PRE_ALERT_MS);
 }
 
 /* caminhada em volta de casa, saindo da zona segura de vez em quando */
@@ -99,8 +122,7 @@ function tickImu() {
   tilt = Math.max(0, Math.min(90, tilt + noise(2)));
   if (Math.random() < 0.002) { /* batida */
     gMax = 3 + Math.random() * 1.5;
-    pub('events', { event: 'IMPACT', value: +gMax.toFixed(2), unit: 'g', t: millis() });
-    console.log('[SIM] IMPACT');
+    imuAlert('IMPACT', +gMax.toFixed(2));
   }
   pub('imu', {
     ax: +ax.toFixed(2), ay: +ay.toFixed(2), az: +az.toFixed(2),
@@ -114,14 +136,26 @@ function tickStatus() {
   battery = Math.max(5, battery - 0.4);
   const host = new URL(url).hostname;
   pub('status', {
-    fw: 'sim-1.4', up: Math.round(millis() / 1000), heap: 182000 - Math.round(Math.random() * 4000),
+    fw: 'sim-1.9', up: Math.round(millis() / 1000), heap: 182000 - Math.round(Math.random() * 4000),
     rssi: -55 - Math.round(Math.random() * 15), ip: '192.168.0.42', ssid: net.ssid, ch: 6,
     portal: net.portal, ap: `EchoMap-${deviceId}`, ...(net.err ? { werr: net.err } : {}),
     ...(net.test ? { wtest: net.test, wtry: net.tryName } : {}),
-    broker: `${host}:${new URL(url).port || 1883}`, auto: net.auto, mq: true, q: 0, lowlat: 1,
+    broker: `${host}:${new URL(url).port || 1883}`, auto: net.auto, mq: true, q: 0, lowlat: net.idle ? 0 : 1,
+    pwr: net.idle ? 'idle' : 'active', act: net.actuator, impG: net.impG, hyst: net.hyst, cal: Boolean(net.calTimer),
     ...(flag('status') ? { battery: Math.round(battery) } : {}), /* bateria so com --status (a placa real nao mede) */
     t: millis(),
   });
+}
+
+/* firmware 1.8: as 3 redes mais fortes (a primeira e a "Casa" do exemplo do README) */
+function sendFingerprint() {
+  const j = () => Math.round(Math.random() * 6);
+  pub('wifi', { type: 'wifi_fingerprint', aps: [
+    { bssid: 'EC:08:6B:12:34:56', rssi: -58 - j(), ssid: net.ssid },
+    { bssid: 'A4:2B:B0:11:22:33', rssi: -71 - j(), ssid: 'Vizinho 2.4G' },
+    { bssid: '7C:8B:CA:44:55:66', rssi: -83 - j(), ssid: 'Rua' },
+  ], t: millis() });
+  console.log('[SIM] Assinatura de Wi-Fi enviada');
 }
 
 function onCommand(_topic, payload) {
@@ -142,6 +176,51 @@ function onCommand(_topic, payload) {
     net.portal = true;
     setTimeout(() => { net.portal = false; tickStatus(); }, 60000);
     tickStatus();
+  } else if (cmd.cmd === 'haptic') {
+    /* firmware 1.6: toca um padrao da linguagem haptica; tambem acorda da economia (houve uso) */
+    console.log(`[SIM] Padrao haptico "${cmd.pattern}" no ${net.actuator}`);
+  } else if (cmd.cmd === 'wifi_scan') {
+    sendFingerprint(); /* firmware 1.8: varredura pedida pelo painel */
+  } else if (cmd.cmd === 'calibrate_start') {
+    /* imita o firmware 1.7: progresso a cada 1 s e o resultado (passo x 1,6 entre 2,5 e 4,5 g) */
+    const duration = cmd.duration_s ?? 30;
+    let elapsed = 0, steps = 0;
+    clearInterval(net.calTimer);
+    console.log(`[SIM] Calibrando por ${duration} s`);
+    net.calTimer = setInterval(() => {
+      elapsed += 1;
+      steps += 2;
+      pub('calib', { calib: 'running', elapsed, duration, steps, t: millis() });
+      if (elapsed < duration) return;
+      clearInterval(net.calTimer);
+      net.calTimer = null;
+      const stepMax = +(1.38 + Math.random() * 0.4).toFixed(2);
+      const before = { impactBefore: net.impG, hystBefore: net.hyst };
+      const noiseL = +(0.8 + Math.random()).toFixed(2), noiseR = +(0.6 + Math.random()).toFixed(2);
+      net.impG = +Math.min(4.5, Math.max(2.5, stepMax * 1.6)).toFixed(2);
+      net.hyst = +Math.min(30, Math.max(5, 3 * Math.max(noiseL, noiseR))).toFixed(1);
+      pub('calib', { calib: 'done', type: 'calibration_result', ok: true, reason: 'ok', duration, steps,
+        stepMean: +(stepMax - 0.06).toFixed(2), stepStd: 0.04, stepMax, noiseL, noiseR,
+        ...before, impactAfter: net.impG, hystAfter: net.hyst, t: millis() });
+      console.log(`[SIM] Calibracao pronta: batida ${net.impG} g, histerese ${net.hyst} cm`);
+      tickStatus();
+    }, 1000);
+    tickStatus();
+  } else if (cmd.cmd === 'calibrate_stop') {
+    clearInterval(net.calTimer);
+    net.calTimer = null;
+    pub('calib', { calib: 'cancelled', impG: net.impG, hyst: net.hyst, t: millis() });
+    tickStatus();
+  } else if (cmd.cmd === 'calibrate_reset') {
+    const before = { impactBefore: net.impG, hystBefore: net.hyst };
+    net.impG = 3.0;
+    net.hyst = 10;
+    pub('calib', { calib: 'reset', type: 'calibration_result', ok: true, ...before, impactAfter: 3.0, hystAfter: 10, t: millis() });
+    tickStatus();
+  } else if (cmd.cmd === 'actuator') {
+    net.actuator = cmd.mode === 'motor' ? 'motor' : 'buzzer';
+    console.log(`[SIM] Atuador: ${net.actuator}`);
+    tickStatus();
   } else if (cmd.cmd === 'server') {
     /* imita o firmware 1.4: troca onde procura o servidor ("auto" = descoberta na rede) */
     console.log(`[SIM] Painel pediu servidor "${cmd.host}"`);
@@ -160,7 +239,7 @@ function onCommand(_topic, payload) {
     }, 3000);
   }
 }
-const net = { ssid: 'Rede-Casa', portal: false, test: null, tryName: null, err: null, auto: args.includes('--discover') };
+const net = { ssid: 'Rede-Casa', portal: false, test: null, tryName: null, err: null, auto: args.includes('--discover'), idle: false, actuator: 'buzzer', impG: 3.0, hyst: 10, calTimer: null };
 
 function startClient() {
   /* mesmo formato de clientId do firmware: o servidor reconhece a placa e marca offline na hora ao desconectar */
@@ -199,18 +278,36 @@ function onConnect() {
       console.log('[SIM] CRASH (clique longo no botao)');
     }
   }, 45000);
-  setInterval(() => { mode = Math.random() < 0.8 ? 'RADAR' : 'SIM360'; }, 20000);
+  setInterval(() => { mode = Math.random() < 0.9 ? 'RADAR' : 'SELFTEST'; }, 20000); /* 1 clique alterna radar/autoteste */
 
-  if (flag('gps')) setInterval(tickGps, 1000); /* LOCATION_PERIOD_MS */
+  if (flag('gps') && !args.includes('--interno')) setInterval(tickGps, 1000); /* LOCATION_PERIOD_MS */
+  if (args.includes('--interno')) {
+    /* GPS sem sinal: como o firmware, a primeira varredura sai 15 s depois e as outras a cada 30 s */
+    setTimeout(() => { sendFingerprint(); setInterval(sendFingerprint, 30000); }, 15000);
+  }
+  if (args.includes('--ancora')) {
+    setTimeout(() => {
+      const p = args.includes('--interno') ? {} : { lat: +pos.lat.toFixed(6), lng: +pos.lon.toFixed(6) };
+      pub('events', { event: 'ANCHOR_TOGGLE', type: 'quick_anchor_toggle', ...p, t: millis() });
+      console.log('[SIM] 2 cliques: ancora rapida');
+    }, 10000);
+  }
   if (flag('imu')) {
     setInterval(tickImu, 200); /* publicado junto com a telemetria */
     setInterval(() => {
       if (Math.random() < 0.3) {
-        pub('events', { event: 'FALL', value: 3.4, unit: 'g', t: millis() });
-        console.log('[SIM] FALL');
+        imuAlert('FALL', 3.4, { tilt: 72 });
       }
     }, 60000);
   }
   tickStatus();
   setInterval(tickStatus, 5000); /* o firmware publica status a cada 5 s */
+  if (args.includes('--economia')) {
+    /* imita o PowerManager: parado -> economia; mexeu -> ativo (o status sai na hora, como no firmware) */
+    setInterval(() => {
+      net.idle = !net.idle;
+      console.log(`[SIM] Energia: ${net.idle ? 'economia' : 'ativo'}`);
+      tickStatus();
+    }, 40000);
+  }
 }

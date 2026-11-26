@@ -195,6 +195,18 @@ input[type="text"], input[type="number"] {
   padding: 14px 18px; border-radius: var(--r-panel); background: var(--critical-soft); border-left: 6px solid var(--critical);
 }
 .alert-band .what { font-weight: 700; font-size: var(--t-lg); }
+.place-band { max-width: 1120px; margin: 0 auto 16px; display: flex; align-items: center; gap: 10px; padding: 10px 16px;
+  border-radius: var(--r-panel); background: var(--echo-soft); color: var(--ink); font-size: var(--t-sm); }
+.place-band svg { width: 18px; height: 18px; stroke: var(--echo); fill: none; stroke-width: 2; stroke-linecap: round; flex: none; }
+.zone-ring.dynamic { border-style: dashed; border-color: var(--echo); background: var(--echo-soft); }
+.heat-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.heat-row label.check { display: flex; gap: 8px; align-items: center; font-weight: 700; }
+.heat-row select { min-height: 40px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: var(--r-ctl); background: var(--surface); color: var(--ink); font: inherit; }
+.heat-legend { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: var(--t-xs); color: var(--muted); }
+.heat-legend i { flex: 1; height: 10px; border-radius: 999px; background: linear-gradient(90deg, #2c7bb6, #abd9e9, #ffffbf, #fdae61, #d7191c); }
+.place-list li .s code { font-size: var(--t-xs); }
+.wifi-place-form select { width: 100%; min-height: 44px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: var(--r-ctl); background: var(--surface); color: var(--ink); font: inherit; }
+.wifi-place-form label.check { display: flex; gap: 8px; align-items: center; font-weight: 400; margin-top: 8px; }
 .alert-band .ctx { color: var(--ink-2); flex: 1; min-width: 200px; }
 .alert-band .acts { display: flex; gap: 8px; }
 
@@ -402,6 +414,23 @@ details.phone summary { cursor: pointer; font-weight: 700; color: var(--echo); }
 .channel.wifi { background: var(--echo-soft); color: var(--echo); }
 .channel.usb { background: var(--good-soft); color: var(--good); }
 .channel.none { background: var(--critical-soft); color: var(--critical); }
+.channel.power-active { background: var(--good-soft); color: var(--good); }
+.channel.power-idle { background: var(--sunken); color: var(--ink-2); }
+.haptic-test { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); display: grid; gap: 8px; }
+.haptic-test label { font-weight: 700; font-size: var(--t-sm); }
+.haptic-test .pick { display: flex; gap: 10px; flex-wrap: wrap; }
+.haptic-test select { flex: 1; min-width: 200px; min-height: 44px; padding: 0 12px; border: 1px solid var(--line-strong); border-radius: var(--r-ctl); background: var(--surface); color: var(--ink); font: inherit; }
+.haptic-test .explain { margin: 0; }
+.cal-bar { height: 12px; border-radius: 999px; background: var(--sunken); overflow: hidden; margin: 4px 0 8px; }
+.cal-bar i { display: block; height: 100%; background: var(--echo); border-radius: inherit; transition: width .9s linear; }
+@media (prefers-reduced-motion: reduce) { .cal-bar i { transition: none; } }
+.cal-count { margin: 0 0 4px; font-size: var(--t-sm); font-variant-numeric: tabular-nums; }
+.cal-now { margin: 10px 0; }
+.cal-title { margin: 14px 0 6px; font-weight: 700; }
+.cal-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.cal-table th, .cal-table td { text-align: left; padding: 8px 10px 8px 0; border-bottom: 1px solid var(--line); font-size: var(--t-sm); }
+.cal-table thead th { color: var(--muted); font-weight: 700; }
+.cal-table tbody th { font-weight: 400; color: var(--ink-2); }
 .two-ways { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .way { background: var(--sunken); border-radius: var(--r-ctl); padding: 16px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .way h3 { font-size: var(--t-md); }

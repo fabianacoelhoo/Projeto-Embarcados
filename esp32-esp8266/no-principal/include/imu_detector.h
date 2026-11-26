@@ -31,6 +31,10 @@ class ImuDetector {
  public:
   explicit ImuDetector(const ImuDetectorConfig &cfg) : cfg_(cfg) {}
 
+  /* limiar de batida em tempo de execucao (calibracao assistida) */
+  void setImpactG(float g) { cfg_.impactG = g; }
+  float impactG() const { return cfg_.impactG; }
+
   /* Chamar a cada amostra com o modulo da aceleracao (g) e a inclinacao (graus) em relacao
      a posicao de uso. Quando retorna um evento, peakG traz o pico do impacto e tiltDeg a
      inclinacao media usada para confirmar a queda. */

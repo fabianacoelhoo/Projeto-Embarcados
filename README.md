@@ -10,7 +10,7 @@ Projeto da disciplina **Sistemas Embarcados – CESAR School (2026.1)** · Grupo
 
 Crianças com dificuldade de locomoção ou de percepção do ambiente, idosos e outras pessoas vulneráveis podem esbarrar em obstáculos, cair ou se afastar de um lugar seguro sem que ninguém perceba na hora. O EchoMap junta, num dispositivo pequeno preso ao corpo (pulseira, cinto ou colete):
 
-- **percepção do entorno**: dois sensores ultrassônicos (esquerda e direita) e buzzers que apitam mais alto quanto mais perto está o obstáculo;
+- **percepção do entorno**: dois sensores ultrassônicos (esquerda e direita) e um atuador de cada lado com uma linguagem háptica de 7 padrões (buzzer na montagem atual; módulo de vibração MV50 já suportado pelo firmware);
 - **eventos para os responsáveis**: quase colisão, impacto/queda e pedido manual de ajuda, enviados via MQTT;
 - **painel dos responsáveis**: distâncias em tempo real, histórico, ocorrências, localização e zonas seguras.
 
@@ -21,7 +21,26 @@ Crianças com dificuldade de locomoção ou de percepção do ambiente, idosos e
 | [`esp32-esp8266/`](esp32-esp8266/) | Firmware do nó principal (ESP32 + FreeRTOS, PlatformIO) |
 | [`applications/`](applications/) | Back-end (Node.js, broker MQTT, SQLite) e dashboard web dos responsáveis |
 | [`schematics/`](schematics/) | Diagrama de ligações e tabela de pinos |
+| [`hardware/cad/`](hardware/cad/) | Cases e suportes vestíveis sem parafuso (build123d): STL/STEP prontos, validação automática e guia de impressão |
 | [`docs/`](docs/) | Arquitetura, contrato MQTT, protótipo do front-end, fotos dos componentes e relatórios |
+
+## Requisitos
+
+**Hardware** (pinagem em [`schematics/`](schematics/)):
+
+| Componente | Qtd. | Função |
+|---|---|---|
+| ESP32 DevKit 38 pinos, USB-C (ESP32-D0WD-V3, CP2102, 4 MB) | 1 | nó principal, FreeRTOS |
+| HC-SR04 + divisor 1 kΩ / 2 kΩ no ECHO | 2 | obstáculos à esquerda e à direita |
+| Buzzer passivo (montado hoje) ou módulo de vibração MV50 | 2 | aviso de cada lado |
+| MPU-6050 (GY-521) | 1 | queda, batida e inclinação |
+| GPS NEO-6M (GY-GPS6MV2) | 1 | posição, zonas seguras e mapa de calor |
+| Potenciômetro WH148 10 kΩ | 1 | limiar de detecção (20–200 cm) |
+| LED RGB 5 mm (catodo comum) + 3 resistores de 220–330 Ω | 1 | estado e modo |
+| Push-button 6×6 mm | 1 | modo, âncora rápida, portal de Wi-Fi, SOS e "Estou bem" |
+| Cases impressos em 3D ([`hardware/cad/`](hardware/cad/)) | 1 conjunto | case central, 2 suportes "farol" e case do GPS no colete |
+
+**Software:** VS Code + PlatformIO (firmware), Node.js 22.13 ou mais novo (servidor e painel), um compilador C++ (`g++`) para os testes do firmware no PC e, opcionalmente, Python 3.10+ para os modelos 3D e os diagramas.
 
 ## Como rodar
 
@@ -44,7 +63,14 @@ npm run simulate          # só os 2 ultrassônicos
 npm run simulate:all      # + GPS e acelerômetro (igual ao firmware atual) e bateria
 ```
 
-### 2. Firmware (ESP32)
+### 2. Testes
+
+```bash
+cd applications/dashboard && npm test        # painel, eventos, calibração, fase 4 e cabo USB
+cd esp32-esp8266/no-principal/host_test      # lógica do firmware no PC (comandos no README do firmware)
+```
+
+### 3. Firmware (ESP32)
 
 1. Instale a extensão **PlatformIO IDE** no VS Code e abra a pasta `esp32-esp8266/no-principal`.
 2. **Build → Upload → Serial Monitor** (115200 baud).
@@ -109,23 +135,33 @@ Para liberar o firewall (PowerShell como administrador):
 New-NetFirewallRule -DisplayName "EchoMap MQTT" -Direction Inbound -Protocol TCP -LocalPort 1883 -Action Allow -Profile Private
 ```
 
-## Status (checkpoint de 25/11/2026)
+## Status (26/11/2026, firmware 1.9)
 
 | Parte | Situação |
 |---|---|
-| Firmware: 2× HC-SR04, potenciômetro, botão, LED RGB, 2 buzzers, FreeRTOS (5 tasks) | implementado |
+| Firmware: 2× HC-SR04, potenciômetro, botão, LED RGB, 2 atuadores, FreeRTOS (7 tasks) | implementado |
+| Modos do botão: radar e autoteste (1 clique alterna) | implementado |
 | Firmware: publicação MQTT | ligada; reconecta sem travar as tasks e reenvia eventos perdidos |
 | Back-end: broker embutido, API REST, WebSocket, SQLite, regras de alerta | funcionando (testado com o simulador) |
 | Dashboard web em tempo real | funcionando (testado com o simulador) |
 | Firmware: GPS NEO-6M (posição) e MPU-6050 (queda, batida e inclinação) | implementado; lógica de queda testada no PC |
-| Trocar buzzers por motores de vibração (alerta tátil) | próxima etapa |
+| Linguagem háptica (7 padrões) pronta para buzzer ou motor de vibração; teste de cada padrão pelo painel | implementado (firmware 1.6), 13 verificações no PC; falta montar os motores |
+| Economia de energia: parado 2 min → sensores a 1 Hz e Wi-Fi em modem-sleep; acorda no primeiro movimento | implementado (firmware 1.6), 8 verificações no PC |
+| Mapa de calor de barreiras urbanas (quase colisões × GPS, filtro Hoje/7/30 dias/Tudo) | implementado, testado no servidor |
+| Fallback interno: assinatura de Wi-Fi sem GPS → "Ambiente interno conhecido: Casa (Wi-Fi)", sem falso "saiu da zona" | implementado (firmware 1.8), 10 verificações no PC + testes do servidor |
+| Âncora rápida: 2 cliques no botão (ou painel) criam zona segura de 100 m por 4 h, que expira sozinha | implementado (firmware 1.8), 7 verificações dos gestos no PC + testes do servidor |
+| Calibração assistida (30 s andando): limiar de batida pelo passo de quem usa e histerese pelo ruído do eco, com barra de progresso e antes/depois no painel | implementado (firmware 1.7), 13 verificações no PC + 3 testes do servidor |
 | Status da placa (sinal Wi-Fi, versão, memória) em `echomap/<id>/status` | implementado |
 | Wi-Fi configurado pelo painel (cabo USB detectado sozinho, rede do PC com 1 clique), pelo celular (portal) ou pela Serial, com teste antes de salvar; servidor encontrado automaticamente | implementado |
 | Comandos do painel para a placa (latência, tocar buzzer, reabrir portal) | implementado |
 | Painel refeito com as 7 telas do protótipo | implementado |
 | Zonas seguras editáveis no Mapa (zona "Casa" real cadastrada) | implementado |
 | Senha do painel para outros aparelhos e broker que só aceita comandos do servidor | implementado |
-| Quase colisão sem rajada: confirma em 2 leituras e no máximo 1 alerta a cada 10 s por lado | implementado (firmware 1.4) |
+| Quase colisão por tempo até o impacto (TTC): só aproximação rápida ou < 25 cm viram ocorrência; muro ao lado só gera aviso local | implementado (firmware 1.5), 13 cenários no PC |
+| Pré-alerta "Estou bem": queda/batida esperam 5 s; 1 clique cancela e o painel registra como descartado | implementado (firmware 1.5), 14 verificações no PC |
+| Diagrama de ligações (ESP32 38 pinos) e arquitetura gerados por script a partir do código | atualizados para o firmware 1.9 |
+| Bateria (3,7 V + TP4056 + MT3608) e medição no GPIO 34 | não montada; regra de bateria baixa pronta no servidor |
+| Cases 3D: case central (bolso 78 × 160), 2 suportes farol + háptico na fita de 60 mm e case do GPS no ombro, todos sem parafuso | modelados e validados (73 verificações: malha, colisão, snap-fit, balanço), STL/STEP em `hardware/cad/export`; falta imprimir e conferir as medidas dos módulos |
 
 ## Tecnologias
 

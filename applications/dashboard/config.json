@@ -24,6 +24,7 @@
   "discovery": { "enabled": true, "port": 47801, "intervalMs": 2000 },
   "portal": { "password": "echomap123" },
   "auth": { "enabled": true, "password": null },
+  "anchor": { "radiusM": 100, "hours": 4 },
   "persistEveryMs": 1000,
   "retentionDays": 30,
   "safeZones": [

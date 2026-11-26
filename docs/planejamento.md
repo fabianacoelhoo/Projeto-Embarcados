@@ -6,7 +6,7 @@ Etiquetas: `firmware`, `hardware`, `back-end`, `front-end`, `infra`, `documenta�
 
 ## Concluído até o check point ([issues #1–#8](https://github.com/fabianacoelhoo/Projeto-Embarcados/milestone/1?closed=1))
 
-- [x] Firmware do nó principal com FreeRTOS (5 tasks em 2 núcleos, mutex, fila e semáforo)
+- [x] Firmware do nó principal com FreeRTOS (7 tasks em 2 núcleos, mutex, fila e semáforo)
 - [x] Leitura dos 2 HC-SR04 com filtro e proteção contra eco cruzado
 - [x] Buzzers com volume proporcional à distância, LED RGB de status, botão com modos e `CRASH`
 - [x] Telemetria e eventos em JSON (Serial e MQTT)

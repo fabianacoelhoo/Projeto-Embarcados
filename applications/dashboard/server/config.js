@@ -19,7 +19,9 @@ const defaults = {
   auth: { enabled: true, password: null },
   persistEveryMs: 1000,
   retentionDays: 30,
-  /* zonas iniciais: depois de criado, data/zones.json (editado pela aba Mapa) passa a valer */
+  /* ancora rapida (2 cliques no botao ou "Criar ancora aqui"): raio e duracao padrao */
+  anchor: { radiusM: 100, hours: 4 },
+  /* zonas iniciais: so na primeira vez; depois valem as do banco (editadas pela aba Mapa) */
   safeZones: [],
   dbFile: path.join(ROOT, 'data', 'echomap.db'),
 };

@@ -60,10 +60,41 @@ const EVENT_LABEL = {
   LOW_BATTERY: 'Bateria baixa',
   DEVICE_OFFLINE: 'Dispositivo sem sinal',
   DEVICE_ONLINE: 'Dispositivo voltou a responder',
+  DISMISSED: 'Alerta cancelado ("Estou bem")',
+  ANCHOR_CREATED: 'Âncora rápida criada',
+  ANCHOR_REMOVED: 'Âncora rápida removida',
+  ANCHOR_EXPIRED: 'Âncora rápida expirou',
+  ANCHOR_FAILED: 'Âncora rápida sem posição',
 };
+const CAUSE_WORD = { FALL: 'era uma queda', IMPACT: 'era uma batida' };
+/* limiar de batida em uso: o calibrado que a placa informa (firmware 1.7) ou o do servidor */
+const impactOf = (d) => d?.latest?.status?.impactG ?? state.config.thresholds.impactG;
+const HYST_DEFAULT_CM = 10; /* BUZZER_HYST_CM do config.h */
+/* tempo que falta: "3h 42m", "12 min", "menos de 1 min" */
+function fmtLeft(ms) {
+  if (ms <= 60000) return 'menos de 1 min';
+  const m = Math.round(ms / 60000), h = Math.floor(m / 60);
+  return h ? `${h}h ${String(m % 60).padStart(2, '0')}m` : `${m} min`;
+}
+/* local conhecido por Wi-Fi ativo (o servidor casou a assinatura ha menos de 90 s) */
+const indoorOf = (d) => {
+  const i = d?.latest?.indoor;
+  return i?.placeName && Date.now() - i.ts < 90000 ? i : null;
+};
+const anchorOf = (d) => (state.config.safeZones ?? []).find((z) => z.type === 'dynamic' && z.deviceId === d?.id && (!z.expiresAt || z.expiresAt > Date.now()));
+/* linguagem haptica (firmware 1.6): o que cada padrao significa para quem usa */
+const HAPTIC = [
+  ['locate', 'Localizar', 'forte e alternado por 4 s, para achar o dispositivo'],
+  ['approach', 'Aproximação rápida', 'dupla rápida (80 ms, pausa, 80 ms): algo vai bater em menos de 1,5 s'],
+  ['proximity', 'Aproximando', 'pulsos que aceleram e ficam mais fortes conforme algo chega perto'],
+  ['static', 'Obstáculo parado', 'pulso curto e espaçado (60 ms a cada 0,76 s): parede ou pessoa parada ao lado'],
+  ['prealert', 'Pré-alerta "Estou bem"', 'batidas que aceleram por 5 s depois de uma queda ou batida'],
+  ['heartbeat', 'Batimento', 'um pulso longo e suave a cada 10 min: está tudo funcionando'],
+  ['confirm', 'Confirmação', 'dois toques curtos: ação aceita (alerta cancelado, por exemplo)'],
+];
 const SEV_WORD = { critical: 'Crítico', serious: 'Grave', warning: 'Atenção', info: 'Aviso' };
 const SIDE = { L: 'lado esquerdo', R: 'lado direito' };
-const MODE_LABEL = { RADAR: 'Modo radar', SIM360: 'Varredura 360°', SELFTEST: 'Autoteste' };
+const MODE_LABEL = { RADAR: 'Modo radar', SELFTEST: 'Autoteste' };
 
 /* ---------------- formatação (pt-BR) ---------------- */
 const fmtNum = (v, d = 0) => (v == null ? '—' : Number(v).toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d }));
@@ -142,6 +173,12 @@ function eventDetail(e, withName = false) {
   if (d.value != null) parts.push(d.unit === 'g' ? `${fmtNum(d.value, 2)} g` : d.unit === '%' ? `${fmtNum(d.value)}%` : `${fmtNum(d.value)} cm`);
   if (d.zone) parts.push(d.zone);
   if (e.type === 'FALL' && d.tilt != null) parts.push(`ficou inclinado ${fmtNum(d.tilt)}°`);
+  if (e.type === 'NEAR_MISS' && d.reason === 'ttc' && d.ttc != null) parts.push(`aproximando a ${fmtNum(d.v)} cm/s, impacto em ${fmtNum(d.ttc, 1)} s`);
+  if (e.type === 'NEAR_MISS' && d.reason === 'close') parts.push('perto demais');
+  if (e.type === 'ANCHOR_CREATED') parts.push(`raio de ${fmtNum(d.radiusM)} m, ${d.by === 'botão' ? '2 cliques no botão' : 'pelo painel'}`);
+  if (e.type === 'ANCHOR_REMOVED') parts.push(d.by === 'botão' ? '2 cliques no botão' : 'pelo painel');
+  if (e.type === 'ANCHOR_FAILED') parts.push('sem posição de GPS nem local por Wi-Fi');
+  if (e.type === 'DISMISSED') parts.push(`${CAUSE_WORD[d.cause] ?? 'alerta'}, cancelado no botão em 5 s`);
   if (e.type === 'CRASH') parts.push('botão segurado por 1,5 s');
   if (d.detectedBy === 'server') parts.push('detectado pelo servidor');
   return parts.join(', ');
@@ -197,6 +234,7 @@ function onReading(msg) {
   d.lastSeen = msg.ts;
   d.latest[msg.kind] = { ts: msg.ts, ...msg.data };
   if (!state.selected) { state.selected = d.id; route(); }
+  if (msg.kind === 'indoor') renderChrome(); /* selo "Ambiente interno conhecido" no topo */
 
   const cut = msg.ts - SERIES_MAX_MS;
   if (msg.kind === 'proximity') {
@@ -239,6 +277,7 @@ function connectWs() {
     else if (msg.type === 'event') onEvent(msg.event, true);
     else if (msg.type === 'eventUpdated') onEvent(msg.event, false);
     else if (msg.type === 'serial') { state.serial = msg.serial; scheduleRefresh(); }
+    else if (msg.type === 'wifiPlaces') { state.config.wifiPlaces = msg.places; scheduleRefresh(); }
     else if (msg.type === 'zones') {
       state.config.safeZones = msg.zones;
       view.impl?.m?.setZones(msg.zones);
@@ -276,8 +315,8 @@ async function ack(id) {
   if (res.ok) onEvent(await res.json(), false);
 }
 
-async function sendCommand(cmd, deviceId = state.selected) {
-  const body = cmd === 'server' ? { cmd, host: 'auto' } : { cmd };
+async function sendCommand(cmd, deviceId = state.selected, extra = {}) {
+  const body = cmd === 'server' ? { cmd, host: 'auto' } : { cmd, ...extra };
   const res = await fetch(`/api/devices/${encodeURIComponent(deviceId)}/command`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
   });
@@ -285,6 +324,11 @@ async function sendCommand(cmd, deviceId = state.selected) {
   if (!res.ok) return toast('O comando não foi enviado. Confira se o servidor está rodando.');
   if (cmd === 'locate') toast('Pedido enviado: o dispositivo vai apitar por 4 segundos.');
   if (cmd === 'diag') toast('Testando os sensores: aponte os dois para uma parede a 30–100 cm. O resultado aparece em Ao vivo.');
+  if (cmd === 'wifi_scan') toast('Pedido enviado: o dispositivo vai escanear o Wi-Fi. As redes aparecem em alguns segundos.');
+  if (cmd === 'calibrate_start') toast('Calibração começou: ande em linha reta no seu passo normal até a barra completar.');
+  if (cmd === 'calibrate_stop') toast('Calibração cancelada. Os limiares não mudaram.');
+  if (cmd === 'calibrate_reset') toast('Padrões de fábrica restaurados.');
+  if (cmd === 'haptic') toast(`Tocando "${HAPTIC.find((h) => h[0] === extra.pattern)?.[1] ?? extra.pattern}" no dispositivo.`);
   if (cmd === 'server') toast('Pedido enviado: o EchoMap vai procurar este computador na rede e reconectar. Leva alguns segundos.');
   if (cmd === 'portal') toast('Portal aberto no dispositivo: conecte o celular na rede EchoMap (senha echomap123) e abra 192.168.4.1.');
 }
@@ -293,6 +337,22 @@ async function removeZone(id, name) {
   if (!confirm(`Remover a zona segura "${name}"? Sair dela deixa de gerar alerta.`)) return;
   const res = await fetch(`/api/zones/${encodeURIComponent(id)}`, { method: 'DELETE' });
   toast(res.ok ? `Zona "${name}" removida.` : 'Não foi possível remover a zona.');
+}
+
+async function anchorAction(act) {
+  const id = current()?.id ?? state.selected;
+  const res = act === 'create'
+    ? await fetch('/api/safe-zones/anchor', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deviceId: id }) })
+    : await fetch(`/api/safe-zones/anchor?deviceId=${encodeURIComponent(id)}`, { method: 'DELETE' });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) return toast(body.error ?? 'Não foi possível mudar a âncora.');
+  toast(act === 'create' ? `Âncora criada: raio de ${fmtNum(body.radiusM)} m, expira em ${fmtLeft(body.expiresAt - Date.now())}.` : 'Âncora removida.');
+}
+
+async function removePlace(id, name) {
+  if (!confirm(`Remover o local "${name}"? Sem ele, o painel deixa de reconhecer esse lugar pelo Wi-Fi.`)) return;
+  const res = await fetch(`/api/wifi-places/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  toast(res.ok ? `Local "${name}" removido.` : 'Não foi possível remover o local.');
 }
 
 let audioCtx = null;
@@ -317,6 +377,19 @@ document.addEventListener('click', (e) => {
   if (ackId) { e.preventDefault(); ack(Number(ackId)); return; }
   const cmd = e.target.closest('[data-cmd]')?.dataset.cmd;
   if (cmd) { e.preventDefault(); sendCommand(cmd); return; }
+  const cal = e.target.closest('[data-cal]')?.dataset.cal;
+  if (cal) {
+    e.preventDefault();
+    const id = current()?.id ?? state.selected;
+    if (cal === 'start') sendCommand('calibrate_start', id, { duration_s: 30 });
+    if (cal === 'stop') sendCommand('calibrate_stop', id);
+    if (cal === 'reset' && confirm('Voltar o limiar de batida e a histerese para os valores de fábrica?')) sendCommand('calibrate_reset', id);
+    return;
+  }
+  const anchorAct = e.target.closest('[data-anchor]')?.dataset.anchor;
+  if (anchorAct) { e.preventDefault(); anchorAction(anchorAct); return; }
+  const delPlace = e.target.closest('[data-place-del]');
+  if (delPlace) { e.preventDefault(); removePlace(delPlace.dataset.placeDel, delPlace.dataset.name); return; }
   const delZone = e.target.closest('[data-zone-del]');
   if (delZone) { e.preventDefault(); removeZone(delZone.dataset.zoneDel, delZone.dataset.name); return; }
   const dev = e.target.closest('[data-dev]')?.dataset.dev;
@@ -333,6 +406,13 @@ function renderChrome() {
   const c = $('#navCount');
   c.hidden = n === 0;
   c.textContent = n > 99 ? '99+' : String(n);
+
+  /* ambiente interno conhecido por Wi-Fi (GPS sem sinal) */
+  const ind = indoorOf(current());
+  const pb = $('#placeBadge');
+  pb.hidden = !ind;
+  if (ind) setHTML(pb, `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 9a15 15 0 0 1 20 0M5.5 12.5a10 10 0 0 1 13 0M9 16a5 5 0 0 1 6 0"/><circle cx="12" cy="19.5" r="1"/></svg>
+    <span><b>Ambiente interno conhecido: ${esc(ind.placeName)} (Wi-Fi)</b>. ${esc(deviceName(current()))} está sem GPS; a posição vem da rede cadastrada.</span>`);
 
   const band = $('#alertBand');
   const evt = state.events.find((e) => !e.ackedAt && e.severity === 'critical');
@@ -508,8 +588,10 @@ function makeMap(el, { zoom = 4, interactive = true } = {}) {
   const setZones = (list) => {
     zoneLayer.clearLayers();
     for (const z of list ?? []) {
-      L.circle([z.lat, z.lon], { radius: z.radiusM, color: good, weight: 2, dashArray: '6 6', fillOpacity: 0.08 })
-        .bindTooltip(`Zona segura: ${z.name}`).addTo(zoneLayer);
+      const dyn = z.type === 'dynamic';
+      /* âncora rápida: tracejado curto na cor do eco, com o tempo que falta */
+      L.circle([z.lat, z.lon], { radius: z.radiusM, color: dyn ? echo : good, weight: dyn ? 3 : 2, dashArray: dyn ? '3 7' : '6 6', fillOpacity: dyn ? 0.12 : 0.08 })
+        .bindTooltip(dyn ? `Âncora rápida, expira em ${fmtLeft((z.expiresAt ?? 0) - Date.now())}` : `Zona segura: ${z.name}`).addTo(zoneLayer);
     }
   };
   setZones(state.config.safeZones);
@@ -752,7 +834,7 @@ views.ocorrencias = {
     <div class="head">
       <div><h1>Ocorrências</h1><p class="sub" id="ocSub"></p></div>
       <div class="seg" role="group" aria-label="Filtro">
-        ${[['pending', 'Pendentes'], ['all', 'Todas'], ['serious', 'Graves']].map(([k, t]) => `<button data-filter="${k}" class="${state.eventFilter === k ? 'on' : ''}">${t}</button>`).join('')}
+        ${[['pending', 'Pendentes'], ['all', 'Todas'], ['serious', 'Graves'], ['dismissed', 'Descartados']].map(([k, t]) => `<button data-filter="${k}" class="${state.eventFilter === k ? 'on' : ''}">${t}</button>`).join('')}
       </div>
     </div>
     <div class="panel" style="padding:4px 20px" id="ocList"></div>`,
@@ -770,6 +852,10 @@ views.ocorrencias = {
     if (state.eventFilter === 'pending') {
       html = pend.length ? `<ul class="list">${pend.map((e) => eventItem(e, true)).join('')}</ul>`
         : '<div class="empty"><strong>Tudo em dia</strong>Nenhuma ocorrência esperando confirmação.</div>';
+    } else if (state.eventFilter === 'dismissed') {
+      const list = state.events.filter((e) => e.type === 'DISMISSED');
+      html = list.length ? `<ul class="list">${list.map((e) => eventItem(e, true)).join('')}</ul>`
+        : '<div class="empty"><strong>Nenhum alerta cancelado</strong>Quando a pessoa aperta o botão nos 5 s depois de uma queda ou batida ("Estou bem"), o registro fica aqui, sem alarme.</div>';
     } else if (state.eventFilter === 'serious') {
       const list = state.events.filter((e) => e.severity === 'critical' || e.severity === 'serious');
       html = list.length ? `<ul class="list">${list.map((e) => eventItem(e, true)).join('')}</ul>`
@@ -830,7 +916,7 @@ views.alerta = {
       <div class="cols">
         <div class="c7">
           <div class="figures">
-            <div><div class="k">Aceleração</div><div class="v">${accel != null ? `${fmtNum(accel, 2)} g` : '—'}</div><div class="s">batida a partir de ${fmtNum(state.config.thresholds.impactG, 1)} g</div></div>
+            <div><div class="k">Aceleração</div><div class="v">${accel != null ? `${fmtNum(accel, 2)} g` : '—'}</div><div class="s">batida a partir de ${fmtNum(impactOf(d), 1)} g</div></div>
             <div><div class="k">Obstáculo</div><div class="v">${obst?.v != null ? `${fmtNum(obst.v)} cm` : '—'}</div><div class="s">${obst?.side ? SIDE[obst.side] : 'no momento'}</div></div>
             <div><div class="k">Inclinação</div><div class="v">${tilt != null ? `${fmtNum(tilt)}°` : '—'}</div><div class="s">${tilt != null ? posture(tilt).word.toLowerCase() : 'sem dados'}</div></div>
           </div>
@@ -871,6 +957,22 @@ views.mapa = {
       <div class="c4">
         <section class="panel" id="mpWhere"></section>
         <section class="panel">
+          <div class="section-head"><h2>Âncora rápida</h2></div>
+          <div id="mpAnchor"></div>
+        </section>
+        <section class="panel">
+          <div class="section-head"><h2>Mapa de calor de obstáculos</h2></div>
+          <div class="heat-row">
+            <label class="check"><input type="checkbox" id="hmOn"> Mostrar no mapa</label>
+            <label class="sr-only" for="hmPeriod">Período</label>
+            <select id="hmPeriod">
+              <option value="today">Hoje</option><option value="7" selected>7 dias</option><option value="30">30 dias</option><option value="all">Tudo</option>
+            </select>
+          </div>
+          <div class="heat-legend" aria-hidden="true"><span>poucas</span><i></i><span>muitas quase colisões</span></div>
+          <p class="explain" id="hmInfo">Mostra onde as quase colisões aconteceram, pela posição do GPS no momento de cada uma. Aproximações mais rápidas pesam mais.</p>
+        </section>
+        <section class="panel">
           <div class="section-head"><h2>Zonas seguras</h2></div>
           <ul class="zones" id="mpZones"></ul>
           <details class="phone zone-add" id="zAdd">
@@ -888,6 +990,20 @@ views.mapa = {
             </form>
           </details>
           <p class="explain">Sair de uma zona gera um alerta grave. As zonas ficam salvas no servidor e valem para todos os aparelhos.</p>
+        </section>
+        <section class="panel">
+          <div class="section-head"><h2>Locais por Wi-Fi</h2><button class="quiet" type="button" data-cmd="wifi_scan">Escanear agora</button></div>
+          <p class="explain">Dentro de casa o GPS costuma não pegar. Depois de 15 s sem GPS, o dispositivo escaneia o Wi-Fi; se uma rede cadastrada aqui aparecer, o painel mostra o local e não avisa saída de zona por engano.</p>
+          <ul class="zones place-list" id="wpList"></ul>
+          <form class="wifi-form wifi-place-form" id="wpForm" autocomplete="off">
+            <label for="wpAp">Rede vista agora pelo dispositivo</label>
+            <div id="wpApBox"></div>
+            <label for="wpName">Nome do local</label>
+            <input type="text" id="wpName" maxlength="40" placeholder="Ex.: Casa, CESAR School">
+            <label class="check"><input type="checkbox" id="wpSafe" checked> Conta como zona segura</label>
+            <label class="check"><input type="checkbox" id="wpPos" checked> Guardar a posição atual do mapa para esse local</label>
+            <button class="btn primary" type="submit">Cadastrar este local</button>
+          </form>
         </section>
       </div>
     </div>`,
@@ -913,6 +1029,51 @@ views.mapa = {
       const l = current()?.latest?.location;
       if (l?.lat != null) { setCenter(l.lat, l.lon); this.m?.map.setView([l.lat, l.lon], 17); }
     });
+    /* mapa de calor */
+    const loadHeat = async () => {
+      if (!$('#hmOn').checked || !this.m) return;
+      if (typeof L.heatLayer !== 'function') { $('#hmInfo').textContent = 'O componente do mapa de calor não carregou (public/vendor/leaflet-heat).'; return; }
+      const p = $('#hmPeriod').value, now = Date.now();
+      const from = p === 'all' ? 0 : p === 'today' ? new Date(new Date().setHours(0, 0, 0, 0)).getTime() : now - Number(p) * 86400000;
+      const d = current();
+      const res = await fetch(`/api/heatmap?from=${from}&to=${now}${d ? `&deviceId=${encodeURIComponent(d.id)}` : ''}`).catch(() => null);
+      const data = res?.ok ? await res.json() : null;
+      if (!data || !this.m || !$('#hmOn').checked) return;
+      this.heat?.remove();
+      this.heat = L.heatLayer(data.points, {
+        radius: 24, blur: 18, maxZoom: 18, max: Math.max(1, data.max),
+        gradient: { 0.2: '#2c7bb6', 0.4: '#abd9e9', 0.6: '#ffffbf', 0.8: '#fdae61', 1: '#d7191c' },
+      }).addTo(this.m.map);
+      $('#hmInfo').textContent = data.total
+        ? `${data.matched} de ${data.total} quase colisões no mapa${data.unmatched ? ` (${data.unmatched} sem posição de GPS no momento)` : ''}, em ${data.points.length} ${data.points.length === 1 ? 'ponto' : 'pontos'}.`
+        : 'Nenhuma quase colisão nesse período.';
+      if (data.points.length && !(current()?.latest?.location?.lat != null)) this.m.map.fitBounds(data.points.map((q) => [q[0], q[1]]), { maxZoom: 17, padding: [30, 30] });
+    };
+    const clearHeat = () => { this.heat?.remove(); this.heat = null; };
+    $('#hmOn').addEventListener('change', () => { if ($('#hmOn').checked) loadHeat(); else clearHeat(); });
+    $('#hmPeriod').addEventListener('change', loadHeat);
+    this.heatTimer = setInterval(loadHeat, 60000);
+
+    /* cadastrar o Wi-Fi atual como local conhecido */
+    $('#wpForm').addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const d = current(), sel = $('#wpAp');
+      const ap = sel ? (d?.latest?.wifi?.aps ?? []).find((a) => a.bssid === sel.value) : null;
+      if (!ap) { toast('Nenhuma rede vista ainda: toque em "Escanear agora" com o dispositivo ligado.'); return; }
+      const name = $('#wpName').value.trim();
+      if (!name) { toast('Dê um nome para o local (ex.: Casa).'); $('#wpName').focus(); return; }
+      const loc = d?.latest?.location;
+      const pos = $('#wpPos').checked && loc?.lat != null ? { lat: loc.lat, lng: loc.lon } : {};
+      const res = await fetch('/api/wifi-places', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, bssid: ap.bssid, minRssi: Math.max(-95, (ap.rssi ?? -70) - 15), isSafeZone: $('#wpSafe').checked, ...pos }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) { toast(body.error ?? 'Não foi possível cadastrar o local.'); return; }
+      toast(`Local "${body.name}" cadastrado pela rede ${ap.ssid || ap.bssid}.`);
+      $('#wpName').value = '';
+    });
+
     $('#zForm').addEventListener('submit', async (ev) => {
       ev.preventDefault();
       const name = $('#zName').value.trim();
@@ -937,20 +1098,54 @@ views.mapa = {
     $('#mpEmpty').hidden = !!has;
     $('#mpSub').textContent = d ? deviceName(d) : '';
     const z = zoneOf(loc);
-    $('#mpWhere').innerHTML = has ? `
+    const ind = indoorOf(d);
+    if (ind) {
+      $('#mpWhere').innerHTML = `
+      <div class="where ${ind.isSafeZone ? 'in' : ''}"><i></i>Ambiente interno conhecido</div>
+      <h2 style="margin-top:8px">${esc(deviceName(d))} está em ${esc(ind.placeName)} (Wi-Fi)</h2>
+      <p class="explain" style="margin-top:6px">Sem GPS aqui dentro. A posição vem da rede cadastrada (sinal de ${fmtNum(ind.rssi)} dBm), atualizada ${esc(fmtAgo(ind.ts))}.${ind.isSafeZone ? ' Conta como zona segura: o painel não avisa saída por causa do GPS ruim.' : ''}</p>`;
+    } else $('#mpWhere').innerHTML = has ? `
       <div class="where ${z ? 'in' : 'out'}"><i></i>${z ? 'Dentro da zona segura' : 'Fora das zonas seguras'}</div>
       <h2 style="margin-top:8px">${esc(deviceName(d))} ${z ? `está em ${esc(z.name)}` : 'está fora das zonas'}</h2>
       <p class="explain" style="margin-top:6px">Atualizado ${esc(fmtAgo(loc.ts))}${loc.accuracyM != null ? `, precisão de ${fmtNum(loc.accuracyM)} m` : ''}${loc.sats != null ? `, ${loc.sats} satélites` : ''}.</p>`
       : '<div class="where"><i></i>Sem posição</div><p class="explain" style="margin-top:6px">Assim que o GPS tiver sinal, a posição e o trajeto aparecem no mapa.</p>';
     const zones = state.config.safeZones ?? [];
-    setHTML($('#mpZones'), zones.length ? zones.map((zz) => `<li><span class="zone-ring" aria-hidden="true"></span>
+    setHTML($('#mpZones'), zones.length ? zones.map((zz) => zz.type === 'dynamic'
+      ? `<li><span class="zone-ring dynamic" aria-hidden="true"></span>
+      <div><strong>Âncora rápida</strong><div class="s">Raio de ${fmtNum(zz.radiusM)} m, expira em ${fmtLeft((zz.expiresAt ?? 0) - Date.now())}</div></div></li>`
+      : `<li><span class="zone-ring" aria-hidden="true"></span>
       <div><strong>${esc(zz.name)}</strong><div class="s">Raio de ${fmtNum(zz.radiusM)} m, avisa ao sair</div></div>
       ${zz.id ? `<button class="quiet" type="button" data-zone-del="${esc(zz.id)}" data-name="${esc(zz.name)}">Remover</button>` : ''}</li>`).join('')
       : '<li class="s">Nenhuma zona ainda. Clique no mapa para criar a primeira.</li>');
+
+    /* âncora rápida do dispositivo selecionado */
+    const anc = anchorOf(d);
+    const def = state.config.anchor ?? { radiusM: 100, hours: 4 };
+    setHTML($('#mpAnchor'), anc
+      ? `<p class="res ok">Âncora ativa: raio de ${fmtNum(anc.radiusM)} m, expira em <b>${fmtLeft((anc.expiresAt ?? 0) - Date.now())}</b>. Sair dela gera alerta como qualquer zona segura.</p>
+        <div class="actions"><button class="btn" type="button" data-anchor="remove">Remover âncora</button></div>`
+      : `<p class="explain">Cria uma zona segura temporária onde ${esc(d ? deviceName(d) : 'o dispositivo')} está agora (raio de ${fmtNum(def.radiusM)} m, por ${fmtNum(def.hours)} h). No dispositivo: 2 cliques rápidos no botão fazem o mesmo.</p>
+        <div class="actions"><button class="btn primary" type="button" data-anchor="create" ${has ? '' : 'disabled'}>Criar âncora aqui</button></div>
+        ${has ? '' : '<p class="explain">Precisa de uma posição do dispositivo (GPS ou local por Wi-Fi).</p>'}`);
+
+    /* locais por Wi-Fi */
+    const places = state.config.wifiPlaces ?? [];
+    setHTML($('#wpList'), places.length ? places.map((p) => `<li><span class="zone-ring ${p.isSafeZone ? '' : 'dynamic'}" aria-hidden="true"></span>
+      <div><strong>${esc(p.name)}</strong><div class="s"><code>${esc(p.bssid)}</code>, sinal a partir de ${fmtNum(p.minRssi)} dBm${p.isSafeZone ? ', zona segura' : ''}${p.lat == null ? ', sem posição' : ''}</div></div>
+      <button class="quiet" type="button" data-place-del="${p.id}" data-name="${esc(p.name)}">Remover</button></li>`).join('')
+      : '<li class="s">Nenhum local cadastrado.</li>');
+    const aps = d?.latest?.wifi?.aps ?? [];
+    const apsKey = aps.map((a) => a.bssid).join(',');
+    if (this.apsKey !== apsKey) {
+      this.apsKey = apsKey;
+      setHTML($('#wpApBox'), aps.length
+        ? `<select id="wpAp">${aps.map((a) => `<option value="${esc(a.bssid)}">${esc(a.ssid || '(rede oculta)')} — ${esc(a.bssid)}, ${fmtNum(a.rssi)} dBm</option>`).join('')}</select>`
+        : '<p class="explain">Nenhuma varredura ainda. Toque em "Escanear agora" com o dispositivo ligado no local que quer cadastrar.</p>');
+    }
     $('#zHere').hidden = !has;
     if (has) this.m?.update(loc, state.track.get(state.selected));
   },
-  unmount() { this.m?.destroy(); this.m = null; this.preview = null; },
+  unmount() { clearInterval(this.heatTimer); this.heat = null; this.m?.destroy(); this.m = null; this.preview = null; this.apsKey = null; },
 };
 
 /* ---------------- Movimento ---------------- */
@@ -967,7 +1162,7 @@ views.movimento = {
     <section class="panel">
       <div class="section-head"><h2>Quedas e batidas</h2></div>
       <ul class="list" id="mvList"></ul>
-      <p class="explain">Queda: o corpo fica sem peso (abaixo de 0,5 g), bate (2 g ou mais) e continua inclinado depois de 2 segundos. Pulos, corrida e degraus têm o mesmo começo, mas a pessoa continua de pé, por isso não viram alerta. Batida: pancada de ${fmtNum(state.config.thresholds.impactG, 1)} g ou mais.</p>
+      <p class="explain">Queda: o corpo fica sem peso (abaixo de 0,5 g), bate (2 g ou mais) e continua inclinado depois de 2 segundos. Pulos, corrida e degraus têm o mesmo começo, mas a pessoa continua de pé, por isso não viram alerta. Queda e batida só chegam aqui 5 s depois: nesse tempo o dispositivo pisca em âmbar e apita, e 1 clique no botão cancela ("Estou bem", aparece como alerta cancelado). Batida: pancada de ${fmtNum(impactOf(current()), 1)} g ou mais (ajustável na calibração, tela Dispositivo).</p>
     </section>`,
   refresh() {
     const d = current();
@@ -980,10 +1175,10 @@ views.movimento = {
       <div class="bands"><span class="b1">0 a 30°, em pé</span><span class="b2">30 a 60°, inclinado</span><span class="b3">acima de 60°, deitado</span></div>`;
     lineChart($('#mvChart'), $('#mvTip'), {
       pts: state.imuSeries.get(state.selected) ?? [], windowMs: 60000, unit: 'g', yFloor: 4, digits: 2,
-      refs: [{ v: state.config.thresholds.impactG, label: 'batida', color: 'var(--critical)' }, { v: 0.5, label: 'sem peso', color: 'var(--warning)' }],
+      refs: [{ v: impactOf(current()), label: 'batida', color: 'var(--critical)' }, { v: 0.5, label: 'sem peso', color: 'var(--warning)' }],
       series: [{ key: 'g', name: 'Aceleração', color: 'var(--echo)' }],
     });
-    const list = state.events.filter((e) => e.deviceId === state.selected && (e.type === 'FALL' || e.type === 'IMPACT'));
+    const list = state.events.filter((e) => e.deviceId === state.selected && (e.type === 'FALL' || e.type === 'IMPACT' || e.type === 'DISMISSED'));
     setHTML($('#mvList'), list.length ? list.slice(0, 20).map((e) => eventItem(e, false)).join('')
       : '<li class="empty">Nenhuma queda ou batida registrada.</li>');
   },
@@ -1001,13 +1196,24 @@ views.dispositivo = {
             <input type="text" id="dvNameIn" maxlength="60" placeholder="Ex.: Ana" autocomplete="off"><button class="btn" type="submit">Salvar nome</button></form>
         </section>
         <section class="panel">
-          <div class="section-head"><h2>Conexão</h2></div>
+          <div class="section-head"><h2>Conexão</h2><div class="channel-row" id="dvPower"></div></div>
           <dl class="rows" id="dvNet"></dl>
           <div id="dvBroker"></div>
           <div class="actions">
-            <button class="btn" data-cmd="locate">Tocar buzzer</button>
             <button class="btn" data-cmd="portal">Abrir o portal no celular</button>
           </div>
+          <div class="haptic-test">
+            <label for="hpSel">Testar um aviso no dispositivo</label>
+            <div class="pick">
+              <select id="hpSel">${HAPTIC.map(([k, t]) => `<option value="${k}">${esc(t)}</option>`).join('')}</select>
+              <button class="btn" type="button" id="hpBtn">Tocar no dispositivo</button>
+            </div>
+            <p class="explain" id="hpHint"></p>
+          </div>
+        </section>
+        <section class="panel">
+          <div class="section-head"><h2>Calibração</h2><span class="aside" id="calWhen"></span></div>
+          <div id="calBody"></div>
         </section>
       </div>
       <div class="c6 stack">
@@ -1068,6 +1274,13 @@ views.dispositivo = {
       this.refresh();
     });
     $('#themeBtn2').addEventListener('click', toggleTheme);
+    $('#hpSel').addEventListener('change', () => this.refresh());
+    $('#hpBtn').addEventListener('click', () => {
+      const pattern = $('#hpSel').value, id = current()?.id ?? state.selected;
+      /* "Localizar" usa o comando antigo, que todo firmware entende */
+      if (pattern === 'locate') sendCommand('locate', id);
+      else sendCommand('haptic', id, { pattern });
+    });
     $('#logoutBtn').hidden = !state.config.auth?.remote;
     $('#logoutBtn').addEventListener('click', async () => {
       await fetch('/api/logout', { method: 'POST' }).catch(() => {});
@@ -1075,6 +1288,9 @@ views.dispositivo = {
     });
     this.loadHost();
     this.hostTimer = setInterval(() => this.loadHost(), 20000);
+    /* ultimo resultado de calibracao guardado no servidor (o "latest" se perde quando o servidor reinicia) */
+    if (d) fetch(`/api/devices/${encodeURIComponent(d.id)}/calibrations?limit=1`).then((r) => r.json())
+      .then((list) => { this.calLast = list[0] ?? null; this.refresh(); }).catch(() => {});
     $('#wfHost').addEventListener('click', async (ev) => {
       const act = ev.target.closest('[data-host]')?.dataset.host;
       if (act === 'use' && this.host?.ssid) {
@@ -1124,10 +1340,19 @@ views.dispositivo = {
       (st.broker ? row('Servidor', `<code>${esc(st.broker)}</code>`, st.autoBroker ? 'encontrado automaticamente na rede' : 'endereço fixo configurado') : '') +
       (st.lowLatency != null ? row('Modo de baixa latência', st.lowLatency ? 'Ligado' : 'Desligado', st.lowLatency ? 'Wi-Fi sempre acordado: respostas em milissegundos, gasta mais bateria' : 'economiza bateria, respostas podem demorar até 300 ms') : '') +
       (st.queued ? row('Alertas aguardando envio', fmtNum(st.queued)) : '') +
+      (st.powerState ? row('Energia', st.powerState === 'idle' ? 'Economia' : 'Ativo', st.powerState === 'idle'
+        ? 'parado há 2 min: sensores a 1 leitura por segundo e Wi-Fi em economia; qualquer movimento ou clique volta na hora'
+        : 'sensores a cerca de 10 leituras por segundo') : '') +
+      (st.actuator ? row('Avisos no corpo', st.actuator === 'motor' ? 'Motor de vibração' : 'Buzzer', 'troque com "atuador motor" ou "atuador buzzer" na Serial') : '') +
       row('Firmware', esc(st.fw ?? '—')) +
       row('Ligado há', fmtDuration(st.uptimeS)) +
       (st.heap != null ? row('Memória livre', `${fmtNum(st.heap / 1024)} KB`) : '') +
       (st.battery != null ? row('Bateria', `${fmtNum(st.battery)}%`) : ''));
+    setHTML($('#dvPower'), st.powerState && d?.online
+      ? `<span class="channel power-${st.powerState}"><i></i>${st.powerState === 'idle' ? 'Economia' : 'Ativo'}</span>` : '');
+    const hp = HAPTIC.find((h) => h[0] === $('#hpSel').value) ?? HAPTIC[0];
+    $('#hpHint').textContent = `${hp[2]}. Toca no ${st.actuator === 'motor' ? 'motor de vibração' : 'buzzer'} do dispositivo${st.fw && st.fw < '1.6' ? ' (padrões novos precisam do firmware 1.6; com firmware antigo só "Localizar" funciona)' : ''}.`;
+    $('#hpBtn').disabled = !d?.online;
     const srv = state.config.server ?? {};
     /* a placa esta no Wi-Fi mas nao fala com o broker deste PC (IP fixo antigo, outra rede, firewall) */
     const brokerHost = st.broker?.split(':')[0];
@@ -1142,10 +1367,11 @@ views.dispositivo = {
       (state.config.auth?.password ? row('Senha para outros aparelhos', `<code>${esc(state.config.auth.password)}</code>`, 'celular ou outro PC pedem essa senha; neste computador o painel abre direto') : '') +
       (srv.mqttPort ? row('Porta MQTT', String(srv.mqttPort), srv.discovery ? 'anunciada na rede para a descoberta automática' : 'descoberta automática desligada') : '') +
       (srv.serial ? row('Cabo USB', `<code>${esc(srv.serial)}</code>`) : '') +
-      row('Quase colisão', `abaixo de ${fmtNum(nearCm(d?.latest?.proximity))} cm`, 'valor definido no firmware') +
-      row('Batida', `a partir de ${fmtNum(state.config.thresholds.impactG, 1)} g`) +
+      row('Quase colisão', `impacto em até 1,5 s ou abaixo de ${fmtNum(nearCm(d?.latest?.proximity))} cm`, 'parede ou pessoa parada ao lado só gera o aviso local, sem ocorrência (firmware 1.5)') +
+      row('Batida', `a partir de ${fmtNum(impactOf(d), 2)} g`, d?.latest?.status?.impactG != null ? 'limiar em uso na placa (calibrável)' : '') +
       row('Sem sinal', `depois de ${fmtNum((state.config.offlineAfterMs ?? 10000) / 1000)} s sem mensagens`));
     this.refreshWifi(d, st);
+    this.refreshCalibration(d, st);
     $('#notifyBtn').textContent = notifOn ? 'Alertas no navegador ligados' : 'Ligar alertas no navegador';
     $('#notifyBtn').disabled = notifOn;
     $('#themeBtn2').textContent = themeLabel();
@@ -1207,6 +1433,50 @@ document.addEventListener('click', async (e) => {
   }
   if (next) { state.serial = next; scheduleRefresh(); }
 });
+
+/* calibracao assistida: instrucoes, progresso ao vivo (0-30 s) e antes/depois dos limiares */
+views.dispositivo.refreshCalibration = function refreshCalibration(d, st) {
+  const live = d?.latest?.calibration;
+  const running = Boolean(d?.online && (st.calibrating || (live?.state === 'running' && Date.now() - live.ts < 4000)));
+  const last = live && live.state !== 'running' && live.state !== 'cancelled' ? live : this.calLast;
+  const oldFw = st.fw && st.fw < '1.7';
+  const impact = impactOf(d), hyst = st.hystCm ?? HYST_DEFAULT_CM;
+  const calibrated = (st.impactG != null && Math.abs(st.impactG - state.config.thresholds.impactG) > 0.005) || Math.abs(hyst - HYST_DEFAULT_CM) > 0.05;
+  $('#calWhen').textContent = d?.calibratedAt ? `calibrado ${fmtAgo(d.calibratedAt)}` : '';
+
+  if (running) {
+    const dur = live?.durationS ?? 30, el = Math.min(live?.elapsedS ?? 0, dur);
+    setHTML($('#calBody'), `
+      <p class="res run">Ande em linha reta num corredor livre, no seu passo normal. O LED pisca em azul enquanto mede.</p>
+      <div class="cal-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${dur}" aria-valuenow="${Math.round(el)}"><i style="width:${(el / dur) * 100}%"></i></div>
+      <p class="cal-count"><b>${fmtNum(el)} de ${fmtNum(dur)} s</b>, ${fmtNum(live?.steps ?? 0)} passos contados</p>
+      <div class="actions"><button class="btn" type="button" data-cal="stop">Cancelar calibração</button></div>`);
+    return;
+  }
+
+  let result = '';
+  if (last?.state === 'failed') {
+    result = `<p class="res bad">A última calibração não valeu: só ${fmtNum(last.steps)} passos em ${fmtNum(last.durationS)} s. Ande no seu passo normal durante todo o tempo. Os limiares não mudaram.</p>`;
+  } else if (last && (last.state === 'done' || last.state === 'reset')) {
+    const rowsHtml = (k, a, b, unit, dg) => `<tr><th scope="row">${k}</th><td>${a == null ? '—' : `${fmtNum(a, dg)} ${unit}`}</td><td><b>${b == null ? '—' : `${fmtNum(b, dg)} ${unit}`}</b></td></tr>`;
+    result = `<p class="cal-title">${last.state === 'reset' ? 'Padrões de fábrica restaurados' : 'Resultado da última calibração'}</p>
+      <table class="cal-table"><thead><tr><th></th><th scope="col">Antes</th><th scope="col">Depois</th></tr></thead><tbody>
+        ${rowsHtml('Limiar de batida', last.impactBefore, last.impactAfter, 'g', 2)}
+        ${rowsHtml('Histerese dos ultrassônicos', last.hystBefore, last.hystAfter, 'cm', 1)}
+      </tbody></table>
+      ${last.state === 'done' ? `<p class="explain">${fmtNum(last.steps)} passos, pico médio ${fmtNum(last.stepMean, 2)} g (maior ${fmtNum(last.stepMax, 2)} g). Ruído do eco: esquerdo ${last.noiseL != null ? `${fmtNum(last.noiseL, 1)} cm` : 'sem eco'}, direito ${last.noiseR != null ? `${fmtNum(last.noiseR, 1)} cm` : 'sem eco'}.${last.reason === 'sem_eco' ? ' Sem eco suficiente nos ultrassônicos: a histerese ficou como estava.' : ''}</p>` : ''}`;
+  }
+
+  setHTML($('#calBody'), `
+    <p class="explain">Ajusta o limiar de batida ao jeito de andar de quem usa (passo × 1,6, entre 2,5 e 4,5 g) e a histerese dos ultrassônicos ao ruído do eco. Prenda o dispositivo como no dia a dia, aperte Iniciar e ande 30 s em linha reta num corredor livre.</p>
+    <p class="cal-now">Em uso: batida a partir de <b>${fmtNum(impact, 2)} g</b>, histerese de <b>${fmtNum(hyst, 1)} cm</b> ${calibrated ? '(calibrado)' : '(de fábrica)'}.</p>
+    ${result}
+    ${oldFw ? '<p class="warn">A calibração precisa do firmware 1.7. Grave o firmware novo pelo PlatformIO.</p>' : ''}
+    <div class="actions">
+      <button class="btn primary" type="button" data-cal="start" ${d?.online && !oldFw ? '' : 'disabled'}>Iniciar calibração (30 s)</button>
+      ${calibrated ? '<button class="btn" type="button" data-cal="reset">Restaurar padrões de fábrica</button>' : ''}
+    </div>`);
+};
 
 views.dispositivo.refreshWifi = function refreshWifi(d, st) {
   const s = state.serial;

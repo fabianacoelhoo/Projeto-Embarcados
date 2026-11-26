@@ -20,7 +20,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-enum NetChannel : uint8_t { CH_TELEMETRY, CH_EVENTS, CH_LOCATION, CH_IMU, CH_STATUS, CH_PONG, CH_DIAG, CH_COUNT };
+enum NetChannel : uint8_t { CH_TELEMETRY, CH_EVENTS, CH_LOCATION, CH_IMU, CH_STATUS, CH_PONG, CH_DIAG, CH_CALIB, CH_WIFI, CH_COUNT };
 
 /* comando que nao e de rede (ex.: "locate", "diag"); ping, portal, wifi e esquecer ficam aqui dentro.
    json e nullptr quando veio como texto digitado na Serial. Devolve true se reconheceu o comando. */
@@ -37,6 +37,15 @@ bool netPortalActive();
 bool netTesting();
 bool netTakeStatusRequest();            /* true quando o status deve sair agora (comando "status" ou mudanca de rede) */
 bool netMqttConnected();
+/* economia de energia: true = Wi-Fi em modem-sleep (o MQTT continua conectado); false = volta ao
+   NET_LOW_LATENCY. Seguro de chamar de qualquer task: aplicado no proximo netService(). */
+void netSetPowerSave(bool save);
+/* assinatura de Wi-Fi: pede uma varredura passiva e assincrona (a conexao continua); quando termina,
+   netTakeWifiScan copia o JSON {"type":"wifi_fingerprint","aps":[...]} e devolve o tamanho (0 = nada novo) */
+void netRequestWifiScan();
+int netTakeWifiScan(char *buf, size_t len);
+/* le "campo":"texto" ou "campo":numero de um JSON simples (o mesmo parser dos comandos de rede) */
+bool netJsonField(const char *json, const char *key, char *out, size_t len);
 const char *netDeviceId();
 /* acrescenta ,"ip":...,"rssi":... ao JSON de status; devolve quantos caracteres escreveu */
 int netStatusAppend(char *buf, size_t len);

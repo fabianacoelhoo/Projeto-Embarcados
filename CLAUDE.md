@@ -9,3 +9,5 @@
 - No Windows os arquivos ficam com fim de linha **CRLF**; o `.gitattributes` (`* text=auto`) guarda LF dentro do repositório, então trocar CRLF/LF não aparece como mudança.
 - A pasta `Claude outputs/` nunca entra no Git.
 - Textos para o usuário em português do Brasil.
+- Lógica nova do firmware (detectores, máquinas de estado, cálculos) vai em header C++ puro em `include/` (sem `Arduino.h`/FreeRTOS), com teste em `host_test/`.
+- Banco do painel: mudança de schema só em `migrate()` (`server/db.js`), sempre idempotente (`CREATE TABLE IF NOT EXISTS` / `ALTER TABLE` só se a coluna não existir).
