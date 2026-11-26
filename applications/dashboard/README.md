@@ -2,7 +2,11 @@
 
 Recebe os dados do nó principal EchoMap (ESP32) via **MQTT** (Wi-Fi) ou **Serial** (USB), guarda o histórico em SQLite e mostra tudo em tempo real num painel web para os responsáveis.
 
-O painel segue o protótipo de 7 telas (`docs/prototipo/`): **Início** (cada dependente com a figura do eco, equilíbrio, local e pendências), **Ao vivo** (distâncias, buzzers, gráfico e "Tocar buzzer"), **Ocorrências** com **detalhe do alerta** (leituras no momento e linha do tempo), **Mapa** (posição, trajeto, zonas seguras, âncora rápida, mapa de calor de obstáculos com período e legenda, e locais por Wi-Fi), **Movimento** (equilíbrio e aceleração) e **Dispositivo** (nome, conexão, sinal, latência, energia com o selo Ativo/Economia, teste de cada aviso da linguagem háptica, calibração assistida com barra de progresso e antes/depois dos limiares, e Wi-Fi). No computador a navegação fica na lateral; no celular, em abas embaixo. A fonte é a Atkinson Hyperlegible (feita para leitores com baixa visão), servida localmente pelo `npm install`.
+O painel segue o protótipo de 7 telas (`docs/prototipo/`): **Início** (cada dependente com a figura do eco, equilíbrio, local e pendências; ao lado, o último local com coordenadas e as ocorrências recentes), **Ao vivo** (figura do eco, distância de cada lado com a aproximação estimada pelo painel em cm/s e o tempo até o contato, buzzers, equilíbrio, aceleração, gráfico e "Tocar buzzer"), **Ocorrências** (resumo por categoria e linha do tempo por dia, separando críticas, aproximações e descartadas no "Estou bem"; 50 por vez, com "Mostrar mais"; o filtro fica na URL, ex.: `#/ocorrencias/aproximacao`, `criticas`, `descartadas`, `pendentes` ou `todas`) com **detalhe do alerta** (leituras no momento e linha do tempo), **Mapa** (o mapa ocupa a área útil inteira; posição, zonas seguras, âncora rápida, mapa de calor e locais por Wi-Fi ficam em painéis flutuantes), **Movimento** (equilíbrio, eixos do MPU-6050 e aceleração) e **Dispositivo** (conexão, Wi-Fi com QR Code, energia, calibração assistida de 30 s, teste dos sensores, os 7 avisos da linguagem háptica com um botão "Tocar" cada, nome e dados deste painel). No computador a navegação fica na lateral; no celular, em abas embaixo.
+
+**Barra de status** (fixa no topo, em todas as telas): dispositivo selecionado, canal ativo (Wi-Fi/MQTT, USB ou offline), latência em ms, modo de energia (Ativo/Economia), fonte da localização (GPS com satélites ou ambiente interno por Wi-Fi) e a última leitura; o botão ao lado troca entre tema claro e escuro. No celular os valores aparecem abreviados.
+
+**Visual:** todos os valores de cor, tipo, espaço e raio ficam em `public/tokens.css` (tema claro e escuro); o `style.css` só usa essas variáveis. A cor tem papel fixo: azul-cobalto para ação, esmeralda para conectado/saudável, âmbar para atenção/aproximação/economia e coral para crítico/offline. Os lados do eco não são estados: esquerda em cobalto claro, direita em tinta neutra. Ícones são SVG de traço 1,75 (estilo Lucide), sem emoji. Fontes: Plus Jakarta Sans na interface e JetBrains Mono nos números (cm, ms, g, coordenadas, satélites, horários e mensagens da placa, com `tabular-nums` para não tremerem), servidas localmente pelo `npm install` (`/vendor/fonts/sans` e `/vendor/fonts/mono`). Alvos de toque têm pelo menos 44 px no celular e o texto passa de 4,5:1 de contraste nos dois temas.
 
 ## Como rodar
 
@@ -69,7 +73,7 @@ Tópico: `echomap/<deviceId>/<canal>`, com payload JSON.
 | `events` | `{"event":"NEAR_MISS","side":"L","value":25.1,"t":123}` | ocorrências e alertas |
 | `location` | `{"lat":-23.55,"lon":-46.63,"acc":8,"hdop":1.3,"sats":9,"speed":0.1}` | mapa, trajeto e zonas seguras |
 | `imu` | `{"ax":0.01,"ay":-0.02,"az":1.0,"gx":0.3,"gy":-0.2,"gz":0.1,"gMax":1.02,"tilt":4}` (g, °/s, °) | aceleração, pico e inclinação. Se vier `gMax` (firmware com MPU-6050), a placa detecta `FALL`/`IMPACT` sozinha; sem `gMax`, o servidor cria `IMPACT` acima de `impactG` |
-| `status` | `{"fw":"1.7.0","up":120,"heap":201000,"pwr":"active","act":"buzzer","impG":2.5,"hyst":5.4,"cal":false,"mq":true,"rssi":-60,"ip":"192.168.0.42","ssid":"Casa","ch":6,"broker":"192.168.0.10:1883","auto":true,"q":0,"portal":false,"lowlat":1}` (+ `battery` quando houver sensor) | tela Dispositivo: energia (`pwr` `active`/`idle`, selo Ativo/Economia), atuador (`act`), limiares em uso (`impG`, `hyst`) e calibração em andamento (`cal`), sinal, rede, servidor, fila de alertas (a cada 5 s); com `battery`, o servidor cria `LOW_BATTERY` |
+| `status` | `{"fw":"1.7.0","up":120,"heap":201000,"pwr":"active","act":"buzzer","impG":2.5,"hyst":5.4,"cal":false,"mq":true,"rssi":-60,"ip":"192.168.0.42","ssid":"Casa","ch":6,"broker":"192.168.0.10:1883","auto":true,"q":0,"portal":false,"lowlat":1}` (+ `battery` quando houver sensor) | tela Dispositivo e barra de status: energia (`pwr` `active`/`idle`, Ativo/Economia), atuador (`act`), limiares em uso (`impG`, `hyst`) e calibração em andamento (`cal`), sinal, rede, servidor, fila de alertas (a cada 5 s); com `battery`, o servidor cria `LOW_BATTERY` |
 | `calib` | `{"calib":"running","elapsed":12,"duration":30,"steps":21}` e, no fim, `{"calib":"done","type":"calibration_result","ok":true,"steps":57,"stepMax":1.5,"impactBefore":3,"impactAfter":2.5,"hystBefore":10,"hystAfter":5.4,...}` (também `failed`, `reset`, `cancelled`) | barra de progresso e antes/depois na tela Dispositivo; resultados vão para `calibrations` |
 | `pong` | `{"pong":17,"t":5230}` | resposta ao ping do servidor: latência de ida e volta |
 | `diag` | `{"diag":{"L":{"trig":18,"echo":19,"echoOk":true,"cm":62.4,"mv":-1,...},"R":{...,"mv":40}}}` | teste dos ultrassônicos (botão **Testar sensores** em Ao vivo): o painel explica o defeito de cada lado |
@@ -78,7 +82,7 @@ Tópico: `echomap/<deviceId>/<canal>`, com payload JSON.
 Tipos de evento que o painel já conhece: `NEAR_MISS`, `CRASH`, `SOS`, `FALL`, `IMPACT`, `DISMISSED`, `GEOFENCE_EXIT/ENTER`, `ANCHOR_CREATED/REMOVED/EXPIRED/FAILED`, `LOW_BATTERY`, `DEVICE_OFFLINE/ONLINE`. O `ANCHOR_TOGGLE` da placa não vira ocorrência: o servidor transforma no resultado (criada, removida ou sem posição).
 
 - `NEAR_MISS` (firmware 1.5) traz `reason`: `"ttc"` (aproximação rápida, com `ttc` em segundos e `v` em cm/s) ou `"close"` (a menos de 25 cm). Obstáculo parado não gera mais ocorrência.
-- `DISMISSED` é uma queda ou batida que a pessoa cancelou no botão nos 5 s do pré-alerta ("Estou bem"), com `cause` (`FALL`/`IMPACT`). Gravidade "info": não toca alarme nem fica pendente; aparece em **Ocorrências → Descartados** e na lista da tela Movimento. Um tipo novo também é aceito: ele aparece com gravidade "info" até ser cadastrado em `server/hub.js` (`SEVERITY`).
+- `DISMISSED` é uma queda ou batida que a pessoa cancelou no botão nos 5 s do pré-alerta ("Estou bem"), com `cause` (`FALL`/`IMPACT`). Gravidade "info": não toca alarme nem fica pendente; aparece em **Ocorrências → Descartadas** e na lista da tela Movimento. Um tipo novo também é aceito: ele aparece com gravidade "info" até ser cadastrado em `server/hub.js` (`SEVERITY`).
 
 Regras que o servidor já aplica:
 - **Dispositivo sem sinal**: nenhuma mensagem por `offlineAfterMs`, ou na hora em que a conexão MQTT da placa cai.
@@ -128,7 +132,7 @@ server/
   auth.js         senha do painel para outros aparelhos (cookie assinado, bloqueio após 5 erros)
   zones.js        zonas seguras fixas e âncoras rápidas (tabela safe_zones)
   heatmap.js      mapa de calor: ocorrência + posição mais próxima (±5 s), peso pelo TTC
-public/           dashboard (HTML/CSS/JS, sem build) e login.html
+public/           dashboard (HTML/CSS/JS, sem build), tokens.css (design system) e login.html
 tools/simulator.js simula a ESP32
 tools/test-*.mjs  testes sem placa (npm test)
 ```

@@ -97,7 +97,7 @@ Se o computador estiver numa rede de **5 GHz**, o painel avisa: o EchoMap só co
 
 ### Jeito 2: pelo celular
 
-1. Dê **3 cliques rápidos** no botão do EchoMap (ou clique em **Abrir o portal no celular** no painel). O LED fica azul, pulsando. Na primeira vez, sem rede salva, o portal já abre sozinho.
+1. Dê **3 cliques rápidos** no botão do EchoMap (ou, no painel, em **Dispositivo → Conectar pelo celular → Abrir o portal no dispositivo**). O LED fica azul, pulsando. Na primeira vez, sem rede salva, o portal já abre sozinho.
 2. No celular, entre na rede **`EchoMap-node1`**, senha **`echomap123`**, ou aponte a câmera para o QR code da tela Dispositivo.
 3. A página abre sozinha (se não abrir, acesse `192.168.4.1`). Toque na rede da casa, digite a senha e toque em **Testar e salvar**. A página mostra se deu certo; depois volte o celular para a sua rede.
 
@@ -143,7 +143,7 @@ New-NetFirewallRule -DisplayName "EchoMap MQTT" -Direction Inbound -Protocol TCP
 | Modos do botão: radar e autoteste (1 clique alterna) | implementado |
 | Firmware: publicação MQTT | ligada; reconecta sem travar as tasks e reenvia eventos perdidos |
 | Back-end: broker embutido, API REST, WebSocket, SQLite, regras de alerta | funcionando (testado com o simulador) |
-| Dashboard web em tempo real | funcionando (testado com o simulador) |
+| Dashboard web em tempo real | funcionando (testado com o simulador); design system em `tokens.css`, temas claro/escuro e barra de status global |
 | Firmware: GPS NEO-6M (posição) e MPU-6050 (queda, batida e inclinação) | implementado; lógica de queda testada no PC |
 | Linguagem háptica (7 padrões) pronta para buzzer ou motor de vibração; teste de cada padrão pelo painel | implementado (firmware 1.6), 13 verificações no PC; falta montar os motores |
 | Economia de energia: parado 2 min → sensores a 1 Hz e Wi-Fi em modem-sleep; acorda no primeiro movimento | implementado (firmware 1.6), 8 verificações no PC |

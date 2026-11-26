@@ -1,0 +1,108 @@
+/* EchoMap · design tokens
+   Único lugar com valores de cor, tipo, espaço, raio e elevação. O style.css só usa var(--…).
+   Cor só com papel: ação (cobalto), saudável (esmeralda), atenção (âmbar), crítico (coral).
+   Os dois lados do eco não são estados: esquerda em cobalto claro, direita em tinta neutra. */
+
+@font-face { font-family: "Plus Jakarta Sans"; src: url("/vendor/fonts/sans/plus-jakarta-sans-latin-400-normal.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Plus Jakarta Sans"; src: url("/vendor/fonts/sans/plus-jakarta-sans-latin-500-normal.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+@font-face { font-family: "Plus Jakarta Sans"; src: url("/vendor/fonts/sans/plus-jakarta-sans-latin-600-normal.woff2") format("woff2"); font-weight: 600; font-display: swap; }
+@font-face { font-family: "Plus Jakarta Sans"; src: url("/vendor/fonts/sans/plus-jakarta-sans-latin-700-normal.woff2") format("woff2"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; src: url("/vendor/fonts/mono/jetbrains-mono-latin-400-normal.woff2") format("woff2"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; src: url("/vendor/fonts/mono/jetbrains-mono-latin-500-normal.woff2") format("woff2"); font-weight: 500; font-display: swap; }
+@font-face { font-family: "JetBrains Mono"; src: url("/vendor/fonts/mono/jetbrains-mono-latin-600-normal.woff2") format("woff2"); font-weight: 600; font-display: swap; }
+
+:root {
+  color-scheme: light;
+
+  /* ---- base ---- */
+  --bg: #F7F8FA;
+  --surface: #FFFFFF;
+  --surface-2: #F1F3F6;          /* área rebaixada: trilhos, campos, faixas do eco */
+  --surface-float: rgba(255, 255, 255, 0.9); /* painéis sobre o mapa */
+  --border: rgba(15, 23, 42, 0.08);
+  --border-strong: rgba(15, 23, 42, 0.16);
+  --text: #0F172A;
+  --text-2: #475569;
+  --text-3: #586377;             /* legendas; ≥ 4,9:1 sobre fundo, superfície e área rebaixada */
+  --on-solid: #FFFFFF;
+
+  /* ---- papéis ---- */
+  --primary: #2348C5;            /* ação primária, foco, seleção */
+  --primary-hover: #1C3BA6;
+  --primary-soft: rgba(35, 72, 197, 0.08);
+  --on-primary: #FFFFFF;
+  --on-crit: #FFFFFF;
+  --good: #047857;               /* conectado, saudável, dentro da zona */
+  --good-solid: #059669;
+  --good-soft: rgba(5, 150, 105, 0.10);
+  --warn: #A3520A;               /* atenção, pré-alerta, aproximação, economia */
+  --warn-solid: #D97706;
+  --warn-soft: rgba(217, 119, 6, 0.12);
+  --crit: #C8352E;               /* crítico, queda, batida, offline */
+  --crit-solid: #DC4A3F;
+  --crit-soft: rgba(220, 74, 63, 0.10);
+  --near-wash: rgba(220, 74, 63, 0.10);
+
+  /* ---- lados do eco (identidade, não estado) ---- */
+  --left: #3D65DB;
+  --right: #334155;
+
+  /* ---- tipografia ---- */
+  --font: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  /* escala 1,2 (terça menor): 12 · 13 · 14 · 16 · 19 · 23 · 28 · 40 */
+  --t-2xs: 12px; --t-xs: 13px; --t-sm: 14px; --t-md: 16px; --t-lg: 19px; --t-xl: 23px; --t-2xl: 28px; --t-3xl: 40px;
+  --tracking-tight: -0.02em;
+  --lh-tight: 1.15; --lh-body: 1.55;
+
+  /* ---- espaço (base 4) ---- */
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px; --s-6: 24px; --s-8: 32px; --s-10: 40px; --s-12: 48px;
+
+  /* ---- raio: menor quanto mais interno ---- */
+  --r-xs: 6px; --r-sm: 8px; --r-md: 10px; --r-lg: 14px; --r-pill: 999px;
+
+  /* ---- elevação: só para o que flutua (toast, painéis do mapa, modais) ---- */
+  --e-float: 0 1px 2px rgba(15, 23, 42, 0.06), 0 8px 24px rgba(15, 23, 42, 0.08);
+
+  /* ---- estrutura ---- */
+  --rail-w: 232px;
+  --bar-h: 52px;
+  --tab-h: 64px;
+  --content-max: 1180px;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0B0E14;
+  --surface: #121722;
+  --surface-2: #181F2E;
+  --surface-float: rgba(18, 23, 34, 0.9);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --text: #E6EAF2;
+  --text-2: #A3ADBF;
+  --text-3: #8591A6;
+  --on-solid: #FFFFFF;
+
+  --primary: #6F8EF7;
+  --primary-hover: #8AA3FA;
+  --primary-soft: rgba(111, 142, 247, 0.12);
+  --on-primary: #0B0E14;
+  --on-crit: #0B0E14;
+  --good: #34D399;
+  --good-solid: #10B981;
+  --good-soft: rgba(52, 211, 153, 0.12);
+  --warn: #FBBF24;
+  --warn-solid: #F59E0B;
+  --warn-soft: rgba(251, 191, 36, 0.12);
+  --crit: #FF8A80;
+  --crit-solid: #F0564B;
+  --crit-soft: rgba(255, 138, 128, 0.12);
+  --near-wash: rgba(255, 138, 128, 0.12);
+
+  --left: #7D9CFA;
+  --right: #CBD5E1;
+
+  --e-float: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.35);
+}

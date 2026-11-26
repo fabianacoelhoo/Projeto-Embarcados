@@ -93,6 +93,76 @@ const HAPTIC = [
   ['confirm', 'Confirmação', 'dois toques curtos: ação aceita (alerta cancelado, por exemplo)'],
 ];
 const SEV_WORD = { critical: 'Crítico', serious: 'Grave', warning: 'Atenção', info: 'Aviso' };
+
+/* ícones de traço (24×24, traço 1,75, estilo Lucide): nada de emoji na interface */
+const ICONS = {
+  alert: '<path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/>',
+  fall: '<circle cx="14" cy="4.5" r="2"/><path d="M13 8.5 9 12l3 3-2 6M9 12l-5 1M13 8.5l4 3.5 3-1"/><path d="M3 21h18"/>',
+  impact: '<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>',
+  siren: '<path d="M7 18v-6a5 5 0 1 1 10 0v6"/><path d="M5 21a1 1 0 0 1-1-1v-1a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v1a1 1 0 0 1-1 1z"/><path d="M21 12h1M18.5 4.5 18 5M2 12h1M12 2v1M4.9 4.9l.7.7"/>',
+  sos: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><path d="m4.93 4.93 4.24 4.24M14.83 9.17l4.24-4.24M14.83 14.83l4.24 4.24M9.17 14.83l-4.24 4.24"/>',
+  approach: '<circle cx="12" cy="12" r="2"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M4.9 4.9a10 10 0 0 0 0 14.2M19.1 4.9a10 10 0 0 1 0 14.2"/>',
+  pinOut: '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><path d="m14.5 7.5-5 5M9.5 7.5l5 5"/>',
+  pinIn: '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><path d="m9 10 2 2 4-4"/>',
+  battery: '<rect x="2" y="7" width="16" height="10" rx="2"/><path d="M22 11v2M6 11v2"/>',
+  wifi: '<path d="M12 20h.01M2 8.82a15 15 0 0 1 20 0M5 12.86a10 10 0 0 1 14 0M8.5 16.43a5 5 0 0 1 7 0"/>',
+  wifiOff: '<path d="M12 20h.01M8.5 16.43a5 5 0 0 1 7 0M2 8.82a15 15 0 0 1 4.17-2.65M10.66 5c4.01-.36 8.14.9 11.34 3.76M16.85 11.25a10 10 0 0 1 2.22 1.68M5 13a10 10 0 0 1 5.24-2.76M2 2l20 20"/>',
+  shield: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
+  anchor: '<path d="M12 22V8M5 12H2a10 10 0 0 0 20 0h-3"/><circle cx="12" cy="5" r="3"/>',
+  usb: '<circle cx="10" cy="7" r="1"/><circle cx="4" cy="20" r="1"/><path d="M4.7 19.3 19 5M21 3l-3 1 2 2zM9.26 7.68 5 12l2 5M10 14l5 2 3.5-3.5M18 12l1-1 1 1-1 1z"/>',
+  gauge: '<path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>',
+  leaf: '<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>',
+  activity: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+  satellite: '<path d="M13 7 9 3 5 7l4 4"/><path d="m17 11 4 4-4 4-4-4"/><path d="m8 12 4 4 6-6-4-4Z"/><path d="m16 8 3-3"/><path d="M9 21a6 6 0 0 0-6-6"/>',
+  home: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9"/>',
+  pin: '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
+  info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
+  volume: '<path d="M11 4.7a.7.7 0 0 0-1.2-.5L6.4 7.6A1.4 1.4 0 0 1 5.4 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.4a1.4 1.4 0 0 1 1 .4l3.4 3.4a.7.7 0 0 0 1.2-.5z"/><path d="M16 9a5 5 0 0 1 0 6M19.4 18.4a9 9 0 0 0 0-12.8"/>',
+  play: '<path d="M6 4.5v15a.5.5 0 0 0 .77.42l11.5-7.5a.5.5 0 0 0 0-.84L6.77 4.08A.5.5 0 0 0 6 4.5z"/>',
+  back: '<path d="m15 18-6-6 6-6"/>',
+  chevron: '<path d="m6 9 6 6 6-6"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  server: '<rect x="2" y="3" width="20" height="7" rx="2"/><rect x="2" y="14" width="20" height="7" rx="2"/><path d="M6 6.5h.01M6 17.5h.01"/>',
+  scan: '<path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/>',
+  balance: '<circle cx="12" cy="5" r="2"/><path d="M12 7v7M8 21l4-7 4 7M7 11h10"/>',
+  arrowIn: '<path d="M2 12h7M6 8l4 4-4 4M22 12h-7M18 8l-4 4 4 4"/>',
+  arrowOut: '<path d="M10 12H3M6 8l-4 4 4 4M14 12h7M18 8l4 4-4 4"/>',
+  minus: '<path d="M5 12h14"/>',
+  clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+};
+const ic = (name, cls = '') => `<svg class="ic ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name] ?? ICONS.info}</svg>`;
+
+/* categoria visual: crítico (queda, batida, SOS, saída da zona), aproximação, descartado ("Estou bem") e avisos */
+const TYPE_ICON = {
+  FALL: 'fall', IMPACT: 'impact', CRASH: 'siren', SOS: 'sos', NEAR_MISS: 'approach', GEOFENCE_EXIT: 'pinOut', GEOFENCE_ENTER: 'pinIn',
+  LOW_BATTERY: 'battery', DEVICE_OFFLINE: 'wifiOff', DEVICE_ONLINE: 'wifi', DISMISSED: 'shield',
+  ANCHOR_CREATED: 'anchor', ANCHOR_REMOVED: 'anchor', ANCHOR_EXPIRED: 'anchor', ANCHOR_FAILED: 'anchor',
+};
+const KIND_WORD = { crit: 'Crítico', approach: 'Aproximação', warn: 'Atenção', dismissed: 'Descartado', good: 'Normalizado', info: 'Aviso' };
+function eventKind(e) {
+  if (e.type === 'DISMISSED') return 'dismissed';
+  if (e.type === 'NEAR_MISS') return 'approach';
+  if (e.severity === 'critical' || e.severity === 'serious') return 'crit';
+  if (e.severity === 'warning') return 'warn';
+  if (e.type === 'DEVICE_ONLINE' || e.type === 'GEOFENCE_ENTER') return 'good';
+  return 'info';
+}
+const kindIcon = (e, cls = '') => `<span class="kind-ic ${eventKind(e)} ${cls}" aria-hidden="true">${ic(TYPE_ICON[e.type] ?? 'info')}</span>`;
+
+/* aproximação estimada no painel: inclinação das leituras do último 1,2 s (cm/s; positivo = chegando perto) */
+function approachOf(series, key) {
+  const now = Date.now();
+  const pts = (series ?? []).filter((p) => p[key] != null && now - p.ts < 1500);
+  if (pts.length < 3 || now - pts[pts.length - 1].ts > 1200) return null;
+  const t0 = pts[0].ts;
+  let sx = 0, sy = 0, sxx = 0, sxy = 0;
+  for (const p of pts) { const x = (p.ts - t0) / 1000; sx += x; sy += p[key]; sxx += x * x; sxy += x * p[key]; }
+  const n = pts.length, den = n * sxx - sx * sx;
+  if (den <= 0) return null;
+  const v = -((n * sxy - sx * sy) / den);
+  const dist = pts[n - 1][key];
+  return { v, ttc: v > 8 ? dist / v : null };
+}
 const SIDE = { L: 'lado esquerdo', R: 'lado direito' };
 const MODE_LABEL = { RADAR: 'Modo radar', SELFTEST: 'Autoteste' };
 
@@ -183,7 +253,6 @@ function eventDetail(e, withName = false) {
   if (d.detectedBy === 'server') parts.push('detectado pelo servidor');
   return parts.join(', ');
 }
-const sevMark = (sev) => `<span class="sev ${sev}" aria-hidden="true">${sev === 'info' ? 'i' : '!'}</span>`;
 const pendingEvents = () => state.events.filter((e) => !e.ackedAt && e.severity !== 'info');
 
 /* ---------------- dados ---------------- */
@@ -401,6 +470,7 @@ function renderChrome() {
   const ls = $('#linkState');
   ls.className = `link-state ${state.wsOnline ? 'ok' : 'bad'}`;
   ls.querySelector('span').textContent = state.wsOnline ? 'Servidor conectado' : 'Sem conexão com o servidor';
+  renderStatusBar();
 
   const n = pendingEvents().length;
   const c = $('#navCount');
@@ -418,13 +488,42 @@ function renderChrome() {
   const evt = state.events.find((e) => !e.ackedAt && e.severity === 'critical');
   if (!evt || view.name === 'alerta') { band.hidden = true; return; }
   band.hidden = false;
-  band.innerHTML = `
+  setHTML(band, `${ic(TYPE_ICON[evt.type] ?? 'alert')}
     <span class="what">${esc(EVENT_LABEL[evt.type] ?? evt.type)}</span>
     <span class="ctx">${esc(eventDetail(evt, true))}, ${esc(fmtAgo(evt.ts))}</span>
     <span class="acts">
       <a class="btn small" href="#/alerta/${evt.id}">Ver o que aconteceu</a>
       <button class="btn small danger" data-ack="${evt.id}">Estou ciente</button>
-    </span>`;
+    </span>`);
+}
+
+/* barra de status global: dispositivo, canal ativo, latência, energia e fonte da localização */
+function renderStatusBar() {
+  const d = current();
+  const item = (icon, k, v, tone = '', extra = '', mono = false, short = v) => `<span class="sb-item ${tone} ${extra} ${short !== v ? 'has-short' : ''}" title="${esc(k)}: ${esc(v)}">${ic(icon)}<span class="sb-k">${esc(k)}</span><span class="sb-v sb-long ${mono ? 'num' : ''}">${esc(v)}</span>${short !== v ? `<span class="sb-v sb-short ${mono ? 'num' : ''}" aria-hidden="true">${esc(short)}</span>` : ''}</span>`;
+  let html = '';
+  if (!state.wsOnline) html += item('server', 'Servidor', 'Sem conexão', 'crit');
+  if (!d) {
+    html += `<span class="sb-item sb-dev muted"><i class="dot"></i><span class="sb-v">Nenhum dispositivo</span></span>`;
+    setHTML($('#statusBar'), html);
+    return;
+  }
+  const st = d.latest?.status ?? {}, net = d.latest?.net, loc = d.latest?.location;
+  html += `<span class="sb-item sb-dev" title="${esc(deviceName(d))}: ${esc(linkOf(d).text)}"><i class="dot ${d.online ? 'ok' : 'bad'}"></i><span class="sb-v">${esc(deviceName(d))}</span></span>`;
+  if (!d.online) html += item('wifiOff', 'Canal', 'Offline', 'crit');
+  else if (d.source === 'serial') html += item('usb', 'Canal', 'USB', 'good');
+  else html += item('wifi', 'Canal', 'Wi-Fi/MQTT', 'good', '', false, 'Wi-Fi');
+  if (d.online && net?.rttAvgMs != null) html += item('gauge', 'Latência', `${fmtNum(net.rttAvgMs)} ms`, net.rttAvgMs > 300 ? 'warn' : '', '', true);
+  else if (d.online && d.source === 'serial') html += item('gauge', 'Latência', 'cabo', 'muted', 'sb-hide-m');
+  else html += item('gauge', 'Latência', '—', 'muted', 'sb-hide-m');
+  if (st.powerState === 'idle') html += item('leaf', 'Energia', 'Economia', 'warn', '', false, 'Eco');
+  else if (st.powerState) html += item('activity', 'Energia', 'Ativo', '');
+  const ind = indoorOf(d);
+  if (ind) html += item('home', 'Local', `Interno (Wi-Fi): ${ind.placeName}`, '', '', false, 'Interno');
+  else if (loc?.lat != null && Date.now() - loc.ts < 60000) html += item('satellite', 'Local', loc.sats != null ? `GPS · ${fmtNum(loc.sats)} sat.` : 'GPS', '', '', false, loc.sats != null ? `GPS ${fmtNum(loc.sats)}` : 'GPS');
+  else html += item('satellite', 'Local', 'Sem posição', 'muted', '', false, 'Sem GPS');
+  html += item('clock', 'Última leitura', fmtAgo(d.lastSeen), '', 'sb-hide-m');
+  setHTML($('#statusBar'), html);
 }
 
 /* ---------------- componentes ---------------- */
@@ -454,33 +553,33 @@ function echoFigure(p, width, { labels = true } = {}) {
     const x0 = cx + sign * (personR + 6);
     const xAt = (cm) => x0 + sign * cm * px;
     const rect = (a, b, y, h, fill, extra = '') => `<rect x="${Math.min(a, b)}" y="${y}" width="${Math.abs(b - a)}" height="${h}" fill="${fill}" ${extra}/>`;
-    let s = rect(x0, xAt(maxCm), cy - laneH / 2, laneH, 'var(--sunken)', 'rx="8"');
+    let s = rect(x0, xAt(maxCm), cy - laneH / 2, laneH, 'var(--surface-2)', 'rx="6"');
     s += rect(x0, xAt(near), cy - laneH / 2, laneH, 'var(--near-wash)');
     if (thr != null) {
       const xt = xAt(Math.min(thr, maxCm));
-      s += `<line x1="${xt}" x2="${xt}" y1="${cy - laneH / 2 - 5}" y2="${cy + laneH / 2 + 5}" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="4 3"/>`;
+      s += `<line x1="${xt}" x2="${xt}" y1="${cy - laneH / 2 - 5}" y2="${cy + laneH / 2 + 5}" stroke="var(--text-3)" stroke-width="1.25" stroke-dasharray="3 3"/>`;
     }
     const tick = lanePx < 200 ? 100 : 50;
     for (let cm = 0; cm <= maxCm; cm += tick) {
-      s += `<text x="${xAt(cm)}" y="${cy + laneH / 2 + 18}" text-anchor="middle" font-size="12" fill="var(--muted)">${cm}</text>`;
+      s += `<text x="${xAt(cm)}" y="${cy + laneH / 2 + 18}" text-anchor="middle" font-size="11" fill="var(--text-3)">${cm}</text>`;
     }
     if (dist != null && p) {
       const st = proximity(dist, near);
       const x = xAt(Math.min(dist, maxCm));
-      const tone = st.sev === 'critical' ? 'var(--critical)' : st.sev === 'warning' ? 'var(--warning)' : color;
-      s += `<line x1="${x0}" x2="${x}" y1="${cy}" y2="${cy}" stroke="${color}" stroke-width="2" stroke-dasharray="1 5" stroke-linecap="round"/>`;
-      s += `<rect x="${x - 6}" y="${cy - laneH / 2 + 5}" width="12" height="${laneH - 10}" rx="5" fill="${tone}" stroke="var(--surface)" stroke-width="2"/>`;
+      const tone = st.sev === 'critical' ? 'var(--crit-solid)' : st.sev === 'warning' ? 'var(--warn-solid)' : color;
+      s += `<line x1="${x0}" x2="${x}" y1="${cy}" y2="${cy}" stroke="${color}" stroke-width="1.75" stroke-dasharray="1 5" stroke-linecap="round"/>`;
+      s += `<rect x="${x - 4}" y="${cy - laneH / 2 + 4}" width="8" height="${laneH - 8}" rx="4" fill="${tone}"/>`;
       const lx = Math.min(Math.max(x, 34), W - 34);
-      if (labels) s += `<text x="${lx}" y="${cy - laneH / 2 - 10}" text-anchor="middle" font-size="15" font-weight="700" fill="var(--ink)">${fmtNum(dist)} cm</text>`;
+      if (labels) s += `<text x="${lx}" y="${cy - laneH / 2 - 10}" text-anchor="middle" font-size="13" font-weight="500" fill="var(--text)">${fmtNum(dist)} cm</text>`;
     } else if (p) {
-      s += `<text x="${(x0 + xAt(maxCm)) / 2}" y="${cy + 5}" text-anchor="middle" font-size="13" fill="var(--muted)">nada por perto</text>`;
+      s += `<text x="${(x0 + xAt(maxCm)) / 2}" y="${cy + 5}" text-anchor="middle" font-size="12" fill="var(--text-3)" style="font-family:var(--font)">nada por perto</text>`;
     }
     /* arcos de eco: um por terço do volume do buzzer */
     const waves = bz ? Math.ceil(bz * 3) : 0;
     for (let i = 1; i <= waves; i++) {
       const r = personR + 2 + i * 6, a = Math.PI / 4.5;
       const xA = cx + sign * r * Math.cos(a), yA = cy - r * Math.sin(a), yB = cy + r * Math.sin(a);
-      s += `<path d="M${xA} ${yA} A${r} ${r} 0 0 ${dir === 'L' ? 0 : 1} ${xA} ${yB}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" opacity="${1 - i * 0.22}"/>`;
+      s += `<path d="M${xA} ${yA} A${r} ${r} 0 0 ${dir === 'L' ? 0 : 1} ${xA} ${yB}" fill="none" stroke="${color}" stroke-width="1.75" stroke-linecap="round" opacity="${1 - i * 0.22}"/>`;
     }
     return s;
   };
@@ -488,9 +587,9 @@ function echoFigure(p, width, { labels = true } = {}) {
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Distância dos obstáculos: esquerda ${p?.distL == null ? 'nada' : `${Math.round(p.distL)} cm`}, direita ${p?.distR == null ? 'nada' : `${Math.round(p.distR)} cm`}">
     ${lane('L', p?.distL ?? null, p?.bzL ?? 0, 'var(--left)')}
     ${lane('R', p?.distR ?? null, p?.bzR ?? 0, 'var(--right)')}
-    <circle cx="${cx}" cy="${cy}" r="${personR}" fill="var(--surface)" stroke="var(--ink)" stroke-width="2"/>
-    <circle cx="${cx}" cy="${cy - 8}" r="6.5" fill="var(--ink)"/>
-    <path d="M${cx - 12} ${cy + 16} Q${cx} ${cy - 4} ${cx + 12} ${cy + 16}" fill="var(--ink)"/>
+    <circle cx="${cx}" cy="${cy}" r="${personR}" fill="var(--surface)" stroke="var(--text)" stroke-width="1.75"/>
+    <circle cx="${cx}" cy="${cy - 8}" r="6.5" fill="var(--text)"/>
+    <path d="M${cx - 12} ${cy + 16} Q${cx} ${cy - 4} ${cx + 12} ${cy + 16}" fill="var(--text)"/>
   </svg>`;
 }
 
@@ -516,7 +615,7 @@ function lineChart(el, tip, { pts, windowMs, series, yFloor = 60, bands = [], re
   for (const b of bands) s += `<rect x="${m.l}" y="${y(b.to)}" width="${W - m.l - m.r}" height="${y(b.from) - y(b.to)}" fill="${b.fill}"/>`;
   const step = yMax <= 5 ? 1 : yMax <= 10 ? 2 : yMax <= 100 ? 25 : yMax <= 200 ? 50 : 100;
   for (let v = 0; v <= yMax + 1e-9; v += step) {
-    s += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" stroke="${v === 0 ? 'var(--line-strong)' : 'var(--line)'}"/>`;
+    s += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}" stroke="${v === 0 ? 'var(--border-strong)' : 'var(--border)'}"/>`;
     s += `<text x="${m.l - 8}" y="${y(v) + 4}" text-anchor="end">${fmtNum(v)}</text>`;
   }
   s += `<text x="${m.l - 8}" y="11" text-anchor="end">${unit}</text>`;
@@ -565,7 +664,7 @@ function lineChart(el, tip, { pts, windowMs, series, yFloor = 60, bands = [], re
     for (const p of shown) { const dd = Math.abs(x(p.ts) - hx); if (dd < bd) { bd = dd; best = p; } }
     if (!best || bd > 40) { hover.innerHTML = ''; tip.hidden = true; return; }
     const X = x(best.ts);
-    hover.innerHTML = `<line x1="${X}" x2="${X}" y1="${m.t}" y2="${H - m.b}" stroke="var(--line-strong)"/>` +
+    hover.innerHTML = `<line x1="${X}" x2="${X}" y1="${m.t}" y2="${H - m.b}" stroke="var(--border-strong)"/>` +
       series.filter((se) => best[se.key] != null && !se.stepped).map((se) => `<circle cx="${X}" cy="${y(best[se.key])}" r="4.5" fill="${se.color}" stroke="var(--surface)" stroke-width="2"/>`).join('');
     tip.innerHTML = `<div class="t">${fmtTime(best.ts)}</div>` + series.map((se) =>
       `<div class="row"><span>${esc(se.name)}</span><b>${best[se.key] == null ? '—' : `${fmtNum(best[se.key], digits)} ${unit}`}</b></div>`).join('');
@@ -578,12 +677,13 @@ function lineChart(el, tip, { pts, windowMs, series, yFloor = 60, bands = [], re
   hit.addEventListener('mouseleave', () => draw(null));
 }
 
-function makeMap(el, { zoom = 4, interactive = true } = {}) {
+function makeMap(el, { zoom = 4, interactive = true, zoomPos = 'topleft' } = {}) {
   if (typeof L === 'undefined') return null;
-  const map = L.map(el, { zoomControl: interactive, attributionControl: true, dragging: interactive, scrollWheelZoom: interactive }).setView([-8.05, -34.9], zoom);
+  const map = L.map(el, { zoomControl: false, attributionControl: true, dragging: interactive, scrollWheelZoom: interactive }).setView([-8.05, -34.9], zoom);
+  if (interactive) L.control.zoom({ position: zoomPos, zoomInTitle: 'Aproximar', zoomOutTitle: 'Afastar' }).addTo(map);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' }).addTo(map);
   const css = getComputedStyle(document.documentElement);
-  const good = css.getPropertyValue('--good').trim(), echo = css.getPropertyValue('--echo').trim();
+  const good = css.getPropertyValue('--good-solid').trim(), echo = css.getPropertyValue('--primary').trim();
   const zoneLayer = L.layerGroup().addTo(map);
   const setZones = (list) => {
     zoneLayer.clearLayers();
@@ -595,7 +695,7 @@ function makeMap(el, { zoom = 4, interactive = true } = {}) {
     }
   };
   setZones(state.config.safeZones);
-  const trail = L.polyline([], { color: echo, weight: 3, opacity: 0.7 }).addTo(map);
+  const trail = L.polyline([], { color: echo, weight: 2.5, opacity: 0.75 }).addTo(map);
   let marker = null, acc = null;
   return {
     map,
@@ -605,7 +705,7 @@ function makeMap(el, { zoom = 4, interactive = true } = {}) {
       const ll = [loc.lat, loc.lon];
       if (!marker) {
         acc = L.circle(ll, { radius: loc.accuracyM ?? 10, color: echo, weight: 1, fillOpacity: 0.12 }).addTo(map);
-        marker = L.circleMarker(ll, { radius: 8, color: '#fff', weight: 3, fillColor: echo, fillOpacity: 1 }).addTo(map);
+        marker = L.circleMarker(ll, { radius: 7, color: '#fff', weight: 2.5, fillColor: echo, fillOpacity: 1 }).addTo(map);
         map.setView(ll, 17);
       }
       marker.setLatLng(ll);
@@ -629,7 +729,7 @@ function sparkline(samples) {
   if (!samples?.length) return '';
   const W = 120, H = 28, max = Math.max(...samples, 10);
   const pts = samples.map((v, i) => `${(i / Math.max(1, samples.length - 1)) * (W - 4) + 2},${H - 3 - (v / max) * (H - 6)}`).join(' ');
-  return `<svg class="spark" viewBox="0 0 ${W} ${H}" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="var(--echo)" stroke-width="2" stroke-linejoin="round"/></svg>`;
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linejoin="round"/></svg>`;
 }
 
 function tiltGauge(tilt) {
@@ -639,21 +739,41 @@ function tiltGauge(tilt) {
   const arc = (a, b, color) => { const [x1, y1] = pt(a), [x2, y2] = pt(b); return `<path d="M${x1} ${y1} A${r} ${r} 0 0 1 ${x2} ${y2}" fill="none" stroke="${color}" stroke-width="14"/>`; };
   const [nx, ny] = pt(t, r - 22);
   return `<svg viewBox="0 0 200 118" role="img" aria-label="Inclinação ${Math.round(t)} graus">
-    ${arc(0, 30, 'var(--good)')}${arc(30, 60, 'var(--warning)')}${arc(60, 90, 'var(--critical)')}
-    ${tilt == null ? '' : `<line x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}" stroke="var(--ink)" stroke-width="3.5" stroke-linecap="round"/><circle cx="${cx}" cy="${cy}" r="6" fill="var(--ink)"/>`}
+    ${arc(0, 30, 'var(--good-solid)')}${arc(30, 60, 'var(--warn-solid)')}${arc(60, 90, 'var(--crit-solid)')}
+    ${tilt == null ? '' : `<line x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}" stroke="var(--text)" stroke-width="3.5" stroke-linecap="round"/><circle cx="${cx}" cy="${cy}" r="6" fill="var(--text)"/>`}
   </svg>`;
 }
 
 function eventItem(e, withName) {
-  return `<li class="item ${e.ackedAt ? 'acked' : ''}">
-    ${sevMark(e.severity)}
+  const k = eventKind(e);
+  const tag = k === 'crit' || k === 'approach' || k === 'dismissed' ? `<span class="tag ${k}">${k === 'crit' ? esc(SEV_WORD[e.severity] ?? 'Crítico') : KIND_WORD[k]}</span>` : '';
+  return `<li class="item k-${k} ${e.ackedAt ? 'acked' : ''}">
+    <time class="at" datetime="${new Date(e.ts).toISOString()}">${esc(fmtTime(e.ts))}</time>
+    ${kindIcon(e)}
     <a class="body" href="#/alerta/${e.id}">
-      <div class="title">${esc(EVENT_LABEL[e.type] ?? e.type)} <span class="sevw">${esc(SEV_WORD[e.severity] ?? '')}</span></div>
+      <div class="title">${esc(EVENT_LABEL[e.type] ?? e.type)} ${tag}</div>
       <div class="detail">${esc(eventDetail(e, withName)) || '&nbsp;'}</div>
       <div class="when" title="${esc(new Date(e.ts).toLocaleString('pt-BR'))}">${esc(fmtAgo(e.ts))}</div>
     </a>
-    <div class="end">${e.ackedAt ? '<span class="done-mark">Ciente</span>' : e.severity === 'info' ? '' : `<button class="btn small" data-ack="${e.id}">Ciente</button>`}</div>
+    <div class="end">${e.ackedAt ? `<span class="done-mark">${ic('check')}Ciente</span>` : e.severity === 'info' || k === 'dismissed' ? '' : `<button class="btn small" data-ack="${e.id}">Ciente</button>`}</div>
   </li>`;
+}
+
+/* lista agrupada por dia, mais recente primeiro */
+function eventTimeline(list, withName = true, all = list) {
+  const today = new Date().toDateString(), yesterday = new Date(Date.now() - 86400000).toDateString();
+  let html = '', day = null;
+  for (const e of list) {
+    const ds = new Date(e.ts).toDateString();
+    if (ds !== day) {
+      if (day !== null) html += '</ul>';
+      day = ds;
+      const n = all.filter((x) => new Date(x.ts).toDateString() === ds).length;
+      html += `<h3 class="day-title">${ds === today ? 'Hoje' : ds === yesterday ? 'Ontem' : esc(new Date(e.ts).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }))}<span>${n}</span></h3><ul class="list">`;
+    }
+    html += eventItem(e, withName);
+  }
+  return day === null ? '' : `${html}</ul>`;
 }
 
 /* resultado do teste de um ultrassônico, em linguagem de montagem */
@@ -695,42 +815,62 @@ const views = {};
 views.inicio = {
   mount: () => `
     <div class="head"><div><p class="greet">${greeting()}</p><h1>Seus dependentes</h1></div></div>
-    <div id="people"></div>
-    <section class="section" style="margin-top:32px">
-      <div class="section-head"><h2>Ocorrências recentes</h2><a class="aside" href="#/ocorrencias">Ver todas</a></div>
-      <div class="panel" style="padding:4px 20px"><ul class="list" id="recent"></ul></div>
-    </section>`,
+    <div class="home-grid">
+      <div id="people"></div>
+      <aside class="stack">
+        <section class="panel" id="homePlace"></section>
+        <section class="panel aside-list">
+          <div class="section-head"><h2>Ocorrências recentes</h2><a class="aside" href="#/ocorrencias">Ver todas</a></div>
+          <ul class="list compact" id="recent"></ul>
+        </section>
+      </aside>
+    </div>`,
   refresh() {
     const devs = [...state.devices.values()].sort((a, b) => Number(b.online) - Number(a.online));
-    $('#people').innerHTML = devs.length ? devs.map((d) => {
+    const width = Math.min(1080, ($('#people').clientWidth || 640) - 48);
+    setHTML($('#people'), devs.length ? devs.map((d) => {
       const p = d.latest?.proximity, imu = d.latest?.imu, loc = d.latest?.location;
       const pos = posture(imu?.tilt);
       const zone = zoneOf(loc);
-      const place = zone ? zone.name : zone === false ? 'Fora das zonas' : 'Sem GPS';
+      const ind = indoorOf(d);
+      const place = ind ? ind.placeName : zone ? zone.name : zone === false ? 'Fora das zonas' : 'Sem posição';
       const pend = pendingEvents().filter((e) => e.deviceId === d.id).length;
       const silent = !d.online;
-      return `<section class="panel person" style="margin-bottom:20px">
-        <a href="#/ao-vivo" data-dev="${esc(d.id)}" style="text-decoration:none;display:grid;gap:18px">
+      return `<section class="panel person">
+        <a href="#/ao-vivo" data-dev="${esc(d.id)}" aria-label="Abrir ${esc(deviceName(d))} ao vivo">
           <div class="person-top">
             <span class="avatar" aria-hidden="true">${esc(initialOf(d))}</span>
-            <div class="who"><strong>${esc(deviceName(d))}</strong><span>Dispositivo ${esc(d.id)}${d.latest?.status?.fw ? `, firmware ${esc(d.latest.status.fw)}` : ''}</span></div>
+            <div class="who"><strong>${esc(deviceName(d))}</strong><span>Dispositivo <span class="num">${esc(d.id)}</span>${d.latest?.status?.fw ? `, firmware <span class="num">${esc(d.latest.status.fw)}</span>` : ''}</span></div>
             ${stateTag(d)}
           </div>
           ${silent
             ? `<p class="note">Sem mensagens ${esc(fmtAgo(d.lastSeen))}. Confira se o dispositivo está ligado e dentro do alcance do Wi-Fi.</p>`
-            : `<div class="echo">${echoFigure(p, Math.min(1080, $('#view').clientWidth - 42))}</div>`}
+            : `<div class="echo">${echoFigure(p, width)}</div>`}
           <div class="facts">
-            <div class="fact"><div class="k">Equilíbrio</div><div class="v word tone-${pos.tone}">${pos.word}</div></div>
-            <div class="fact"><div class="k">Local</div><div class="v word ${zone === false ? 'tone-critical' : zone ? '' : 'tone-muted'}">${esc(place)}</div></div>
-            <div class="fact"><div class="k">Pendentes</div><div class="v word ${pend ? 'tone-critical' : 'tone-good'}">${pend ? `${pend} ${pend === 1 ? 'ocorrência' : 'ocorrências'}` : 'Nenhuma'}</div></div>
-            <div class="fact"><div class="k">Última leitura</div><div class="v word">${esc(fmtAgo(d.lastSeen))}</div></div>
+            <div class="fact"><div class="k">Equilíbrio</div><div class="v tone-${pos.tone}">${pos.word}</div></div>
+            <div class="fact"><div class="k">Local</div><div class="v ${zone === false && !ind ? 'tone-critical' : zone || ind ? '' : 'tone-muted'}">${esc(place)}</div></div>
+            <div class="fact"><div class="k">Pendentes</div><div class="v ${pend ? 'tone-critical' : 'tone-good'}">${pend ? `<span class="num">${pend}</span> ${pend === 1 ? 'ocorrência' : 'ocorrências'}` : 'Nenhuma'}</div></div>
+            <div class="fact"><div class="k">Última leitura</div><div class="v">${esc(fmtAgo(d.lastSeen))}</div></div>
           </div>
         </a>
       </section>`;
     }).join('') : `<div class="panel empty"><strong>Nenhum dispositivo ainda</strong>
-      Ligue o EchoMap e conecte-o ao Wi-Fi (veja <a href="#/dispositivo">Dispositivo</a>). Ele aparece aqui sozinho assim que mandar a primeira leitura.</div>`;
+      Ligue o EchoMap e conecte-o ao Wi-Fi (veja <a href="#/dispositivo">Dispositivo</a>). Ele aparece aqui sozinho assim que mandar a primeira leitura.</div>`);
 
-    const recent = state.events.slice(0, 5);
+    /* último local do dispositivo selecionado */
+    const d = current();
+    const loc = d?.latest?.location, ind = indoorOf(d), z = zoneOf(loc);
+    setHTML($('#homePlace'), !d ? '<div class="section-head"><h2>Último local</h2></div><p class="explain">Sem dispositivo.</p>' : `
+      <div class="section-head"><h2>Último local${state.devices.size > 1 ? ` de ${esc(deviceName(d))}` : ''}</h2><a class="aside" href="#/mapa">Abrir mapa</a></div>
+      ${ind ? `<div class="where ${ind.isSafeZone ? 'in' : ''}"><i></i>Ambiente interno (Wi-Fi)</div><p class="where-title">${esc(ind.placeName)}</p>
+        <p class="explain">Sem GPS aqui dentro; posição pela rede cadastrada, ${esc(fmtAgo(ind.ts))}.</p>`
+      : loc?.lat != null ? `<div class="where ${z ? 'in' : 'out'}"><i></i>${z ? 'Dentro da zona segura' : 'Fora das zonas seguras'}</div>
+        ${z ? `<p class="where-title">${esc(z.name)}</p>` : ''}
+        <div class="coords"><div>Latitude<b>${fmtNum(loc.lat, 5)}</b></div><div>Longitude<b>${fmtNum(loc.lon, 5)}</b></div><div>Satélites<b>${loc.sats ?? '—'}</b></div></div>
+        <p class="explain">Atualizado ${esc(fmtAgo(loc.ts))}${loc.accuracyM != null ? `, precisão de ${fmtNum(loc.accuracyM)} m` : ''}.</p>`
+      : '<div class="where"><i></i>Sem posição</div><p class="explain">Assim que o GPS tiver sinal ou uma rede cadastrada aparecer, o local surge aqui.</p>'}`);
+
+    const recent = state.events.slice(0, 6);
     setHTML($('#recent'), recent.length ? recent.map((e) => eventItem(e, true)).join('')
       : '<li class="empty">Nada aconteceu ainda. Quase colisões, quedas e saídas da zona segura aparecem aqui.</li>');
   },
@@ -751,12 +891,14 @@ views['ao-vivo'] = {
         <div class="sides" id="lvSides"></div>
       </section>
       <div class="c4 stack">
-        <a class="panel" href="#/movimento" style="text-decoration:none" id="lvPosture"></a>
-        <a class="panel" href="#/movimento" style="text-decoration:none" id="lvAccel"></a>
-        <div class="actions" style="margin-top:0;flex-direction:column">
-          <button class="btn" data-cmd="diag">Testar sensores</button>
-          <button class="btn primary" data-cmd="locate"><svg viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9zM16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>Tocar buzzer</button>
-          <a class="btn" href="#/mapa">Ver no mapa</a>
+        <section class="panel readouts">
+          <a class="readout" href="#/movimento" id="lvPosture"></a>
+          <a class="readout" href="#/movimento" id="lvAccel"></a>
+        </section>
+        <div class="actions col" style="margin-top:0">
+          <button class="btn primary" data-cmd="locate">${ic('volume')}Tocar buzzer</button>
+          <button class="btn" data-cmd="diag">${ic('scan')}Testar sensores</button>
+          <a class="btn" href="#/mapa">${ic('pin')}Ver no mapa</a>
         </div>
       </div>
     </div>
@@ -767,7 +909,7 @@ views['ao-vivo'] = {
     <section class="panel">
       <div class="section-head"><h2>Distância dos obstáculos</h2>
         <div class="seg" role="group" aria-label="Período">
-          ${[[30000, '30 s'], [60000, '1 min'], [300000, '5 min'], [1800000, '30 min']].map(([ms, t]) => `<button data-win="${ms}" class="${state.windowMs === ms ? 'on' : ''}">${t}</button>`).join('')}
+          ${[[30000, '30 s'], [60000, '1 min'], [300000, '5 min'], [1800000, '30 min']].map(([ms, t]) => `<button data-win="${ms}" class="${state.windowMs === ms ? 'on' : ''}" aria-pressed="${state.windowMs === ms}">${t}</button>`).join('')}
         </div>
       </div>
       <div class="chart" id="lvChart"></div><div class="tip" id="lvTip" hidden></div>
@@ -776,7 +918,7 @@ views['ao-vivo'] = {
   after() {
     document.querySelectorAll('[data-win]').forEach((b) => b.addEventListener('click', () => {
       state.windowMs = Number(b.dataset.win);
-      document.querySelectorAll('[data-win]').forEach((x) => x.classList.toggle('on', x === b));
+      document.querySelectorAll('[data-win]').forEach((x) => { x.classList.toggle('on', x === b); x.setAttribute('aria-pressed', String(x === b)); });
       this.refresh();
     }));
   },
@@ -784,29 +926,38 @@ views['ao-vivo'] = {
     const d = current();
     const p = d?.latest?.proximity, imu = d?.latest?.imu;
     $('#lvName').textContent = d ? deviceName(d) : 'Nenhum dispositivo';
-    $('#lvSub').textContent = d ? `Dispositivo ${d.id}${p ? `, última leitura às ${fmtTime(p.ts)}` : ''}` : 'Ligue o EchoMap para ver as leituras.';
-    $('#lvState').innerHTML = d ? stateTag(d) : '';
+    setHTML($('#lvSub'), d ? `Dispositivo <span class="num">${esc(d.id)}</span>${p ? `, última leitura às <span class="num">${esc(fmtTime(p.ts))}</span>` : ''}` : 'Ligue o EchoMap para ver as leituras.');
+    setHTML($('#lvState'), d ? stateTag(d) : '');
     $('#lvMode').textContent = p?.mode ? (MODE_LABEL[p.mode] ?? p.mode) : '';
     $('#lvEcho').innerHTML = echoFigure(p, $('#lvEcho').clientWidth, { labels: false });
-    $('#lvLegend').innerHTML = echoLegend(p);
+    setHTML($('#lvLegend'), echoLegend(p));
     const near = nearCm(p);
-    const side = (label, color, dist, bz) => {
+    const series = state.series.get(state.selected);
+    const side = (label, color, key, dist, bz) => {
       const st = proximity(dist, near);
       const vol = bz != null ? Math.round(bz * 100) : null;
+      const ap = p && dist != null ? approachOf(series, key) : null;
+      let ttc = `<span class="tone-muted">${dist == null ? 'Nada no alcance do sensor' : 'Medindo a aproximação'}</span>`;
+      if (ap && ap.ttc != null && ap.ttc < 10) ttc = `${ic('arrowIn')}<span>Aproximando a <b>${fmtNum(ap.v)} cm/s</b>, contato em <b>${fmtNum(ap.ttc, 1)} s</b></span>`;
+      else if (ap && ap.v > 8) ttc = `${ic('arrowIn')}<span>Aproximando a <b>${fmtNum(ap.v)} cm/s</b></span>`;
+      else if (ap && ap.v < -8) ttc = `${ic('arrowOut')}<span>Afastando a <b>${fmtNum(-ap.v)} cm/s</b></span>`;
+      else if (ap) ttc = `${ic('minus')}<span>Distância estável</span>`;
+      const ttcTone = ap?.ttc != null && ap.ttc < 1.5 ? 'ttc-crit' : ap?.ttc != null && ap.ttc < 3 ? 'ttc-warn' : '';
       return `<div class="side">
         <div class="k"><i class="sw ${color}"></i>${label}</div>
         <div class="v">${p ? (dist == null ? '<span class="tone-muted">—</span>' : `${fmtNum(dist)}<small>cm</small>`) : '—'}</div>
         <div class="s tone-${p ? st.tone : 'muted'}">${p ? st.text : 'Aguardando leitura'}</div>
+        <div class="ttc ${ttcTone}">${p ? ttc : ''}</div>
         <div class="meter" aria-hidden="true"><i style="width:${vol ?? 0}%;background:var(--${color === 'l' ? 'left' : 'right'})"></i></div>
-        <div class="meter-k">Buzzer ${vol == null ? '—' : `${vol}%`}</div>
+        <div class="meter-k"><span>Buzzer</span><span class="num">${vol == null ? '—' : `${vol}%`}</span></div>
       </div>`;
     };
-    $('#lvSides').innerHTML = side('Esquerda', 'l', p?.distL, p?.bzL) + side('Direita', 'r', p?.distR, p?.bzR);
+    setHTML($('#lvSides'), side('Esquerda', 'l', 'distL', p?.distL, p?.bzL) + side('Direita', 'r', 'distR', p?.distR, p?.bzR));
     const pos = posture(imu?.tilt);
-    $('#lvPosture').innerHTML = `<div class="mini" style="display:block"><div class="k">Equilíbrio</div>
-      <div class="v tone-${pos.tone}">${pos.word}</div><div class="s">${imu?.tilt != null ? `Inclinação de ${fmtNum(imu.tilt)}° em relação à posição de uso` : 'Sem dados do acelerômetro'}</div></div>`;
-    $('#lvAccel').innerHTML = `<div class="mini" style="display:block"><div class="k">Aceleração</div>
-      <div class="v">${imu?.g != null ? `${fmtNum(imu.g, 2)} g` : '—'}</div><div class="s">${imu ? `Pico de ${fmtNum(imu.gMax ?? imu.g, 2)} g no último instante; parado, fica perto de 1 g` : 'Sem dados do acelerômetro'}</div></div>`;
+    setHTML($('#lvPosture'), `<div class="k">Equilíbrio${ic('balance')}</div>
+      <div class="v tone-${pos.tone}">${pos.word}</div><div class="s">${imu?.tilt != null ? `Inclinação de <span class="num">${fmtNum(imu.tilt)}°</span> em relação à posição de uso` : 'Sem dados do acelerômetro'}</div>`);
+    setHTML($('#lvAccel'), `<div class="k">Aceleração${ic('activity')}</div>
+      <div class="v num">${imu?.g != null ? `${fmtNum(imu.g, 2)} g` : '—'}</div><div class="s">${imu ? `Pico de <span class="num">${fmtNum(imu.gMax ?? imu.g, 2)} g</span> no último instante; parado, fica perto de 1 g` : 'Sem dados do acelerômetro'}</div>`);
 
     const dg = d?.latest?.diag;
     const fresh = dg && Date.now() - dg.ts < 15 * 60000;
@@ -817,56 +968,77 @@ views['ao-vivo'] = {
     }
 
     lineChart($('#lvChart'), $('#lvTip'), {
-      pts: state.series.get(state.selected) ?? [], windowMs: state.windowMs, unit: 'cm',
+      pts: series ?? [], windowMs: state.windowMs, unit: 'cm',
       bands: [{ from: 0, to: near, fill: 'var(--near-wash)' }],
       series: [
-        { key: 'thr', name: 'Limiar', color: 'var(--muted)', stepped: true, width: 1.5, dash: '5 4' },
-        { key: 'distL', name: 'Esquerda', label: 'Esq.', color: 'var(--left)' },
-        { key: 'distR', name: 'Direita', label: 'Dir.', color: 'var(--right)' },
+        { key: 'thr', name: 'Limiar', color: 'var(--text-3)', stepped: true, width: 1.25, dash: '4 4' },
+        { key: 'distL', name: 'Esquerda', label: 'Esq.', color: 'var(--left)', width: 2 },
+        { key: 'distR', name: 'Direita', label: 'Dir.', color: 'var(--right)', width: 2 },
       ],
     });
   },
 };
 
 /* ---------------- Ocorrências ---------------- */
+/* o filtro vai na URL (#/ocorrencias/aproximacao): dá para favoritar, compartilhar e voltar com o botão do navegador */
+const FILTER_SLUG = { pending: 'pendentes', serious: 'criticas', approach: 'aproximacao', dismissed: 'descartadas', all: 'todas' };
+const SLUG_FILTER = Object.fromEntries(Object.entries(FILTER_SLUG).map(([k, v]) => [v, k]));
 views.ocorrencias = {
-  mount: () => `
+  mount: (arg) => {
+    if (SLUG_FILTER[arg]) state.eventFilter = SLUG_FILTER[arg];
+    return `
     <div class="head">
       <div><h1>Ocorrências</h1><p class="sub" id="ocSub"></p></div>
-      <div class="seg" role="group" aria-label="Filtro">
-        ${[['pending', 'Pendentes'], ['all', 'Todas'], ['serious', 'Graves'], ['dismissed', 'Descartados']].map(([k, t]) => `<button data-filter="${k}" class="${state.eventFilter === k ? 'on' : ''}">${t}</button>`).join('')}
-      </div>
+      <div class="seg" role="group" aria-label="Filtro" id="ocSeg">${[['pending', 'Pendentes'], ['serious', 'Críticas'], ['approach', 'Aproximação'], ['dismissed', 'Descartadas'], ['all', 'Todas']].map(([k, t]) => `<button type="button" data-filter="${k}">${t}<span class="n num"></span></button>`).join('')}</div>
     </div>
-    <div class="panel" style="padding:4px 20px" id="ocList"></div>`,
+    <div class="panel flush oc-summary" id="ocSummary"></div>
+    <div class="panel" id="ocList"></div>`;
+  },
   after() {
-    document.querySelectorAll('[data-filter]').forEach((b) => b.addEventListener('click', () => {
+    $('#ocSeg').addEventListener('click', (ev) => {
+      const b = ev.target.closest('[data-filter]');
+      if (!b) return;
       state.eventFilter = b.dataset.filter;
-      document.querySelectorAll('[data-filter]').forEach((x) => x.classList.toggle('on', x === b));
+      /* replaceState não dispara hashchange: a tela não é remontada e o foco fica no botão */
+      history.replaceState(null, '', `#/ocorrencias/${FILTER_SLUG[state.eventFilter]}`);
       this.refresh();
-    }));
+    });
+    $('#ocList').addEventListener('click', (ev) => {
+      if (!ev.target.closest('#ocMore')) return;
+      this.limit += 50;
+      this.refresh();
+    });
   },
   refresh() {
     const pend = pendingEvents();
-    $('#ocSub').textContent = pend.length ? `${pend.length} ${pend.length === 1 ? 'pendente' : 'pendentes'}` : 'Nada pendente';
-    let html = '';
-    if (state.eventFilter === 'pending') {
-      html = pend.length ? `<ul class="list">${pend.map((e) => eventItem(e, true)).join('')}</ul>`
-        : '<div class="empty"><strong>Tudo em dia</strong>Nenhuma ocorrência esperando confirmação.</div>';
-    } else if (state.eventFilter === 'dismissed') {
-      const list = state.events.filter((e) => e.type === 'DISMISSED');
-      html = list.length ? `<ul class="list">${list.map((e) => eventItem(e, true)).join('')}</ul>`
-        : '<div class="empty"><strong>Nenhum alerta cancelado</strong>Quando a pessoa aperta o botão nos 5 s depois de uma queda ou batida ("Estou bem"), o registro fica aqui, sem alarme.</div>';
-    } else if (state.eventFilter === 'serious') {
-      const list = state.events.filter((e) => e.severity === 'critical' || e.severity === 'serious');
-      html = list.length ? `<ul class="list">${list.map((e) => eventItem(e, true)).join('')}</ul>`
-        : '<div class="empty"><strong>Nenhuma ocorrência grave</strong>Quedas, impactos e saídas da zona segura aparecem aqui.</div>';
-    } else {
-      const resolved = state.events.filter((e) => e.ackedAt || e.severity === 'info');
-      html = (pend.length ? `<p class="group-title">Pendentes</p><ul class="list">${pend.map((e) => eventItem(e, true)).join('')}</ul>` : '') +
-        (resolved.length ? `<p class="group-title">Resolvidas e avisos</p><ul class="list">${resolved.map((e) => eventItem(e, true)).join('')}</ul>` : '') ||
-        '<div class="empty"><strong>Nada registrado ainda</strong>As ocorrências aparecem aqui assim que o dispositivo mandar alguma.</div>';
+    const crit = state.events.filter((e) => eventKind(e) === 'crit');
+    const appr = state.events.filter((e) => e.type === 'NEAR_MISS');
+    const dism = state.events.filter((e) => e.type === 'DISMISSED');
+    const filters = [['pending', 'Pendentes', pend.length], ['serious', 'Críticas', crit.length], ['approach', 'Aproximação', appr.length], ['dismissed', 'Descartadas', dism.length], ['all', 'Todas', state.events.length]];
+    /* atualiza no lugar: recriar os botões a cada ocorrência nova tiraria o foco do teclado */
+    for (const [k, , n] of filters) {
+      const btn = $(`#ocSeg [data-filter="${k}"]`);
+      btn.classList.toggle('on', state.eventFilter === k);
+      btn.setAttribute('aria-pressed', String(state.eventFilter === k));
+      btn.lastChild.textContent = n > 99 ? '99+' : n;
     }
-    setHTML($('#ocList'), html);
+    $('#ocSub').textContent = pend.length ? `${pend.length} esperando confirmação` : 'Nada esperando confirmação';
+    const pendCrit = crit.filter((e) => !e.ackedAt).length;
+    setHTML($('#ocSummary'), `
+      <div>${kindIcon({ type: 'FALL', severity: 'critical' })}<span><span class="v">${pendCrit}</span><br><span class="k" title="queda, batida, pedido de ajuda e saída da zona">críticas pendentes</span></span></div>
+      <div>${kindIcon({ type: 'NEAR_MISS' })}<span><span class="v">${appr.length}</span><br><span class="k">aproximações</span></span></div>
+      <div>${kindIcon({ type: 'DISMISSED' })}<span><span class="v">${dism.length}</span><br><span class="k">descartadas (“Estou bem”)</span></span></div>`);
+    const f = state.eventFilter;
+    let list, empty;
+    if (f === 'pending') { list = pend; empty = '<div class="empty"><strong>Tudo em dia</strong>Nenhuma ocorrência esperando confirmação.</div>'; }
+    else if (f === 'dismissed') { list = dism; empty = '<div class="empty"><strong>Nenhum alerta cancelado</strong>Quando a pessoa aperta o botão nos 5 s depois de uma queda ou batida ("Estou bem"), o registro fica aqui, sem alarme.</div>'; }
+    else if (f === 'serious') { list = crit; empty = '<div class="empty"><strong>Nenhuma ocorrência crítica</strong>Quedas, batidas, pedidos de ajuda e saídas da zona segura aparecem aqui.</div>'; }
+    else if (f === 'approach') { list = appr; empty = '<div class="empty"><strong>Nenhuma quase colisão</strong>Obstáculos que chegam perto rápido demais aparecem aqui.</div>'; }
+    else { list = state.events; empty = '<div class="empty"><strong>Nada registrado ainda</strong>As ocorrências aparecem aqui assim que o dispositivo mandar alguma.</div>'; }
+    if (this.filterShown !== f) { this.filterShown = f; this.limit = 50; }
+    const more = list.length - this.limit;
+    setHTML($('#ocList'), list.length ? eventTimeline(list.slice(0, this.limit), true, list) +
+      (more > 0 ? `<div class="actions" style="justify-content:center"><button class="btn" type="button" id="ocMore">Mostrar mais ${Math.min(50, more)} de ${more}</button></div>` : '') : empty);
   },
 };
 
@@ -876,7 +1048,7 @@ views.alerta = {
     this.id = Number(arg);
     this.ctx = null;
     this.key = null;
-    return `<a class="back" href="#/ocorrencias">Voltar para ocorrências</a><div id="alBody"></div>`;
+    return `<a class="back" href="#/ocorrencias">${ic('back')}Ocorrências</a><div id="alBody"></div>`;
   },
   async after() {
     const e = state.events.find((x) => x.id === this.id);
@@ -907,33 +1079,38 @@ views.alerta = {
     const key = JSON.stringify([e.id, e.ackedAt, Boolean(this.ctx), around.map((x) => x.id), loc?.lat, loc?.lon, d?.name, currentTheme()]);
     if (this.key === key) { $('#alAgo').textContent = fmtAgo(e.ts); return; }
     this.key = key;
+    const k = eventKind(e);
     $('#alBody').innerHTML = `
-      <div class="detail-top ${sev}">
-        <span class="badge ${sev}">${esc(SEV_WORD[sev] ?? '')}</span>
-        <h1>${esc(EVENT_LABEL[e.type] ?? e.type)}</h1>
-        <p>${esc(deviceName(d))}, ${esc(fmtWhen(e.ts))} (<span id="alAgo">${esc(fmtAgo(e.ts))}</span>)</p>
+      <div class="detail-top">
+        ${kindIcon(e)}
+        <div>
+          <span class="tag ${k}">${esc(k === 'crit' ? SEV_WORD[sev] ?? 'Crítico' : KIND_WORD[k])}</span>
+          <h1>${esc(EVENT_LABEL[e.type] ?? e.type)}</h1>
+          <p>${esc(deviceName(d))}, ${esc(fmtWhen(e.ts))} (<span id="alAgo">${esc(fmtAgo(e.ts))}</span>)</p>
+        </div>
       </div>
       <div class="cols">
-        <div class="c7">
-          <div class="figures">
+        <div class="c7 stack">
+          <section class="panel figures">
             <div><div class="k">Aceleração</div><div class="v">${accel != null ? `${fmtNum(accel, 2)} g` : '—'}</div><div class="s">batida a partir de ${fmtNum(impactOf(d), 1)} g</div></div>
             <div><div class="k">Obstáculo</div><div class="v">${obst?.v != null ? `${fmtNum(obst.v)} cm` : '—'}</div><div class="s">${obst?.side ? SIDE[obst.side] : 'no momento'}</div></div>
             <div><div class="k">Inclinação</div><div class="v">${tilt != null ? `${fmtNum(tilt)}°` : '—'}</div><div class="s">${tilt != null ? posture(tilt).word.toLowerCase() : 'sem dados'}</div></div>
-          </div>
-          <section class="section" style="margin-top:28px">
+          </section>
+          <section class="panel">
             <div class="section-head"><h2>O que aconteceu</h2><span class="aside">${hiddenCount > 0 ? `as ${around.length} mais próximas de ${aroundAll.length} nesses 3 minutos` : 'nos 3 minutos em volta'}</span></div>
             <ul class="timeline">${around.map((x) => `<li class="${x.severity === 'info' ? (x.type === 'DEVICE_ONLINE' || x.type === 'GEOFENCE_ENTER' ? 'good' : '') : x.severity} ${x.id === e.id ? 'this' : ''}">
-              <i></i><strong>${esc(EVENT_LABEL[x.type] ?? x.type)}</strong>${eventDetail(x) ? `, ${esc(eventDetail(x))}` : ''}
+              <i></i><strong>${esc(EVENT_LABEL[x.type] ?? x.type)}</strong>${eventDetail(x) ? `<span class="d">, ${esc(eventDetail(x))}</span>` : ''}
               <div class="t">${esc(fmtTime(x.ts))}</div></li>`).join('')}</ul>
           </section>
         </div>
-        <div class="c5">
-          ${loc?.lat != null ? `<div class="map-box small"><div class="map" id="alMap"></div></div>
-            <p class="explain">${(() => { const z = zoneOf(loc); return z ? `Dentro da zona segura ${esc(z.name)}` : z === false ? 'Fora das zonas seguras' : ''; })()}${loc.accuracyM != null ? `, precisão de ${fmtNum(loc.accuracyM)} m` : ''}</p>` : ''}
-          <div class="actions" style="flex-direction:column">
-            <button class="btn ${sev === 'critical' ? 'danger' : 'primary'}" data-cmd="locate">Tocar buzzer no dispositivo</button>
-            ${e.ackedAt ? `<p class="explain">Marcada como ciente ${esc(fmtAgo(e.ackedAt))}.</p>` : `<button class="btn" data-ack="${e.id}">Marcar como ciente</button>`}
-            <a class="btn" href="#/mapa" data-dev="${esc(e.deviceId)}">Abrir no mapa</a>
+        <div class="c5 stack">
+          ${loc?.lat != null ? `<section><div class="map-box small"><div class="map" id="alMap"></div></div>
+            <p class="explain">${(() => { const z = zoneOf(loc); return z ? `Dentro da zona segura ${esc(z.name)}` : z === false ? 'Fora das zonas seguras' : ''; })()}${loc.accuracyM != null ? `, precisão de ${fmtNum(loc.accuracyM)} m` : ''}.
+            <span class="num">${fmtNum(loc.lat, 5)}, ${fmtNum(loc.lon, 5)}</span></p></section>` : ''}
+          <div class="actions col" style="margin-top:0">
+            ${e.ackedAt ? `<p class="done-mark">${ic('check')}Marcada como ciente ${esc(fmtAgo(e.ackedAt))}</p>` : `<button class="btn ${sev === 'critical' ? 'danger' : 'primary'}" data-ack="${e.id}">${ic('check')}Marcar como ciente</button>`}
+            <button class="btn" data-cmd="locate">${ic('volume')}Tocar buzzer no dispositivo</button>
+            <a class="btn" href="#/mapa" data-dev="${esc(e.deviceId)}">${ic('pin')}Abrir no mapa</a>
           </div>
         </div>
       </div>`;
@@ -949,18 +1126,18 @@ views.alerta = {
 /* ---------------- Mapa ---------------- */
 views.mapa = {
   mount: () => `
-    <div class="head"><div><h1>Localização</h1><p class="sub" id="mpSub"></p></div><div class="head-actions">${deviceChips()}</div></div>
-    <div class="cols">
-      <div class="c8"><div class="map-box"><div class="map" id="mpMap"></div>
+    <div class="map-stage">
+      <div class="map-box"><div class="map" id="mpMap" role="region" aria-label="Mapa com a posição, o trajeto e as zonas seguras"></div>
         <div class="map-empty" id="mpEmpty"><strong>Aguardando o GPS</strong>
-          <span>A posição aparece quando o GPS do dispositivo encontrar satélites. Em ambiente fechado pode demorar ou não acontecer; perto de uma janela costuma funcionar.</span></div></div></div>
-      <div class="c4">
-        <section class="panel" id="mpWhere"></section>
-        <section class="panel">
+          <span>A posição aparece quando o GPS do dispositivo encontrar satélites. Em ambiente fechado pode demorar ou não acontecer; perto de uma janela costuma funcionar.</span></div></div>
+      <div class="map-head float"><div><h1>Localização</h1><p class="sub" id="mpSub"></p></div>${deviceChips()}</div>
+      <div class="map-dock">
+        <section class="float" id="mpWhere"></section>
+        <section class="float">
           <div class="section-head"><h2>Âncora rápida</h2></div>
           <div id="mpAnchor"></div>
         </section>
-        <section class="panel">
+        <section class="float">
           <div class="section-head"><h2>Mapa de calor de obstáculos</h2></div>
           <div class="heat-row">
             <label class="check"><input type="checkbox" id="hmOn"> Mostrar no mapa</label>
@@ -972,8 +1149,8 @@ views.mapa = {
           <div class="heat-legend" aria-hidden="true"><span>poucas</span><i></i><span>muitas quase colisões</span></div>
           <p class="explain" id="hmInfo">Mostra onde as quase colisões aconteceram, pela posição do GPS no momento de cada uma. Aproximações mais rápidas pesam mais.</p>
         </section>
-        <section class="panel">
-          <div class="section-head"><h2>Zonas seguras</h2></div>
+        <details class="float" open>
+          <summary>Zonas seguras <span class="cnt" id="mpZoneCount"></span>${ic('chevron')}</summary>
           <ul class="zones" id="mpZones"></ul>
           <details class="phone zone-add" id="zAdd">
             <summary>Adicionar zona</summary>
@@ -990,10 +1167,11 @@ views.mapa = {
             </form>
           </details>
           <p class="explain">Sair de uma zona gera um alerta grave. As zonas ficam salvas no servidor e valem para todos os aparelhos.</p>
-        </section>
-        <section class="panel">
-          <div class="section-head"><h2>Locais por Wi-Fi</h2><button class="quiet" type="button" data-cmd="wifi_scan">Escanear agora</button></div>
-          <p class="explain">Dentro de casa o GPS costuma não pegar. Depois de 15 s sem GPS, o dispositivo escaneia o Wi-Fi; se uma rede cadastrada aqui aparecer, o painel mostra o local e não avisa saída de zona por engano.</p>
+        </details>
+        <details class="float">
+          <summary>Locais por Wi-Fi <span class="cnt" id="wpCount"></span>${ic('chevron')}</summary>
+          <div class="section-head" style="margin-bottom:4px"><span class="aside">Dentro de casa, sem GPS</span><button class="quiet" type="button" data-cmd="wifi_scan">Escanear agora</button></div>
+          <p class="explain" style="margin-top:0">Depois de 15 s sem GPS, o dispositivo escaneia o Wi-Fi; se uma rede cadastrada aqui aparecer, o painel mostra o local e não avisa saída de zona por engano.</p>
           <ul class="zones place-list" id="wpList"></ul>
           <form class="wifi-form wifi-place-form" id="wpForm" autocomplete="off">
             <label for="wpAp">Rede vista agora pelo dispositivo</label>
@@ -1004,11 +1182,12 @@ views.mapa = {
             <label class="check"><input type="checkbox" id="wpPos" checked> Guardar a posição atual do mapa para esse local</label>
             <button class="btn primary" type="submit">Cadastrar este local</button>
           </form>
-        </section>
+        </details>
       </div>
     </div>`,
   after() {
-    this.m = makeMap($('#mpMap'));
+    this.m = makeMap($('#mpMap'), { zoomPos: 'topright' });
+    this.m?.map.attributionControl.setPosition('bottomleft');
     this.draft = null;
     const z0 = (state.config.safeZones ?? [])[0];
     const loc = current()?.latest?.location;
@@ -1018,7 +1197,7 @@ views.mapa = {
       this.draft = { lat, lon };
       $('#zCenter').textContent = `Centro: ${lat.toFixed(5)}, ${lon.toFixed(5)}. Clique de novo no mapa para mudar.`;
       if (!this.m) return;
-      if (!this.preview) this.preview = L.circle([lat, lon], { radius: radius(), color: getComputedStyle(document.documentElement).getPropertyValue('--echo').trim(), weight: 2, fillOpacity: 0.12 }).addTo(this.m.map);
+      if (!this.preview) this.preview = L.circle([lat, lon], { radius: radius(), color: getComputedStyle(document.documentElement).getPropertyValue('--primary').trim(), weight: 2, fillOpacity: 0.12 }).addTo(this.m.map);
       this.preview.setLatLng([lat, lon]).setRadius(radius());
     };
     const clearDraft = () => { this.draft = null; this.preview?.remove(); this.preview = null; $('#zCenter').textContent = 'Clique no mapa no centro da zona.'; };
@@ -1100,22 +1279,25 @@ views.mapa = {
     const z = zoneOf(loc);
     const ind = indoorOf(d);
     if (ind) {
-      $('#mpWhere').innerHTML = `
-      <div class="where ${ind.isSafeZone ? 'in' : ''}"><i></i>Ambiente interno conhecido</div>
-      <h2 style="margin-top:8px">${esc(deviceName(d))} está em ${esc(ind.placeName)} (Wi-Fi)</h2>
-      <p class="explain" style="margin-top:6px">Sem GPS aqui dentro. A posição vem da rede cadastrada (sinal de ${fmtNum(ind.rssi)} dBm), atualizada ${esc(fmtAgo(ind.ts))}.${ind.isSafeZone ? ' Conta como zona segura: o painel não avisa saída por causa do GPS ruim.' : ''}</p>`;
-    } else $('#mpWhere').innerHTML = has ? `
+      setHTML($('#mpWhere'), `
+      <div class="where ${ind.isSafeZone ? 'in' : ''}"><i></i>Ambiente interno conhecido (Wi-Fi)</div>
+      <p class="where-title">${esc(deviceName(d))} está em ${esc(ind.placeName)}</p>
+      <p class="explain">Sem GPS aqui dentro. A posição vem da rede cadastrada (sinal de <span class="num">${fmtNum(ind.rssi)} dBm</span>), atualizada ${esc(fmtAgo(ind.ts))}.${ind.isSafeZone ? ' Conta como zona segura: o painel não avisa saída por causa do GPS ruim.' : ''}</p>`);
+    } else setHTML($('#mpWhere'), has ? `
       <div class="where ${z ? 'in' : 'out'}"><i></i>${z ? 'Dentro da zona segura' : 'Fora das zonas seguras'}</div>
-      <h2 style="margin-top:8px">${esc(deviceName(d))} ${z ? `está em ${esc(z.name)}` : 'está fora das zonas'}</h2>
-      <p class="explain" style="margin-top:6px">Atualizado ${esc(fmtAgo(loc.ts))}${loc.accuracyM != null ? `, precisão de ${fmtNum(loc.accuracyM)} m` : ''}${loc.sats != null ? `, ${loc.sats} satélites` : ''}.</p>`
-      : '<div class="where"><i></i>Sem posição</div><p class="explain" style="margin-top:6px">Assim que o GPS tiver sinal, a posição e o trajeto aparecem no mapa.</p>';
+      <p class="where-title">${esc(deviceName(d))} ${z ? `está em ${esc(z.name)}` : 'está fora das zonas'}</p>
+      <div class="coords"><div>Latitude<b>${fmtNum(loc.lat, 5)}</b></div><div>Longitude<b>${fmtNum(loc.lon, 5)}</b></div><div>Satélites<b>${loc.sats ?? '—'}</b></div></div>
+      <p class="explain">Atualizado ${esc(fmtAgo(loc.ts))}${loc.accuracyM != null ? `, precisão de <span class="num">${fmtNum(loc.accuracyM)} m</span>` : ''}.</p>`
+      : '<div class="where"><i></i>Sem posição</div><p class="explain">Assim que o GPS tiver sinal, a posição e o trajeto aparecem no mapa.</p>');
     const zones = state.config.safeZones ?? [];
+    $('#mpZoneCount').textContent = zones.length;
+    $('#wpCount').textContent = (state.config.wifiPlaces ?? []).length;
     setHTML($('#mpZones'), zones.length ? zones.map((zz) => zz.type === 'dynamic'
       ? `<li><span class="zone-ring dynamic" aria-hidden="true"></span>
-      <div><strong>Âncora rápida</strong><div class="s">Raio de ${fmtNum(zz.radiusM)} m, expira em ${fmtLeft((zz.expiresAt ?? 0) - Date.now())}</div></div></li>`
+      <div><strong>Âncora rápida</strong><div class="s">Raio de <span class="num">${fmtNum(zz.radiusM)} m</span>, expira em <span class="num">${fmtLeft((zz.expiresAt ?? 0) - Date.now())}</span></div></div></li>`
       : `<li><span class="zone-ring" aria-hidden="true"></span>
-      <div><strong>${esc(zz.name)}</strong><div class="s">Raio de ${fmtNum(zz.radiusM)} m, avisa ao sair</div></div>
-      ${zz.id ? `<button class="quiet" type="button" data-zone-del="${esc(zz.id)}" data-name="${esc(zz.name)}">Remover</button>` : ''}</li>`).join('')
+      <div><strong>${esc(zz.name)}</strong><div class="s">Raio de <span class="num">${fmtNum(zz.radiusM)} m</span>, avisa ao sair</div></div>
+      ${zz.id ? `<button class="quiet danger-text" type="button" data-zone-del="${esc(zz.id)}" data-name="${esc(zz.name)}">Remover</button>` : ''}</li>`).join('')
       : '<li class="s">Nenhuma zona ainda. Clique no mapa para criar a primeira.</li>');
 
     /* âncora rápida do dispositivo selecionado */
@@ -1125,14 +1307,14 @@ views.mapa = {
       ? `<p class="res ok">Âncora ativa: raio de ${fmtNum(anc.radiusM)} m, expira em <b>${fmtLeft((anc.expiresAt ?? 0) - Date.now())}</b>. Sair dela gera alerta como qualquer zona segura.</p>
         <div class="actions"><button class="btn" type="button" data-anchor="remove">Remover âncora</button></div>`
       : `<p class="explain">Cria uma zona segura temporária onde ${esc(d ? deviceName(d) : 'o dispositivo')} está agora (raio de ${fmtNum(def.radiusM)} m, por ${fmtNum(def.hours)} h). No dispositivo: 2 cliques rápidos no botão fazem o mesmo.</p>
-        <div class="actions"><button class="btn primary" type="button" data-anchor="create" ${has ? '' : 'disabled'}>Criar âncora aqui</button></div>
+        <div class="actions"><button class="btn primary" type="button" data-anchor="create" ${has ? '' : 'disabled'}>${ic('anchor')}Criar âncora aqui</button></div>
         ${has ? '' : '<p class="explain">Precisa de uma posição do dispositivo (GPS ou local por Wi-Fi).</p>'}`);
 
     /* locais por Wi-Fi */
     const places = state.config.wifiPlaces ?? [];
     setHTML($('#wpList'), places.length ? places.map((p) => `<li><span class="zone-ring ${p.isSafeZone ? '' : 'dynamic'}" aria-hidden="true"></span>
       <div><strong>${esc(p.name)}</strong><div class="s"><code>${esc(p.bssid)}</code>, sinal a partir de ${fmtNum(p.minRssi)} dBm${p.isSafeZone ? ', zona segura' : ''}${p.lat == null ? ', sem posição' : ''}</div></div>
-      <button class="quiet" type="button" data-place-del="${p.id}" data-name="${esc(p.name)}">Remover</button></li>`).join('')
+      <button class="quiet danger-text" type="button" data-place-del="${p.id}" data-name="${esc(p.name)}">Remover</button></li>`).join('')
       : '<li class="s">Nenhum local cadastrado.</li>');
     const aps = d?.latest?.wifi?.aps ?? [];
     const apsKey = aps.map((a) => a.bssid).join(',');
@@ -1156,27 +1338,28 @@ views.movimento = {
       <section class="panel c5"><div class="section-head"><h2>Equilíbrio</h2></div><div id="mvGauge"></div></section>
       <section class="panel c7"><div class="section-head"><h2>Aceleração</h2><span class="aside">último minuto</span></div>
         <div class="chart short" id="mvChart"></div><div class="tip" id="mvTip" hidden></div>
-        <div class="legend"><span><i class="sw" style="background:var(--echo)"></i>Aceleração</span><span><i class="sw" style="background:var(--critical)"></i>Batida</span><span><i class="sw" style="background:var(--warning)"></i>Sem peso (início de queda)</span></div>
+        <div class="legend"><span><i class="sw" style="background:var(--primary)"></i>Aceleração</span><span><i class="sw dash dash-crit"></i>Batida</span><span><i class="sw dash dash-warn"></i>Sem peso (início de queda)</span></div>
       </section>
     </div>
     <section class="panel">
-      <div class="section-head"><h2>Quedas e batidas</h2></div>
+      <div class="section-head"><h2>Quedas e batidas</h2><a class="aside" href="#/ocorrencias">Todas as ocorrências</a></div>
       <ul class="list" id="mvList"></ul>
       <p class="explain">Queda: o corpo fica sem peso (abaixo de 0,5 g), bate (2 g ou mais) e continua inclinado depois de 2 segundos. Pulos, corrida e degraus têm o mesmo começo, mas a pessoa continua de pé, por isso não viram alerta. Queda e batida só chegam aqui 5 s depois: nesse tempo o dispositivo pisca em âmbar e apita, e 1 clique no botão cancela ("Estou bem", aparece como alerta cancelado). Batida: pancada de ${fmtNum(impactOf(current()), 1)} g ou mais (ajustável na calibração, tela Dispositivo).</p>
     </section>`,
   refresh() {
     const d = current();
     const imu = d?.latest?.imu;
-    $('#mvSub').textContent = d ? `${deviceName(d)}, acelerômetro MPU` : '';
+    $('#mvSub').textContent = d ? `${deviceName(d)}, acelerômetro e giroscópio MPU-6050` : '';
     const pos = posture(imu?.tilt);
-    $('#mvGauge').innerHTML = `<div class="gauge">${tiltGauge(imu?.tilt)}
+    setHTML($('#mvGauge'), `<div class="gauge">${tiltGauge(imu?.tilt)}
       <div><div class="v">${imu?.tilt != null ? `${fmtNum(imu.tilt)}°` : '—'}</div><div class="word tone-${pos.tone}">${pos.word}</div>
       <p class="s">Inclinação em relação à posição em que o dispositivo estava ao ligar.</p></div></div>
-      <div class="bands"><span class="b1">0 a 30°, em pé</span><span class="b2">30 a 60°, inclinado</span><span class="b3">acima de 60°, deitado</span></div>`;
+      <div class="bands"><span class="b1">0 a 30°, em pé</span><span class="b2">30 a 60°, inclinado</span><span class="b3">acima de 60°, deitado</span></div>
+      <div class="imu-axes">${['ax', 'ay', 'az'].map((k) => `<div><div class="k">Eixo ${k[1].toUpperCase()}</div><div class="v">${imu?.[k] != null ? `${imu[k] >= 0 ? '+' : '−'}${fmtNum(Math.abs(imu[k]), 2)} g` : '—'}</div></div>`).join('')}</div>`);
     lineChart($('#mvChart'), $('#mvTip'), {
       pts: state.imuSeries.get(state.selected) ?? [], windowMs: 60000, unit: 'g', yFloor: 4, digits: 2,
-      refs: [{ v: impactOf(current()), label: 'batida', color: 'var(--critical)' }, { v: 0.5, label: 'sem peso', color: 'var(--warning)' }],
-      series: [{ key: 'g', name: 'Aceleração', color: 'var(--echo)' }],
+      refs: [{ v: impactOf(current()), label: 'batida', color: 'var(--crit-solid)' }, { v: 0.5, label: 'sem peso', color: 'var(--warn-solid)' }],
+      series: [{ key: 'g', name: 'Aceleração', color: 'var(--primary)', width: 1.75 }],
     });
     const list = state.events.filter((e) => e.deviceId === state.selected && (e.type === 'FALL' || e.type === 'IMPACT' || e.type === 'DISMISSED'));
     setHTML($('#mvList'), list.length ? list.slice(0, 20).map((e) => eventItem(e, false)).join('')
@@ -1189,34 +1372,12 @@ views.dispositivo = {
   mount: () => `
     <div class="head"><div><h1>Dispositivo</h1><p class="sub" id="dvSub"></p></div><div class="head-actions">${deviceChips()}</div></div>
     <div class="cols">
-      <div class="c6 stack">
+      <div class="c7 stack">
         <section class="panel">
-          <div class="section-head"><h2>Nome de quem usa</h2></div>
-          <form class="name-form" id="dvName"><label class="sr-only" for="dvNameIn">Nome</label>
-            <input type="text" id="dvNameIn" maxlength="60" placeholder="Ex.: Ana" autocomplete="off"><button class="btn" type="submit">Salvar nome</button></form>
-        </section>
-        <section class="panel">
-          <div class="section-head"><h2>Conexão</h2><div class="channel-row" id="dvPower"></div></div>
+          <div class="section-head"><h2>Conexão</h2><div class="channel-row" id="wfBadgeTop"></div></div>
           <dl class="rows" id="dvNet"></dl>
           <div id="dvBroker"></div>
-          <div class="actions">
-            <button class="btn" data-cmd="portal">Abrir o portal no celular</button>
-          </div>
-          <div class="haptic-test">
-            <label for="hpSel">Testar um aviso no dispositivo</label>
-            <div class="pick">
-              <select id="hpSel">${HAPTIC.map(([k, t]) => `<option value="${k}">${esc(t)}</option>`).join('')}</select>
-              <button class="btn" type="button" id="hpBtn">Tocar no dispositivo</button>
-            </div>
-            <p class="explain" id="hpHint"></p>
-          </div>
         </section>
-        <section class="panel">
-          <div class="section-head"><h2>Calibração</h2><span class="aside" id="calWhen"></span></div>
-          <div id="calBody"></div>
-        </section>
-      </div>
-      <div class="c6 stack">
         <section class="panel">
           <div class="section-head"><h2>Wi-Fi do EchoMap</h2><div class="channel-row" id="wfBadge"></div></div>
           <div id="wfState"></div>
@@ -1232,8 +1393,9 @@ views.dispositivo = {
           <p class="explain" id="wfHint"></p>
           <div class="board-log-wrap" id="wfLogWrap" hidden><p class="log-title">Mensagens da placa</p><ul class="board-log" id="wfLog"></ul></div>
           <details class="phone" id="wfPhone">
-            <summary>Conectar pelo celular, sem o painel</summary>
+            <summary>Conectar pelo celular, sem o painel (QR Code)</summary>
             <div class="phone-body" id="wfPhoneBody"></div>
+            <div class="actions"><button class="btn" data-cmd="portal">Abrir o portal no dispositivo</button></div>
           </details>
           </div>
           <div class="two-ways" id="wfOffline" hidden>
@@ -1251,6 +1413,33 @@ views.dispositivo = {
           <div class="section-head"><h2>Este painel</h2></div>
           <dl class="rows" id="dvPanel"></dl>
           <div class="actions"><button class="btn" id="notifyBtn" type="button"></button><button class="btn" id="themeBtn2" type="button"></button><button class="btn" id="logoutBtn" type="button" hidden>Sair deste aparelho</button></div>
+        </section>
+      </div>
+      <div class="c5 stack">
+        <section class="panel">
+          <div class="section-head"><h2>Nome de quem usa</h2></div>
+          <form class="name-form" id="dvName"><label class="sr-only" for="dvNameIn">Nome</label>
+            <input type="text" id="dvNameIn" maxlength="60" placeholder="Ex.: Ana" autocomplete="off"><button class="btn" type="submit">Salvar</button></form>
+        </section>
+        <section class="panel">
+          <div class="section-head"><h2>Energia</h2><div class="channel-row" id="dvPower"></div></div>
+          <div id="dvEnergy"></div>
+        </section>
+        <section class="panel">
+          <div class="section-head"><h2>Calibração assistida</h2><span class="aside" id="calWhen"></span></div>
+          <div id="calBody"></div>
+        </section>
+        <section class="panel">
+          <div class="section-head"><h2>Teste dos sensores</h2><span class="aside" id="dvDiagWhen"></span></div>
+          <p class="explain" style="margin:0 0 12px">Aponte os dois ultrassônicos para uma parede a 30–100 cm. O resultado de cada lado aparece aqui e em Ao vivo.</p>
+          <div id="dvDiag"></div>
+          <div class="actions"><button class="btn" type="button" data-cmd="diag" id="dvDiagBtn">${ic('scan')}Testar sensores</button></div>
+        </section>
+        <section class="panel">
+          <div class="section-head"><h2>Avisos no corpo</h2><span class="aside" id="hpActuator"></span></div>
+          <ul class="haptics" id="hpList">${HAPTIC.map(([k, t, desc]) => `<li><div><strong>${esc(t)}</strong><span>${esc(desc)}</span></div>
+            <button class="btn small" type="button" data-haptic="${k}" aria-label="Tocar ${esc(t)} no dispositivo">${ic('play')}Tocar</button></li>`).join('')}</ul>
+          <p class="explain" id="hpHint"></p>
         </section>
       </div>
     </div>`,
@@ -1274,9 +1463,10 @@ views.dispositivo = {
       this.refresh();
     });
     $('#themeBtn2').addEventListener('click', toggleTheme);
-    $('#hpSel').addEventListener('change', () => this.refresh());
-    $('#hpBtn').addEventListener('click', () => {
-      const pattern = $('#hpSel').value, id = current()?.id ?? state.selected;
+    $('#hpList').addEventListener('click', (ev) => {
+      const pattern = ev.target.closest('[data-haptic]')?.dataset.haptic;
+      if (!pattern) return;
+      const id = current()?.id ?? state.selected;
       /* "Localizar" usa o comando antigo, que todo firmware entende */
       if (pattern === 'locate') sendCommand('locate', id);
       else sendCommand('haptic', id, { pattern });
@@ -1328,31 +1518,31 @@ views.dispositivo = {
     const d = current();
     const st = d?.latest?.status ?? {}, net = d?.latest?.net;
     $('#dvSub').textContent = d ? `${deviceName(d)}, identificação ${d.id}` : 'Nenhum dispositivo conectado ainda';
+    setHTML($('#wfBadgeTop'), d ? stateTag(d) : '');
     const rq = rssiQuality(st.rssi);
     const row = (k, v, hint) => `<dt>${k}</dt><dd>${v}${hint ? `<span class="hint">${hint}</span>` : ''}</dd>`;
     const wifi = d?.source === 'mqtt' || st.ip;
     setHTML($('#dvNet'), !d ? row('Situação', 'Aguardando o primeiro contato') :
-      row('Situação', esc(linkOf(d).text)) +
+      (d.online ? '' : row('Situação', `<span class="tone-critical">${esc(linkOf(d).text)}</span>`)) +
       (wifi ? row('Rede Wi-Fi', esc(st.ssid ?? '—'), st.channel != null ? `canal ${st.channel}` : '') : '') +
-      (st.rssi != null ? row('Sinal', `<span class="bars q${rq.q}" aria-hidden="true"><i></i><i></i><i></i><i></i></span>${rq.word}, ${fmtNum(st.rssi)} dBm`) : '') +
-      (net ? row('Latência', `${fmtNum(net.rttAvgMs)} ms${sparkline(net.samples)}`, `ida e volta até o dispositivo; última ${fmtNum(net.rttMs)} ms, pior recente ${fmtNum(net.rttMaxMs)} ms`) : wifi ? row('Latência', '—', 'medida a cada 5 s quando o dispositivo está online pelo Wi-Fi') : '') +
+      (st.rssi != null ? row('Sinal', `<span class="bars q${rq.q}" aria-hidden="true"><i></i><i></i><i></i><i></i></span>${rq.word}, <span class="num">${fmtNum(st.rssi)} dBm</span>`) : '') +
+      (net ? row('Latência', `<span class="num">${fmtNum(net.rttAvgMs)} ms</span>${sparkline(net.samples)}`, `ida e volta até o dispositivo; última ${fmtNum(net.rttMs)} ms, pior recente ${fmtNum(net.rttMaxMs)} ms`) : wifi ? row('Latência', '—', 'medida a cada 5 s quando o dispositivo está online pelo Wi-Fi') : '') +
       (st.ip ? row('Endereço do dispositivo', `<code>${esc(st.ip)}</code>`) : '') +
       (st.broker ? row('Servidor', `<code>${esc(st.broker)}</code>`, st.autoBroker ? 'encontrado automaticamente na rede' : 'endereço fixo configurado') : '') +
-      (st.lowLatency != null ? row('Modo de baixa latência', st.lowLatency ? 'Ligado' : 'Desligado', st.lowLatency ? 'Wi-Fi sempre acordado: respostas em milissegundos, gasta mais bateria' : 'economiza bateria, respostas podem demorar até 300 ms') : '') +
-      (st.queued ? row('Alertas aguardando envio', fmtNum(st.queued)) : '') +
-      (st.powerState ? row('Energia', st.powerState === 'idle' ? 'Economia' : 'Ativo', st.powerState === 'idle'
-        ? 'parado há 2 min: sensores a 1 leitura por segundo e Wi-Fi em economia; qualquer movimento ou clique volta na hora'
-        : 'sensores a cerca de 10 leituras por segundo') : '') +
-      (st.actuator ? row('Avisos no corpo', st.actuator === 'motor' ? 'Motor de vibração' : 'Buzzer', 'troque com "atuador motor" ou "atuador buzzer" na Serial') : '') +
-      row('Firmware', esc(st.fw ?? '—')) +
-      row('Ligado há', fmtDuration(st.uptimeS)) +
-      (st.heap != null ? row('Memória livre', `${fmtNum(st.heap / 1024)} KB`) : '') +
-      (st.battery != null ? row('Bateria', `${fmtNum(st.battery)}%`) : ''));
-    setHTML($('#dvPower'), st.powerState && d?.online
-      ? `<span class="channel power-${st.powerState}"><i></i>${st.powerState === 'idle' ? 'Economia' : 'Ativo'}</span>` : '');
-    const hp = HAPTIC.find((h) => h[0] === $('#hpSel').value) ?? HAPTIC[0];
-    $('#hpHint').textContent = `${hp[2]}. Toca no ${st.actuator === 'motor' ? 'motor de vibração' : 'buzzer'} do dispositivo${st.fw && st.fw < '1.6' ? ' (padrões novos precisam do firmware 1.6; com firmware antigo só "Localizar" funciona)' : ''}.`;
-    $('#hpBtn').disabled = !d?.online;
+      (st.queued ? row('Alertas aguardando envio', `<span class="num">${fmtNum(st.queued)}</span>`) : '') +
+      row('Firmware', `<span class="num">${esc(st.fw ?? '—')}</span>`) +
+      row('Ligado há', `<span class="num">${fmtDuration(st.uptimeS)}</span>`) +
+      (st.heap != null ? row('Memória livre', `<span class="num">${fmtNum(st.heap / 1024)} KB</span>`) : ''));
+    setHTML($('#dvEnergy'), this.energyHtml(d, st));
+    const dg = d?.latest?.diag;
+    const fresh = dg && Date.now() - dg.ts < 15 * 60000;
+    $('#dvDiagWhen').textContent = fresh ? `feito ${fmtAgo(dg.ts)}` : '';
+    setHTML($('#dvDiag'), fresh ? `<div class="diag">${diagSideHtml('Esquerdo', dg.L) + diagSideHtml('Direito', dg.R)}</div>` : '');
+    $('#dvDiagBtn').disabled = !d?.online;
+    setHTML($('#dvPower'), st.battery != null ? `<span class="channel ${st.battery < 20 ? 'none' : 'power-active'}"><i></i>Bateria <span class="num">${fmtNum(st.battery)}%</span></span>` : '');
+    $('#hpActuator').textContent = st.actuator === 'motor' ? 'motor de vibração' : st.actuator ? 'buzzer' : '';
+    $('#hpHint').textContent = `Cada padrão toca no ${st.actuator === 'motor' ? 'motor de vibração' : 'buzzer'} do dispositivo. Troque com "atuador motor" ou "atuador buzzer" na Serial.${st.fw && st.fw < '1.6' ? ' Padrões novos precisam do firmware 1.6; com firmware antigo só "Localizar" funciona.' : ''}${d?.online ? '' : ' O dispositivo precisa estar online.'}`;
+    document.querySelectorAll('#hpList [data-haptic]').forEach((b) => { b.disabled = !d?.online; });
     const srv = state.config.server ?? {};
     /* a placa esta no Wi-Fi mas nao fala com o broker deste PC (IP fixo antigo, outra rede, firewall) */
     const brokerHost = st.broker?.split(':')[0];
@@ -1376,6 +1566,22 @@ views.dispositivo = {
     $('#notifyBtn').disabled = notifOn;
     $('#themeBtn2').textContent = themeLabel();
   },
+};
+
+/* energia: modo atual (Ativo/Economia), baixa latência, bateria e atuador */
+views.dispositivo.energyHtml = function energyHtml(d, st) {
+  if (!d) return '<p class="explain" style="margin:0">Aguardando o primeiro contato.</p>';
+  const idle = st.powerState === 'idle';
+  const row = (k, v, hint) => `<dt>${k}</dt><dd>${v}${hint ? `<span class="hint">${hint}</span>` : ''}</dd>`;
+  const now = st.powerState && d.online ? `<div class="power-now">
+      <span class="kind-ic ${idle ? 'warn' : 'good'}" aria-hidden="true">${ic(idle ? 'leaf' : 'activity')}</span>
+      <div><div class="big">${idle ? 'Economia' : 'Ativo'}</div>
+      <p>${idle ? 'Parado há 2 min: sensores a 1 leitura por segundo e Wi-Fi em economia. Qualquer movimento ou clique volta na hora.' : 'Sensores a cerca de 10 leituras por segundo.'}</p></div></div>`
+    : `<p class="explain" style="margin:0">${d.online ? 'Este firmware não informa o modo de energia.' : 'Sem sinal do dispositivo.'}</p>`;
+  const rows = (st.lowLatency != null ? row('Baixa latência', st.lowLatency ? 'Ligada' : 'Desligada', st.lowLatency ? 'Wi-Fi sempre acordado: respostas em milissegundos, gasta mais bateria' : 'economiza bateria; respostas podem demorar até 300 ms') : '') +
+    (st.battery != null ? row('Bateria', `<span class="num ${st.battery < 20 ? 'tone-critical' : ''}">${fmtNum(st.battery)}%</span>`, st.battery < 20 ? 'baixa: carregue o dispositivo' : '') : '') +
+    (st.actuator ? row('Avisos no corpo', st.actuator === 'motor' ? 'Motor de vibração' : 'Buzzer') : '');
+  return now + (rows ? `<dl class="rows" style="margin-top:12px">${rows}</dl>` : '');
 };
 
 views.dispositivo.loadHost = async function loadHost() {
@@ -1562,6 +1768,7 @@ function route() {
   view.name = name;
   view.impl = views[name];
   const el = $('#view');
+  document.body.dataset.view = name;
   el.innerHTML = view.impl.mount(arg);
   document.querySelectorAll('#nav a').forEach((a) => {
     const active = a.dataset.route === name || (name === 'alerta' && a.dataset.route === 'ocorrencias');
@@ -1592,8 +1799,10 @@ function currentTheme() { return document.documentElement.dataset.theme === 'dar
 function themeLabel() { return currentTheme() === 'dark' ? 'Tema claro' : 'Tema escuro'; }
 function applyTheme(t) {
   document.documentElement.dataset.theme = t;
-  document.querySelector('meta[name="theme-color"]').content = t === 'dark' ? '#0e1514' : '#f3f5f4';
-  $('#themeBtn').textContent = themeLabel();
+  document.querySelector('meta[name="theme-color"]').content = t === 'dark' ? '#0B0E14' : '#F7F8FA';
+  const btn = $('#themeBtn');
+  btn.setAttribute('aria-label', themeLabel());
+  btn.title = themeLabel();
 }
 function toggleTheme() {
   const next = currentTheme() === 'dark' ? 'light' : 'dark';
