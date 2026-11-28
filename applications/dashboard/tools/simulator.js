@@ -13,6 +13,11 @@
 import dgram from 'node:dgram';
 import mqtt from 'mqtt';
 import { TtcDetector, nearMissEvent } from './ttc.mjs';
+import fs from 'node:fs';
+
+/* mesmo .env do painel (MQTT_USER/MQTT_PASS), se existir */
+const envFile = new URL('../.env', import.meta.url);
+if (fs.existsSync(envFile)) process.loadEnvFile(envFile);
 
 const args = process.argv.slice(2);
 const flag = (name) => args.includes(`--${name}`) || args.includes('--all');
@@ -240,7 +245,9 @@ const net = { ssid: 'Rede-Casa', portal: false, test: null, tryName: null, err: 
 function startClient() {
   /* mesmo formato de clientId do firmware: o servidor reconhece a placa e marca offline na hora ao desconectar */
   const suffix = Math.floor(Math.random() * 0xffffff).toString(16).toUpperCase().padStart(6, '0');
-  client = mqtt.connect(url, { clientId: `echomap-${deviceId}-${suffix}` });
+  /* broker com senha: MQTT_USER/MQTT_PASS do ambiente ou do .env do painel (mesmos da placa) */
+  const creds = process.env.MQTT_USER ? { username: process.env.MQTT_USER, password: process.env.MQTT_PASS ?? '' } : {};
+  client = mqtt.connect(url, { clientId: `echomap-${deviceId}-${suffix}`, ...creds });
   client.on('message', onCommand);
   client.on('error', (err) => console.error(`[SIM] ${err.message}`));
   client.on('connect', onConnect);

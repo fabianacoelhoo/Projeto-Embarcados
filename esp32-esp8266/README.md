@@ -273,6 +273,8 @@ O `include/secrets.h` (fora do git, modelo em `include/secrets.example.h`) é op
 #define WIFI_SSID "nome-da-rede"
 #define WIFI_PASSWORD "senha"
 #define MQTT_BROKER_IP "auto"   // recomendado; um IP fixo quebra quando o PC muda de rede
+#define MQTT_USER ""            // broker com senha: os mesmos MQTT_USER/MQTT_PASS do .env do painel
+#define MQTT_PASS ""            // vazios = broker aberto (padrão)
 ```
 
 - Sem rede configurada, a placa abre o portal e continua mandando tudo pela Serial.

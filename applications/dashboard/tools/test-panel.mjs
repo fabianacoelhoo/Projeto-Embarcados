@@ -27,7 +27,9 @@ test('localhost entra direto; outro aparelho precisa de cookie', () => {
 
 test('login certo gera cookie valido; cookie forjado nao entra', () => {
   const a = createAuth({ dataDir: dir, password: 'Senha-Teste' });
-  const out = a.login(reqFrom('192.168.1.21'), 'senha-teste');
+  /* senha configurada (.env/config.json) diferencia maiusculas; so a gerada aceita qualquer caixa */
+  assert.equal(a.login(reqFrom('192.168.1.22'), 'senha-teste').status, 401);
+  const out = a.login(reqFrom('192.168.1.21'), 'Senha-Teste');
   assert.equal(out.ok, true);
   const cookie = out.cookie.split(';')[0];
   assert.equal(a.allowed(reqFrom('192.168.1.21', cookie)), true);

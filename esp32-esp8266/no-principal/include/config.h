@@ -21,6 +21,14 @@
 #ifndef WIFI_PASSWORD
 #define WIFI_PASSWORD "SUA_SENHA_WIFI"
 #endif
+/* usuario/senha do broker MQTT: iguais a MQTT_USER/MQTT_PASS do .env do painel.
+   Vazios = broker aberto (padrao). Definidos no secrets.h (fora do git). */
+#ifndef MQTT_USER
+#define MQTT_USER ""
+#endif
+#ifndef MQTT_PASS
+#define MQTT_PASS ""
+#endif
 #ifndef MQTT_BROKER_IP
 #define MQTT_BROKER_IP "auto" /* "auto" = acha o PC do dashboard sozinho; ou um IP fixo (se ele parar de responder e o painel se anunciar em outro IP, a placa passa para "auto" sozinha) */
 #endif

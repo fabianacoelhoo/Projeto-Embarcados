@@ -25,7 +25,12 @@ export function createApp(ctx) {
     wifiPlaces: db.places(),
     anchor: { radiusM: config.anchor?.radiusM ?? 100, hours: config.anchor?.hours ?? 4 },
     /* a senha só aparece para quem abriu o painel no próprio computador */
-    auth: { enabled: auth.enabled, remote: !ctx.isLocal(req), password: auth.enabled && ctx.isLocal(req) ? auth.password : undefined },
+    auth: {
+      enabled: auth.enabled,
+      remote: !ctx.isLocal(req) || auth.loggedIn(req),
+      user: auth.enabled && ctx.isLocal(req) ? auth.user : undefined,
+      password: auth.enabled && ctx.isLocal(req) && !auth.fromConfig ? auth.password : undefined,
+    },
     offlineAfterMs: config.offlineAfterMs,
     server: {
       host: os.hostname(),
@@ -43,7 +48,7 @@ export function createApp(ctx) {
   app.use(express.json({ limit: '32kb' }));
 
   /* quem não está no próprio computador precisa entrar com a senha (cookie de sessão) */
-  const OPEN_PATHS = new Set(['/login.html', '/tokens.css', '/api/login', '/favicon.ico']);
+  const OPEN_PATHS = new Set(['/login.html', '/tokens.css', '/api/login', '/api/login-info', '/favicon.ico']);
   app.use((req, res, next) => {
     if (auth.allowed(req) || OPEN_PATHS.has(req.path) || req.path.startsWith('/vendor/fonts/')) return next();
     if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Entre com a senha do painel.', login: true });
@@ -55,6 +60,7 @@ export function createApp(ctx) {
     res.setHeader('Set-Cookie', out.cookie);
     res.json({ ok: true });
   });
+  app.get('/api/login-info', (req, res) => res.json({ userRequired: Boolean(auth.user) }));
   app.post('/api/logout', (req, res) => { res.setHeader('Set-Cookie', auth.logoutCookie()); res.json({ ok: true }); });
 
   app.use(express.static(path.join(ROOT, 'public')));

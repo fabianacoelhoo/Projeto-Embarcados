@@ -19,7 +19,14 @@ hub.commandSenders.push((deviceId, command) => usb.send(deviceId, command));
 
 const dataDir = path.dirname(config.dbFile);
 /* senha do painel para outros aparelhos (no próprio computador abre direto) */
-const auth = createAuth({ dataDir, password: config.auth?.password || null, enabled: config.auth?.enabled !== false });
+const auth = createAuth({
+  dataDir,
+  password: config.auth?.password || null,
+  user: config.auth?.user || null,
+  secret: config.auth?.secret || null,
+  enabled: config.auth?.enabled !== false,
+  trustLocalhost: config.auth?.trustLocalhost !== false,
+});
 
 let wss = null;
 const broadcast = (msg) => {
@@ -69,10 +76,14 @@ server.listen(config.httpPort, () => {
   console.log(`[HTTP] Dashboard em http://localhost:${config.httpPort}`);
   const ips = localIps();
   if (auth.enabled) {
-    console.log(`[SENHA] Neste computador o painel abre direto. Em outro aparelho (celular, outro PC), use a senha: ${auth.password}`);
+    const quem = auth.user ? `o usuário "${auth.user}" e ` : '';
+    const local = auth.trustLocalhost ? 'Neste computador o painel abre direto. ' : '';
+    /* a senha gerada aparece aqui; a definida no .env nunca é impressa */
+    console.log(`[SENHA] ${local}Em outro aparelho (celular, outro PC), use ${quem}${auth.fromConfig ? 'a senha do DASHBOARD_PASS' : `a senha: ${auth.password}`}`);
     console.log(`        ${auth.source}`);
   }
   if (ips.length) console.log(`[INFO] IPs desta maquina: ${ips.join(', ')} (so precisa deles se a placa usar IP fixo em vez de "auto")`);
+  console.log(config.mqtt.username ? '[MQTT] Broker com usuário e senha (MQTT_USER/MQTT_PASS).' : '[MQTT] Broker aberto na rede local (defina MQTT_USER e MQTT_PASS no .env para exigir senha).');
   if (config.mqtt.embeddedBroker) startDiscovery(config.discovery, { mqttPort: config.mqtt.port, httpPort: config.httpPort });
 });
 

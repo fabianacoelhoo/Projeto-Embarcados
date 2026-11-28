@@ -9,7 +9,7 @@
     "dev": "node --no-warnings=ExperimentalWarning --watch server/index.js",
     "simulate": "node tools/simulator.js",
     "simulate:all": "node tools/simulator.js --all",
-    "test": "node tools/test-protocol.mjs && node tools/test-panel.mjs && node tools/test-events.mjs && node tools/test-calibration.mjs && node tools/test-phase4.mjs && node tools/test-usb.mjs"
+    "test": "node tools/test-protocol.mjs && node tools/test-auth.mjs && node tools/test-panel.mjs && node tools/test-events.mjs && node tools/test-calibration.mjs && node tools/test-phase4.mjs && node tools/test-usb.mjs"
   },
   "dependencies": {
     "@fontsource/jetbrains-mono": "^5.3.0",

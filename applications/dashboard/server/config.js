@@ -16,7 +16,7 @@ const defaults = {
   discovery: { enabled: true, port: 47801, intervalMs: 2000 },
   portal: { password: 'echomap123' },
   /* senha do painel para outros aparelhos; null = gerada na primeira vez (data/auth.json) */
-  auth: { enabled: true, password: null },
+  auth: { enabled: true, password: null, user: null, trustLocalhost: true },
   persistEveryMs: 1000,
   retentionDays: 30,
   /* ancora rapida (2 cliques no botao ou "Criar ancora aqui"): raio e duracao padrao */
@@ -37,6 +37,9 @@ function merge(base, extra) {
 }
 
 function load() {
+  /* .env (fora do git; modelo em .env.example): nao sobrescreve variaveis que ja existem no ambiente */
+  const envFile = process.env.ECHOMAP_ENV ?? path.join(ROOT, '.env');
+  if (fs.existsSync(envFile)) process.loadEnvFile(envFile);
   const file = process.env.ECHOMAP_CONFIG ?? path.join(ROOT, 'config.json');
   let fromFile = {};
   if (fs.existsSync(file)) fromFile = JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -47,6 +50,12 @@ function load() {
   if (process.env.MQTT_PORT) cfg.mqtt.port = Number(process.env.MQTT_PORT);
   if (process.env.MQTT_URL) { cfg.mqtt.externalUrl = process.env.MQTT_URL; cfg.mqtt.embeddedBroker = false; }
   if (process.env.SERIAL_PORT) cfg.serial.path = process.env.SERIAL_PORT;
+  /* login do painel e do broker MQTT (segredos ficam no .env, nunca no config.json versionado) */
+  if (process.env.DASHBOARD_PASS) cfg.auth.password = process.env.DASHBOARD_PASS;
+  if (process.env.DASHBOARD_USER) cfg.auth.user = process.env.DASHBOARD_USER;
+  if (process.env.SESSION_SECRET) cfg.auth.secret = process.env.SESSION_SECRET;
+  if (process.env.DASHBOARD_TRUST_LOCALHOST === '0') cfg.auth.trustLocalhost = false;
+  if (process.env.MQTT_USER && process.env.MQTT_PASS) { cfg.mqtt.username = process.env.MQTT_USER; cfg.mqtt.password = process.env.MQTT_PASS; }
   /* config.json antigo ("enabled": false com uma porta de exemplo): a porta só vale se estava habilitada */
   if (cfg.serial.enabled === false && !process.env.SERIAL_PORT) cfg.serial.path = null;
 

@@ -886,7 +886,9 @@ void netService() {
   }
   tcp.setNoDelay(true); /* sem algoritmo de Nagle: cada mensagem pequena sai na hora */
   mqtt.setServer(brokerIp, brokerPort);
-  if (mqtt.connect(clientId)) {
+  /* broker com senha (MQTT_USER/MQTT_PASS do secrets.h) ou aberto */
+  bool ok = MQTT_USER[0] ? mqtt.connect(clientId, MQTT_USER, MQTT_PASS) : mqtt.connect(clientId);
+  if (ok) {
     mqttFails = 0;
     mqtt.subscribe(cmdTopic);
     if (brokerAuto()) rememberBroker(); /* no proximo boot conecta direto, sem esperar o anuncio */
