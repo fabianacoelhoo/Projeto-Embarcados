@@ -1,5 +1,7 @@
 # EchoMap
 
+[![CI](https://github.com/fabianacoelhoo/Projeto-Embarcados/actions/workflows/ci.yml/badge.svg)](https://github.com/fabianacoelhoo/Projeto-Embarcados/actions/workflows/ci.yml)
+
 **Dispositivo vestível com ESP32 que avisa os responsáveis quando uma criança, um idoso ou outra pessoa vulnerável chega perto demais de um obstáculo, sofre um impacto ou sai de uma zona segura.**
 
 Projeto da disciplina **Sistemas Embarcados – CESAR School (2026.1)** · Grupo 19.
@@ -22,7 +24,9 @@ Crianças com dificuldade de locomoção ou de percepção do ambiente, idosos e
 | [`applications/`](applications/) | Back-end (Node.js, broker MQTT, SQLite) e dashboard web dos responsáveis |
 | [`schematics/`](schematics/) | Diagrama de ligações e tabela de pinos |
 | [`hardware/cad/`](hardware/cad/) | Cases e suportes vestíveis sem parafuso (build123d): STL/STEP prontos, validação automática e guia de impressão |
-| [`docs/`](docs/) | Arquitetura, contrato MQTT, protótipo do front-end, fotos dos componentes e relatórios |
+| [`docs/`](docs/) | Arquitetura, contrato MQTT ([`docs/protocol.md`](docs/protocol.md)), protótipo do front-end, fotos dos componentes e relatórios |
+| [`scripts/`](scripts/) | `check-all.mjs` (todas as verificações de uma vez) e `check-repo.mjs` (higiene do repositório) |
+| [`.github/`](.github/) | Pipeline de CI (GitHub Actions), modelo de PR e de issues |
 
 ## Requisitos
 
@@ -51,10 +55,11 @@ Requer Node.js 22.13 ou mais novo.
 ```bash
 cd applications/dashboard
 npm install
+cp .env.example .env      # opcional: senha do painel, usuário MQTT, e-mail de alerta
 npm start                 # http://localhost:3000 · broker MQTT em :1883
 ```
 
-No próprio computador o painel abre direto. Em **outro aparelho** (celular, outro PC da rede, `http://<IP-do-PC>:3000`) ele pede a **senha do painel**, que aparece no terminal ao iniciar (linha `[SENHA]`) e em **Dispositivo → Este painel**. Ela é gerada na primeira vez e fica em `data/auth.json`; para escolher outra, preencha `auth.password` no `config.json`.
+No próprio computador o painel abre direto. Em **outro aparelho** (celular, outro PC da rede, `http://<IP-do-PC>:3000`) ele pede a **senha do painel**, que aparece no terminal ao iniciar (linha `[SENHA]`) e em **Dispositivo → Este painel**. Ela é gerada na primeira vez e fica em `data/auth.json`; para escolher outra, preencha `DASHBOARD_PASS` no `.env` (ou `auth.password` no `config.json`). Veja [Segurança](#segurança).
 
 Sem a placa, simule a ESP32 em outro terminal:
 
@@ -66,7 +71,8 @@ npm run simulate:all      # + GPS e acelerômetro (igual ao firmware atual) e ba
 ### 2. Testes
 
 ```bash
-cd applications/dashboard && npm test        # painel, eventos, calibração, fase 4 e cabo USB
+cd applications/dashboard && npm run check:all   # tudo: higiene do repo, sintaxe, npm test e host_test do firmware
+cd applications/dashboard && npm test        # protocolo, login, áreas críticas, e-mail, painel, eventos, calibração, fase 4 e cabo USB
 cd esp32-esp8266/no-principal/host_test      # lógica do firmware no PC (comandos no README do firmware)
 ```
 
@@ -135,6 +141,29 @@ Para liberar o firewall (PowerShell como administrador):
 New-NetFirewallRule -DisplayName "EchoMap MQTT" -Direction Inbound -Protocol TCP -LocalPort 1883 -Action Allow -Profile Private
 ```
 
+## Segurança
+
+- **Painel:** no próprio PC abre direto; em outro aparelho pede senha (e usuário, se `DASHBOARD_USER` estiver definido). A senha é guardada como hash scrypt, a comparação é em tempo constante, a sessão é um cookie `HttpOnly` assinado e 5 erros seguidos bloqueiam o aparelho por 30 s. Com `DASHBOARD_TRUST_LOCALHOST=0` até o próprio PC precisa entrar.
+- **Broker MQTT:** com `MQTT_USER`/`MQTT_PASS` no `.env`, o broker embutido só aceita clientes com essas credenciais; no firmware, as mesmas vão em `secrets.h` (`MQTT_USER`, `MQTT_PASS`). Em qualquer caso, só o próprio servidor publica em `echomap/<id>/cmd`.
+- **Segredos fora do Git:** `.env`, `secrets.h`, bancos `.db`, chaves e arquivos locais do Claude estão no `.gitignore`; modelos em [`applications/dashboard/.env.example`](applications/dashboard/.env.example) e `esp32-esp8266/no-principal/include/secrets.example.h`. O CI reprova se algum deles for versionado.
+
+## Áreas críticas (hotspots) e exportação GeoJSON/CSV
+
+Cada quase colisão ou impacto com posição GPS (do evento ou a mais próxima em ±5 s) soma pontos numa célula de geohash de precisão 8 (cerca de 19 × 38 m) na tabela `collision_hotspots`. O `risk_score` (0 a 100) cresce com o número de ocorrências, pesa em dobro as críticas (impacto ou TTC ≤ 1 s), aumenta quanto menor a distância média e perde força com o tempo (meia-vida de 30 dias). No **Mapa**, a seção **Áreas críticas** mostra o ranking e os círculos no mapa, com o botão **Exportar Barreiras (GeoJSON / CSV)** para levar os dados a um SIG ou à prefeitura.
+
+- `GET /api/hotspots?min_score=0&limit=500&from=<iso|ms>&to=<iso|ms>`
+- `GET /api/hotspots/export?format=geojson|csv` (mesmos filtros; baixa `echomap-barreiras-<data>.geojson` ou `.csv`)
+
+A telemetria bruta é apagada depois de `RETENTION_DAYS` (padrão 30); ocorrências e áreas críticas ficam.
+
+## Alertas por e-mail
+
+O servidor manda e-mail para `ALERT_EMAIL_TO` quando há **queda confirmada**, **SOS/impacto** ou **saída de zona segura** (nunca para alerta descartado no "Estou bem" nem para quase colisão). Assunto `[EchoMap ALERTA] Queda detectada — <horário>`, horário de Recife e link do Google Maps. Cada tipo de alerta por dispositivo espera 180 s antes de repetir; o envio é numa fila com 2 novas tentativas e tudo fica registrado em `alert_notifications`. Provedores: `smtp` (Gmail, Outlook...), `ses` (Amazon SES por SMTP) e `mock` (só registra, para testes). Em **Dispositivo → Alertas por e-mail** dá para ver o estado e enviar um e-mail de teste. Configuração em [`applications/dashboard/README.md`](applications/dashboard/README.md#alertas-por-e-mail).
+
+## Qualidade e CI
+
+O workflow [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda em todo push e pull request para `main` e `feat/**`, com 4 jobs: testes de host do firmware (g++ com `-Wall -Wextra -Werror`), build PlatformIO (RAM/Flash no resumo do job), testes do dashboard (`npm test`) e higiene do repositório (nenhum segredo versionado, imagens dos READMEs existentes). Localmente, `npm run check:all` faz o mesmo (o build PlatformIO só se o `pio` estiver instalado).
+
 ## Status (28/11/2026, firmware 2.0)
 
 | Parte | Situação |
@@ -157,6 +186,10 @@ New-NetFirewallRule -DisplayName "EchoMap MQTT" -Direction Inbound -Protocol TCP
 | Painel refeito com as 7 telas do protótipo | implementado |
 | Zonas seguras editáveis no Mapa (zona "Casa" real cadastrada) | implementado |
 | Senha do painel para outros aparelhos e broker que só aceita comandos do servidor | implementado |
+| Login com `.env` (usuário opcional, hash scrypt) e autenticação no broker MQTT | implementado, 6 testes |
+| Áreas críticas (geohash + `risk_score`) e exportação GeoJSON/CSV no Mapa | implementado, 10 testes |
+| Alertas por e-mail (SMTP, Amazon SES ou mock), com cooldown, fila e histórico | implementado, 8 testes + envio SMTP real conferido |
+| CI no GitHub Actions (4 jobs) e `npm run check:all` | implementado |
 | Quase colisão por tempo até o impacto (TTC): só aproximação rápida ou < 25 cm viram ocorrência; muro ao lado só gera aviso local | implementado (firmware 1.5), 13 cenários no PC |
 | Pré-alerta "Estou bem": queda/batida esperam 5 s; 1 clique cancela e o painel registra como descartado | implementado (firmware 1.5), 14 verificações no PC |
 | Diagrama de ligações (ESP32 38 pinos) e arquitetura gerados por script a partir do código | atualizados para o firmware 1.9 |

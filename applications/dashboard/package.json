@@ -9,6 +9,8 @@
     "dev": "node --no-warnings=ExperimentalWarning --watch server/index.js",
     "simulate": "node tools/simulator.js",
     "simulate:all": "node tools/simulator.js --all",
+    "check:all": "node ../../scripts/check-all.mjs",
+    "check:repo": "node ../../scripts/check-repo.mjs",
     "test": "node tools/test-protocol.mjs && node tools/test-auth.mjs && node tools/test-hotspots.mjs && node tools/test-email.mjs && node tools/test-panel.mjs && node tools/test-events.mjs && node tools/test-calibration.mjs && node tools/test-phase4.mjs && node tools/test-usb.mjs"
   },
   "dependencies": {

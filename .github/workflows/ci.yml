@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'feat/**']
+  pull_request:
+    branches: [main, 'feat/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  host-tests:
+    name: Testes C++ do firmware (host)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar g++
+        run: sudo apt-get update && sudo apt-get install -y g++
+      - name: Compilar com -Wall -Wextra -Werror e rodar
+        working-directory: esp32-esp8266/no-principal/host_test
+        run: |
+          set -e
+          for f in *.cpp; do
+            g++ -std=c++11 -Wall -Wextra -Werror -I../include "$f" -o "/tmp/${f%.cpp}"
+            echo "== $f"
+            "/tmp/${f%.cpp}"
+          done
+
+  firmware-build:
+    name: Build do firmware (PlatformIO)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            ~/.cache/pip
+          key: pio-${{ runner.os }}-${{ hashFiles('esp32-esp8266/no-principal/platformio.ini') }}
+      - name: Instalar PlatformIO
+        run: pip install --upgrade platformio
+      - name: secrets.h de exemplo (só no runner)
+        working-directory: esp32-esp8266/no-principal
+        run: cp include/secrets.example.h include/secrets.h
+      - name: Compilar
+        working-directory: esp32-esp8266/no-principal
+        run: pio run -e esp32dev 2>&1 | tee build.log; test ${PIPESTATUS[0]} -eq 0
+      - name: Resumo de RAM e Flash
+        if: always()
+        working-directory: esp32-esp8266/no-principal
+        run: |
+          {
+            echo '### Firmware ESP32 (esp32dev)'
+            echo
+            echo '```'
+            grep -E 'RAM:|Flash:' build.log || echo 'build sem resumo de memória'
+            echo '```'
+            echo
+            echo "Avisos do código do projeto: $(grep -cE '^src/.*warning:' build.log || true)"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  dashboard-checks:
+    name: Servidor e painel (Node.js)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: applications/dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: applications/dashboard/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Sintaxe (node --check)
+        run: |
+          set -e
+          find server public tools -path public/vendor -prune -o \( -name '*.js' -o -name '*.mjs' \) -print | while read -r f; do node --check "$f"; done
+      - run: npm test
+
+  repo-hygiene:
+    name: Higiene do repositório
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node scripts/check-repo.mjs

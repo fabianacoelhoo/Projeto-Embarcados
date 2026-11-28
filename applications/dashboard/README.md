@@ -32,12 +32,45 @@ O simulador responde a ping, "vibrar para localizar", portal, rede Wi-Fi, teste 
 
 No próprio computador (`localhost`) o painel abre direto. Em outro aparelho da rede (`http://<IP-do-PC>:3000`, celular ou outro PC) ele mostra a tela **Entrar no painel** e pede a senha:
 
-- ela aparece no terminal ao iniciar (linha `[SENHA]`) e em **Dispositivo → Este painel**, só quando o painel é aberto no próprio computador;
-- é gerada na primeira vez (8 letras e números, ex.: `k7mq-3xpa`) e fica em `data/auth.json` (fora do Git); para escolher outra, preencha `auth.password` no `config.json`; trocar a senha desconecta os aparelhos que já tinham entrado;
+- sem `.env`, ela é gerada na primeira vez (8 letras e números, ex.: `k7mq-3xpa`), fica em `data/auth.json` (fora do Git) e aparece no terminal (linha `[SENHA]`) e em **Dispositivo → Este painel**, só no próprio computador; a senha gerada não diferencia maiúsculas;
+- para escolher a sua, preencha `DASHBOARD_PASS` (e, se quiser, `DASHBOARD_USER`) no `.env` (ou `auth.password` no `config.json`); essa senha diferencia maiúsculas e nunca é impressa no terminal; trocar a senha desconecta os aparelhos que já tinham entrado;
+- a senha é guardada como hash scrypt e comparada em tempo constante; `DASHBOARD_TRUST_LOCALHOST=0` pede login também no próprio PC;
 - a sessão dura 30 dias (cookie `HttpOnly`); depois de 5 senhas erradas, aquele aparelho espera 30 s;
 - `"auth": { "enabled": false }` desliga a senha (por exemplo, numa rede só sua).
 
-O broker MQTT também foi fechado: só o próprio servidor publica em `echomap/<id>/cmd`. Um cliente qualquer da rede que tente mandar um comando para a placa é desconectado.
+O broker MQTT também foi fechado: só o próprio servidor publica em `echomap/<id>/cmd`. Um cliente qualquer da rede que tente mandar um comando para a placa é desconectado. Com `MQTT_USER` e `MQTT_PASS` no `.env`, o broker só aceita quem tiver essas credenciais (a placa recebe as mesmas em `secrets.h`, e o simulador lê o `.env` sozinho).
+
+### Variáveis do `.env`
+
+Copie `.env.example` para `.env` (fica fora do Git). Tudo é opcional.
+
+| Variável | Para quê |
+|---|---|
+| `DASHBOARD_USER`, `DASHBOARD_PASS` | login do painel em outro aparelho |
+| `SESSION_SECRET` | segredo que assina o cookie de sessão |
+| `DASHBOARD_TRUST_LOCALHOST` | `0` pede login também no próprio PC |
+| `MQTT_USER`, `MQTT_PASS` | autenticação no broker MQTT embutido (ou no externo, com `MQTT_URL`) |
+| `EMAIL_ENABLED`, `EMAIL_PROVIDER`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `AWS_REGION`, `EMAIL_FROM`, `ALERT_EMAIL_TO`, `EMAIL_COOLDOWN_S`, `PANEL_URL` | alertas por e-mail (abaixo) |
+| `RETENTION_DAYS` | dias de telemetria bruta guardada (padrão 30) |
+
+### Alertas por e-mail
+
+Disparam para queda confirmada (`FALL` depois dos 5 s do "Estou bem"), `SOS`/`IMPACT` e `GEOFENCE_EXIT`; nunca para alerta descartado nem para quase colisão. Um e-mail por dispositivo e tipo a cada `EMAIL_COOLDOWN_S` (180 s), em fila assíncrona com novas tentativas após 5 s e 30 s; cada envio, falha ou bloqueio fica em `alert_notifications`.
+
+Gmail, por exemplo (precisa de verificação em duas etapas e uma senha de app em myaccount.google.com/apppasswords):
+
+```
+EMAIL_ENABLED=1
+EMAIL_PROVIDER=smtp
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_USER=voce@gmail.com
+SMTP_PASS=abcdefghijklmnop
+EMAIL_FROM=voce@gmail.com
+ALERT_EMAIL_TO=responsavel@exemplo.com
+```
+
+Amazon SES: `EMAIL_PROVIDER=ses`, `AWS_REGION=us-east-1`, `SMTP_PORT=465` e as credenciais SMTP do SES em `SMTP_USER`/`SMTP_PASS`. `EMAIL_PROVIDER=mock` só registra no banco. Reinicie `npm start` (o terminal mostra a linha `[EMAIL]`) e use **Dispositivo → Alertas por e-mail → Enviar e-mail de teste**.
 
 ## Ligando a ESP32
 
@@ -107,29 +140,34 @@ Se a placa estiver no USB e no Wi-Fi ao mesmo tempo, o servidor usa as leituras 
 - `POST /api/devices/:id/command` também aceita `{"cmd":"haptic","pattern":"approach"}` (padrões: `static`, `proximity`, `approach`, `prealert`, `heartbeat`, `confirm`, `locate`), firmware 1.6
 - `POST /api/devices/:id/command` com `{"cmd":"calibrate_start","duration_s":30}` (10 a 120 s), `{"cmd":"calibrate_stop"}` ou `{"cmd":"calibrate_reset"}` (padrões de fábrica), firmware 1.7
 - `GET /api/devices/:id/calibrations?limit=20`: histórico de calibrações (feitas, que falharam e restaurações), mais recente primeiro, com antes/depois de cada limiar
+- `GET /api/hotspots?min_score=0&limit=500&from=<iso|ms>&to=<iso|ms>`: áreas críticas (células geohash de ~19 × 38 m) com `risk_score` 0 a 100, contagem, críticas (impacto ou TTC ≤ 1 s), distância média e lado; `GET /api/hotspots/export?format=geojson|csv` baixa o mesmo como arquivo; cada mudança vai para o WebSocket como `hotspot`
+- `GET /api/email/status`: provedor, se está ligado e os últimos envios; `POST /api/email/test` manda um e-mail de teste (precisa de login fora do localhost)
 - `GET /api/heatmap?from=<iso|ms>&to=<iso|ms>&min_severity=info|warning|serious|critical&types=NEAR_MISS&deviceId=node1`: pontos `[lat, lng, intensidade]` das quase colisões (posição do próprio evento, ou o GPS mais próximo até 5 s antes/depois); intensidade maior para TTC menor, e ocorrências a ~5 m somam. Devolve também `total`, `matched`, `unmatched` e `max`
 - `POST /api/safe-zones/anchor` com `{"deviceId":"node1","radiusM":100,"hours":4}` (sem `lat`/`lng` usa a posição atual) e `DELETE /api/safe-zones/anchor?deviceId=node1`
 - `GET /api/wifi-places`, `POST /api/wifi-places` com `{"name":"Casa","bssid":"EC:08:6B:12:34:56","minRssi":-75,"lat":-8.109656,"lng":-34.906301,"isSafeZone":true}` e `DELETE /api/wifi-places/:id`; cada mudança vai para o WebSocket como `wifiPlaces`
 - `POST /api/devices/:id/command` com `{"cmd":"wifi_scan"}`: varredura de Wi-Fi agora (firmware 1.8)
 - `GET /api/zones`, `POST /api/zones` com `{"name":"Escola","lat":-8.11,"lon":-34.9,"radiusM":200}`, `PATCH /api/zones/:id` e `DELETE /api/zones/:id`; cada mudança vai para o WebSocket como `zones`
-- `POST /api/login` com `{"password":"..."}` e `POST /api/logout` (só importam fora do localhost; sem sessão, a API responde 401 e as páginas levam para `/login.html`)
+- `GET /api/login-info` (`{"userRequired":true|false}`, sem login), `POST /api/login` com `{"password":"..."}` (e `"user"` quando `DASHBOARD_USER` estiver definido) e `POST /api/logout` (só importam fora do localhost; sem sessão, a API responde 401 e as páginas levam para `/login.html`)
 - `GET /api/serial` (estado do cabo: `searching`, `choose`, `connecting`, `connected`, `busy`, `paused`, portas encontradas), `POST /api/serial/connect` com `{"path":"COM5"}`, `POST /api/serial/auto` (volta à detecção automática), `POST /api/serial/release` com `{"minutes":3}` (solta a porta para gravar)
 - `GET /api/host-wifi`: rede Wi-Fi deste computador (`ssid`, `channel`, `band` `2.4`/`5`), via `netsh` (Windows), `nmcli` (Linux) ou `networksetup` (macOS)
 - `POST /api/host-wifi/password` com `{"ssid":"..."}`: senha salva no perfil do Windows (`netsh wlan show profile ... key=clear`); só responde para quem abre o painel no próprio PC (localhost)
-- WebSocket `/ws` (mesma regra de senha): envia `reading`, `event`, `eventUpdated`, `device`, `serial` (estado do cabo), `log` (mensagens da placa pelo cabo) e `zones` em tempo real
+- WebSocket `/ws` (mesma regra de senha): envia `reading`, `event`, `eventUpdated`, `device`, `serial` (estado do cabo), `log` (mensagens da placa pelo cabo), `zones` e `hotspot` em tempo real
 
 ## Estrutura
 
 ```
 server/
-  index.js        HTTP + API + WebSocket
+  index.js        liga tudo: banco, hub, MQTT, cabo USB, e-mail, áreas críticas e WebSocket
+  app.js          Express: login, arquivos estáticos e registro das rotas (createApp)
+  routes/         devices.js, connection.js, places.js, hotspots.js, email.js
+  services/       hotspots.js (geohash + risk_score, GeoJSON/CSV), geohash.js, emailNotifier.js (nodemailer, fila, cooldown)
   hub.js          normalização dos dados, eventos, regras (geofence, impacto, bateria, offline) e latência
   discovery.js    anúncio UDP para a placa achar o servidor sozinha
-  db.js           SQLite (devices, readings, events, calibrations) e migrações idempotentes (migrate)
+  db.js           SQLite (WAL, synchronous NORMAL, foreign_keys) com devices, readings, events, calibrations, collision_hotspots e alert_notifications; migrações idempotentes e retenção
   sources/mqtt.js broker embutido ou broker externo (MQTT_URL=mqtt://...)
   sources/serial.js cabo USB: detecção automática, hot-plug, escolha de porta, liberar porta
   hostwifi.js     rede Wi-Fi do computador (e senha salva, só no Windows e só localhost)
-  auth.js         senha do painel para outros aparelhos (cookie assinado, bloqueio após 5 erros)
+  auth.js         login do painel (scrypt, cookie assinado, bloqueio após 5 erros)
   zones.js        zonas seguras fixas e âncoras rápidas (tabela safe_zones)
   heatmap.js      mapa de calor: ocorrência + posição mais próxima (±5 s), peso pelo TTC
 public/           dashboard (HTML/CSS/JS, sem build), tokens.css (design system) e login.html
