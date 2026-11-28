@@ -9,6 +9,7 @@ import { registerDeviceRoutes } from './routes/devices.js';
 import { registerConnectionRoutes } from './routes/connection.js';
 import { registerPlaceRoutes } from './routes/places.js';
 import { registerHotspotRoutes } from './routes/hotspots.js';
+import { registerEmailRoutes } from './routes/email.js';
 
 export const localIps = () => Object.values(os.networkInterfaces()).flat()
   .filter((i) => i && i.family === 'IPv4' && !i.internal).map((i) => i.address);
@@ -75,6 +76,7 @@ export function createApp(ctx) {
   registerConnectionRoutes(app, ctx);
   registerPlaceRoutes(app, ctx);
   if (ctx.hotspots) registerHotspotRoutes(app, ctx);
+  if (ctx.email) registerEmailRoutes(app, ctx);
   for (const register of ctx.extraRoutes ?? []) register(app, ctx);
   return app;
 }

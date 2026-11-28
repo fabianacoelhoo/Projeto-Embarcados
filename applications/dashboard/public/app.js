@@ -1488,6 +1488,11 @@ views.dispositivo = {
             <button class="btn small" type="button" data-haptic="${k}" aria-label="Tocar ${esc(t)} no dispositivo">${ic('play')}Tocar</button></li>`).join('')}</ul>
           <p class="explain" id="hpHint"></p>
         </section>
+        <section class="panel">
+          <div class="section-head"><h2>Alertas por e-mail</h2><span class="aside" id="emMode"></span></div>
+          <div id="emBody"><p class="explain" style="margin:0">Carregando…</p></div>
+          <div class="actions"><button class="btn" type="button" id="emTest">${ic('check')}Enviar e-mail de teste</button></div>
+        </section>
       </div>
     </div>`,
   after() {
@@ -1524,7 +1529,16 @@ views.dispositivo = {
       location.href = '/login.html';
     });
     this.loadHost();
-    this.hostTimer = setInterval(() => this.loadHost(), 20000);
+    this.hostTimer = setInterval(() => { this.loadHost(); this.loadEmail(); }, 20000);
+    this.loadEmail();
+    $('#emTest').addEventListener('click', async () => {
+      $('#emTest').disabled = true;
+      const res = await fetch('/api/email/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deviceId: current()?.id }) }).catch(() => null);
+      const body = res ? await res.json().catch(() => ({})) : {};
+      toast(res?.ok ? `E-mail de teste na fila para ${body.to?.join(', ')}. O resultado aparece aqui em alguns segundos.` : (body.error ?? 'Não foi possível enviar o teste.'));
+      setTimeout(() => this.loadEmail(), 3000);
+      $('#emTest').disabled = false;
+    });
     /* ultimo resultado de calibracao guardado no servidor (o "latest" se perde quando o servidor reinicia) */
     if (d) fetch(`/api/devices/${encodeURIComponent(d.id)}/calibrations?limit=1`).then((r) => r.json())
       .then((list) => { this.calLast = list[0] ?? null; this.refresh(); }).catch(() => {});
@@ -1637,6 +1651,29 @@ views.dispositivo.loadHost = async function loadHost() {
 };
 
 views.dispositivo.unmount = function unmount() { clearInterval(this.hostTimer); };
+
+/* alertas por e-mail: modo (ativo / desativado / teste), destinatários e últimos envios */
+const EMAIL_STATUS = { sent: ['enviado', 'good'], mock: ['simulado', 'muted'], failed: ['falhou', 'critical'] };
+const EMAIL_TYPE = { FALL: 'Queda', CRASH: 'SOS', SOS: 'SOS', GEOFENCE_EXIT: 'Saída de zona', TEST: 'Teste' };
+views.dispositivo.loadEmail = async function loadEmail() {
+  const res = await fetch('/api/email/status').catch(() => null);
+  const st = res?.ok ? await res.json() : null;
+  if (!$('#emBody')) return;
+  if (!st) { setHTML($('#emBody'), '<p class="explain" style="margin:0">Não foi possível ler o estado dos e-mails.</p>'); return; }
+  const label = { active: 'Ativo', disabled: 'Desativado', mock: 'Modo teste' }[st.mode];
+  $('#emMode').textContent = st.mode === 'active' ? `${label} · ${st.provider.toUpperCase()}` : label;
+  $('#emTest').disabled = st.mode === 'disabled';
+  const recent = st.recent.length
+    ? `<ul class="em-list">${st.recent.slice(0, 5).map((n) => `<li><span class="tone-${EMAIL_STATUS[n.status]?.[1] ?? 'muted'}">${EMAIL_STATUS[n.status]?.[0] ?? esc(n.status)}</span>
+        <span>${esc(EMAIL_TYPE[n.type] ?? n.type)} → ${esc(n.recipient)}</span><span class="s">${esc(fmtAgo(n.ts))}${n.error ? ` · ${esc(n.error)}` : ''}</span></li>`).join('')}</ul>`
+    : '<p class="explain" style="margin:0">Nenhum e-mail enviado ainda.</p>';
+  setHTML($('#emBody'), st.mode === 'disabled'
+    ? `<p class="explain" style="margin:0">Para receber queda, pedido de ajuda e saída de zona por e-mail, preencha <code>EMAIL_ENABLED=1</code>, o provedor e <code>ALERT_EMAIL_TO</code> no <code>.env</code> do painel e reinicie o servidor.</p>${recent}`
+    : `<dl class="rows"><dt>Destinatários</dt><dd>${st.recipients.map(esc).join(', ') || '—'}</dd>
+        <dt>Avisa</dt><dd>queda confirmada, pedido de ajuda e saída de zona segura<span class="hint">no máximo 1 e-mail por tipo a cada ${fmtNum(st.cooldownS / 60)} min; "Estou bem" e quase colisões não geram e-mail</span></dd></dl>
+      ${st.problems.length ? `<p class="warn" style="margin-top:12px">Falta configurar: ${st.problems.map(esc).join('; ')}.</p>` : ''}
+      <h3 class="em-h">Últimos envios</h3>${recent}`);
+};
 
 /* passos do celular (aparece dentro do "Conectar pelo celular" e, desconectado, em destaque) */
 function phoneSteps(ap, pw) {

@@ -12,6 +12,7 @@ import { createAuth } from './auth.js';
 import { createZones } from './zones.js';
 import { createApp, localIps } from './app.js';
 import { attachHotspots } from './services/hotspots.js';
+import { createEmailNotifier, emailConfigFromEnv } from './services/emailNotifier.js';
 
 const db = openDb(config.dbFile);
 const hub = new Hub({ db, config });
@@ -49,7 +50,26 @@ hub.zones = zones;
 /* areas de alta colisao: cada NEAR_MISS/IMPACT com GPS atualiza a celula e avisa o painel */
 const hotspots = attachHotspots({ hub, db, onUpdate: (h) => broadcast({ type: 'hotspot', hotspot: h }) });
 
-const app = createApp({ config, db, hub, usb, auth, zones, hotspots, broadcast });
+/* alertas criticos por e-mail (queda, SOS, saida de zona): fila assincrona, nunca trava o servidor */
+const email = createEmailNotifier({
+  db,
+  config: emailConfigFromEnv(process.env),
+  deviceOf: (id) => {
+    const d = hub.devices.get(id);
+    return d ? { name: d.name, online: d.online, source: d.source, battery: d.latest?.status?.battery ?? null } : {};
+  },
+  whereOf: (id, evt) => {
+    const d = hub.devices.get(id);
+    const indoor = d ? hub.indoorOf(d) : null;
+    if (indoor) return { indoorPlace: indoor.placeName, lat: indoor.lat ?? null, lon: indoor.lon ?? null };
+    if (evt?.data?.lat != null && (evt.data.lon ?? evt.data.lng) != null) return { lat: evt.data.lat, lon: evt.data.lon ?? evt.data.lng, ageS: 0 };
+    const loc = d?.latest?.location;
+    return loc?.lat != null ? { lat: loc.lat, lon: loc.lon, ageS: Math.round((Date.now() - loc.ts) / 1000) } : null;
+  },
+});
+hub.on('event', (e) => email.onEvent(e));
+
+const app = createApp({ config, db, hub, usb, auth, zones, hotspots, email, broadcast });
 
 /* ---------------- WebSocket (tempo real) ---------------- */
 /* noDelay: atualizacoes pequenas e frequentes saem na hora; sem compressao por mensagem (custa mais do que economiza) */
@@ -87,6 +107,8 @@ server.listen(config.httpPort, () => {
     console.log(`        ${auth.source}`);
   }
   if (ips.length) console.log(`[INFO] IPs desta maquina: ${ips.join(', ')} (so precisa deles se a placa usar IP fixo em vez de "auto")`);
+  const em = email.status({ local: true });
+  console.log(`[EMAIL] Alertas por e-mail: ${em.mode === 'disabled' ? 'desativados (EMAIL_ENABLED=1 no .env)' : `${em.mode === 'mock' ? 'modo teste (mock)' : `ativos via ${em.provider}`} para ${em.recipients.join(', ') || '(ninguem)'}${em.problems.length ? ` - falta: ${em.problems.join('; ')}` : ''}`}`);
   console.log(config.mqtt.username ? '[MQTT] Broker com usuário e senha (MQTT_USER/MQTT_PASS).' : '[MQTT] Broker aberto na rede local (defina MQTT_USER e MQTT_PASS no .env para exigir senha).');
   if (config.mqtt.embeddedBroker) startDiscovery(config.discovery, { mqttPort: config.mqtt.port, httpPort: config.httpPort });
 });
