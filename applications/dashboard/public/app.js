@@ -348,6 +348,7 @@ function connectWs() {
     else if (msg.type === 'eventUpdated') onEvent(msg.event, false);
     else if (msg.type === 'serial') { state.serial = msg.serial; scheduleRefresh(); }
     else if (msg.type === 'wifiPlaces') { state.config.wifiPlaces = msg.places; scheduleRefresh(); }
+    else if (msg.type === 'hotspot') view.impl?.loadHot?.(); /* nova ocorrência numa área crítica: atualiza o ranking do Mapa */
     else if (msg.type === 'zones') {
       state.config.safeZones = msg.zones;
       view.impl?.m?.setZones(msg.zones);
@@ -1150,6 +1151,16 @@ views.mapa = {
           <div class="heat-legend" aria-hidden="true"><span>poucas</span><i></i><span>muitas quase colisões</span></div>
           <p class="explain" id="hmInfo">Mostra onde as quase colisões aconteceram, pela posição do GPS no momento de cada uma. Aproximações mais rápidas pesam mais.</p>
         </section>
+        <section class="float">
+          <div class="section-head"><h2>Áreas críticas</h2><span class="aside" id="hsCount"></span></div>
+          <label class="check"><input type="checkbox" id="hsOn" checked> Destacar no mapa</label>
+          <ol class="hotspots" id="hsList"></ol>
+          <div class="actions col">
+            <a class="btn" id="hsGeo" href="/api/hotspots/export?format=geojson" download>${ic('pin')}Exportar Barreiras (GeoJSON)</a>
+            <a class="btn" id="hsCsv" href="/api/hotspots/export?format=csv" download>Exportar Barreiras (CSV)</a>
+          </div>
+          <p class="explain">Trechos de rua (~20 m) onde quase colisões e batidas se repetem. O risco sobe com a frequência, com aproximações rápidas e com obstáculos muito perto, e cai com o tempo. O período segue o do mapa de calor.</p>
+        </section>
         <details class="float" open>
           <summary>Zonas seguras <span class="cnt" id="mpZoneCount"></span>${ic('chevron')}</summary>
           <ul class="zones" id="mpZones"></ul>
@@ -1231,8 +1242,43 @@ views.mapa = {
     };
     const clearHeat = () => { this.heat?.remove(); this.heat = null; };
     $('#hmOn').addEventListener('change', () => { if ($('#hmOn').checked) loadHeat(); else clearHeat(); });
-    $('#hmPeriod').addEventListener('change', loadHeat);
-    this.heatTimer = setInterval(loadHeat, 60000);
+    $('#hmPeriod').addEventListener('change', () => { loadHeat(); this.loadHot(); });
+    this.heatTimer = setInterval(() => { loadHeat(); this.loadHot(); }, 60000);
+
+    /* áreas críticas (collision_hotspots): ranking, círculos no mapa e exportação GeoJSON/CSV */
+    const periodFrom = () => {
+      const p = $('#hmPeriod').value;
+      return p === 'all' ? 0 : p === 'today' ? new Date(new Date().setHours(0, 0, 0, 0)).getTime() : Date.now() - Number(p) * 86400000;
+    };
+    const riskTone = (s) => (s >= 70 ? 'risk-high' : s >= 40 ? 'risk-mid' : 'risk-low');
+    const riskColor = (s) => getComputedStyle(document.documentElement).getPropertyValue(s >= 70 ? '--crit-solid' : s >= 40 ? '--warn-solid' : '--primary').trim();
+    this.loadHot = async () => {
+      if (!$('#hsList')) return;
+      const from = periodFrom();
+      for (const [id, fmt] of [['#hsGeo', 'geojson'], ['#hsCsv', 'csv']]) $(id).href = `/api/hotspots/export?format=${fmt}&from=${from}`;
+      const res = await fetch(`/api/hotspots?from=${from}&limit=200`).catch(() => null);
+      const data = res?.ok ? await res.json() : null;
+      if (!data || !$('#hsList')) return;
+      const list = data.hotspots;
+      $('#hsCount').textContent = list.length ? `${list.length} ${list.length === 1 ? 'área' : 'áreas'}` : '';
+      setHTML($('#hsList'), list.length ? list.slice(0, 5).map((h, i) => `<li><button type="button" class="hs-item" data-hs="${i}">
+          <span class="hs-score ${riskTone(h.riskScore)}" title="Risco de 0 a 100"><span class="num">${fmtNum(h.riskScore)}</span></span>
+          <span class="hs-body"><strong>${h.label ? esc(h.label) : `${h.eventCount} ${h.eventCount === 1 ? 'ocorrência' : 'ocorrências'}`}${h.criticalTtcCount ? ` · ${h.criticalTtcCount} crítica${h.criticalTtcCount > 1 ? 's' : ''}` : ''}</strong>
+          <span class="s">${h.avgMinDistanceCm != null ? `obstáculo a ${fmtNum(h.avgMinDistanceCm)} cm em média · ` : ''}esq. ${h.leftHits} / dir. ${h.rightHits} · ${esc(fmtAgo(h.lastSeen))}</span></span>
+        </button></li>`).join('') : '<li class="explain">Nenhuma área com ocorrências e GPS nesse período.</li>');
+      $('#hsList').querySelectorAll('[data-hs]').forEach((b) => b.addEventListener('click', () => {
+        const h = list[Number(b.dataset.hs)];
+        this.m?.map.setView([h.centerLat, h.centerLng], 19);
+      }));
+      this.hot?.remove();
+      this.hot = null;
+      if (!this.m || !$('#hsOn').checked || !list.length) return;
+      this.hot = L.layerGroup(list.map((h) => L.circle([h.centerLat, h.centerLng], {
+        radius: 12 + Math.min(h.eventCount, 20), color: riskColor(h.riskScore), weight: 2, fillOpacity: 0.25,
+      }).bindTooltip(`Risco ${fmtNum(h.riskScore)} · ${h.eventCount} ${h.eventCount === 1 ? 'ocorrência' : 'ocorrências'}`))).addTo(this.m.map);
+    };
+    $('#hsOn').addEventListener('change', () => this.loadHot());
+    this.loadHot();
 
     /* cadastrar o Wi-Fi atual como local conhecido */
     $('#wpForm').addEventListener('submit', async (ev) => {
@@ -1328,7 +1374,7 @@ views.mapa = {
     $('#zHere').hidden = !has;
     if (has) this.m?.update(loc, state.track.get(state.selected));
   },
-  unmount() { clearInterval(this.heatTimer); this.heat = null; this.m?.destroy(); this.m = null; this.preview = null; this.apsKey = null; },
+  unmount() { clearInterval(this.heatTimer); this.heat = null; this.hot = null; this.loadHot = null; this.m?.destroy(); this.m = null; this.preview = null; this.apsKey = null; },
 };
 
 /* ---------------- Movimento ---------------- */

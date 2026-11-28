@@ -11,6 +11,7 @@ import { startDiscovery } from './discovery.js';
 import { createAuth } from './auth.js';
 import { createZones } from './zones.js';
 import { createApp, localIps } from './app.js';
+import { attachHotspots } from './services/hotspots.js';
 
 const db = openDb(config.dbFile);
 const hub = new Hub({ db, config });
@@ -45,7 +46,10 @@ const zones = createZones({
 config.safeZones = zones.list();
 hub.zones = zones;
 
-const app = createApp({ config, db, hub, usb, auth, zones, broadcast });
+/* areas de alta colisao: cada NEAR_MISS/IMPACT com GPS atualiza a celula e avisa o painel */
+const hotspots = attachHotspots({ hub, db, onUpdate: (h) => broadcast({ type: 'hotspot', hotspot: h }) });
+
+const app = createApp({ config, db, hub, usb, auth, zones, hotspots, broadcast });
 
 /* ---------------- WebSocket (tempo real) ---------------- */
 /* noDelay: atualizacoes pequenas e frequentes saem na hora; sem compressao por mensagem (custa mais do que economiza) */

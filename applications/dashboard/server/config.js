@@ -50,6 +50,8 @@ function load() {
   if (process.env.MQTT_PORT) cfg.mqtt.port = Number(process.env.MQTT_PORT);
   if (process.env.MQTT_URL) { cfg.mqtt.externalUrl = process.env.MQTT_URL; cfg.mqtt.embeddedBroker = false; }
   if (process.env.SERIAL_PORT) cfg.serial.path = process.env.SERIAL_PORT;
+  /* dias de telemetria bruta guardada (ocorrencias e areas de risco ficam para sempre) */
+  if (Number(process.env.RETENTION_DAYS) > 0) cfg.retentionDays = Number(process.env.RETENTION_DAYS);
   /* login do painel e do broker MQTT (segredos ficam no .env, nunca no config.json versionado) */
   if (process.env.DASHBOARD_PASS) cfg.auth.password = process.env.DASHBOARD_PASS;
   if (process.env.DASHBOARD_USER) cfg.auth.user = process.env.DASHBOARD_USER;

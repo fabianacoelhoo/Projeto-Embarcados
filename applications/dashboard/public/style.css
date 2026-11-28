@@ -524,6 +524,20 @@ body[data-view="mapa"] .alert-band > * { position: relative; }
 .zone-ring.dynamic { border-style: dashed; border-color: var(--primary); background: var(--primary-soft); }
 .zones .s { color: var(--text-3); font-size: var(--t-2xs); overflow-wrap: anywhere; }
 .zones li .quiet { margin-left: auto; }
+.hotspots { list-style: none; margin: var(--s-2) 0 0; padding: 0; }
+.hotspots li { border-bottom: 1px solid var(--border); }
+.hotspots li:last-child { border-bottom: 0; }
+.hs-item { display: flex; align-items: center; gap: var(--s-3); width: 100%; padding: 10px 0; background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.hs-item:hover strong { text-decoration: underline; }
+.hs-item:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: var(--r-sm); }
+.hs-body { min-width: 0; flex: 1; display: grid; gap: 2px; font-size: var(--t-sm); }
+.hs-body strong { font-weight: 600; }
+.hs-body .s { color: var(--text-3); font-size: var(--t-2xs); }
+.hs-score { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: var(--t-sm); border: 2px solid; }
+.hs-score.risk-high { color: var(--crit); border-color: var(--crit-solid); background: var(--crit-soft); }
+.hs-score.risk-mid { color: var(--warn); border-color: var(--warn-solid); background: var(--warn-soft); }
+.hs-score.risk-low { color: var(--primary); border-color: var(--primary); background: var(--primary-soft); }
+.hs-score .num { display: block; line-height: 1; letter-spacing: 0; }
 .heat-row { display: flex; gap: var(--s-3); flex-wrap: wrap; align-items: center; justify-content: space-between; }
 .heat-row select { width: auto; min-width: 120px; min-height: 36px; }
 .heat-legend { display: flex; align-items: center; gap: var(--s-2); margin-top: var(--s-3); font-size: var(--t-2xs); color: var(--text-3); }
