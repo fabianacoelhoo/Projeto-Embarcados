@@ -13,6 +13,11 @@
 import dgram from 'node:dgram';
 import mqtt from 'mqtt';
 import { TtcDetector, nearMissEvent } from './ttc.mjs';
+import fs from 'node:fs';
+
+/* mesmo .env do painel (MQTT_USER/MQTT_PASS), se existir */
+const envFile = new URL('../.env', import.meta.url);
+if (fs.existsSync(envFile)) process.loadEnvFile(envFile);
 
 const args = process.argv.slice(2);
 const flag = (name) => args.includes(`--${name}`) || args.includes('--all');
@@ -53,7 +58,7 @@ function filter(prev, raw) {
   return prev < 0 ? raw : prev * 0.7 + raw * 0.3;
 }
 
-function volume(d) {
+function vibration(d) {
   if (d < 0 || d > 100) return 0;
   const t = Math.min(1, Math.max(0, (100 - d) / (100 - 15)));
   return 0.15 + t * 0.85;
@@ -72,7 +77,7 @@ function tickTelemetry() {
     t: millis(), mode,
     distL: +filtL.toFixed(1), rawL: +rawL.toFixed(1),
     distR: +filtR.toFixed(1), rawR: +rawR.toFixed(1),
-    bzL: +volume(filtL).toFixed(2), bzR: +volume(filtR).toFixed(2),
+    vibL: +vibration(filtL).toFixed(2), vibR: +vibration(filtR).toFixed(2),
     thr: Math.round(thr), pot: +pot.toFixed(2),
     near: NEAR_MISS_CM,
   });
@@ -136,12 +141,12 @@ function tickStatus() {
   battery = Math.max(5, battery - 0.4);
   const host = new URL(url).hostname;
   pub('status', {
-    fw: 'sim-1.9', up: Math.round(millis() / 1000), heap: 182000 - Math.round(Math.random() * 4000),
+    fw: 'sim-2.0', up: Math.round(millis() / 1000), heap: 182000 - Math.round(Math.random() * 4000),
     rssi: -55 - Math.round(Math.random() * 15), ip: '192.168.0.42', ssid: net.ssid, ch: 6,
     portal: net.portal, ap: `EchoMap-${deviceId}`, ...(net.err ? { werr: net.err } : {}),
     ...(net.test ? { wtest: net.test, wtry: net.tryName } : {}),
     broker: `${host}:${new URL(url).port || 1883}`, auto: net.auto, mq: true, q: 0, lowlat: net.idle ? 0 : 1,
-    pwr: net.idle ? 'idle' : 'active', act: net.actuator, impG: net.impG, hyst: net.hyst, cal: Boolean(net.calTimer),
+    pwr: net.idle ? 'idle' : 'active', impG: net.impG, hyst: net.hyst, cal: Boolean(net.calTimer),
     ...(flag('status') ? { battery: Math.round(battery) } : {}), /* bateria so com --status (a placa real nao mede) */
     t: millis(),
   });
@@ -162,7 +167,7 @@ function onCommand(_topic, payload) {
   let cmd;
   try { cmd = JSON.parse(payload.toString()); } catch { return; }
   if (cmd.cmd === 'ping') pub('pong', { pong: cmd.id, t: millis() });
-  else if (cmd.cmd === 'locate') console.log('[SIM] Painel pediu para tocar o buzzer');
+  else if (cmd.cmd === 'locate') console.log('[SIM] Painel pediu para localizar (vibracao forte por 4 s)');
   else if (cmd.cmd === 'diag') {
     /* teste dos ultrassônicos: esquerdo bom; direito conforme --diag-mv (padrão 40 mV = nada chega) */
     const mv = Number(opt('diag-mv', 40));
@@ -178,7 +183,7 @@ function onCommand(_topic, payload) {
     tickStatus();
   } else if (cmd.cmd === 'haptic') {
     /* firmware 1.6: toca um padrao da linguagem haptica; tambem acorda da economia (houve uso) */
-    console.log(`[SIM] Padrao haptico "${cmd.pattern}" no ${net.actuator}`);
+    console.log(`[SIM] Padrao haptico "${cmd.pattern}" nos motores`);
   } else if (cmd.cmd === 'wifi_scan') {
     sendFingerprint(); /* firmware 1.8: varredura pedida pelo painel */
   } else if (cmd.cmd === 'calibrate_start') {
@@ -217,10 +222,6 @@ function onCommand(_topic, payload) {
     net.hyst = 10;
     pub('calib', { calib: 'reset', type: 'calibration_result', ok: true, ...before, impactAfter: 3.0, hystAfter: 10, t: millis() });
     tickStatus();
-  } else if (cmd.cmd === 'actuator') {
-    net.actuator = cmd.mode === 'motor' ? 'motor' : 'buzzer';
-    console.log(`[SIM] Atuador: ${net.actuator}`);
-    tickStatus();
   } else if (cmd.cmd === 'server') {
     /* imita o firmware 1.4: troca onde procura o servidor ("auto" = descoberta na rede) */
     console.log(`[SIM] Painel pediu servidor "${cmd.host}"`);
@@ -239,12 +240,14 @@ function onCommand(_topic, payload) {
     }, 3000);
   }
 }
-const net = { ssid: 'Rede-Casa', portal: false, test: null, tryName: null, err: null, auto: args.includes('--discover'), idle: false, actuator: 'buzzer', impG: 3.0, hyst: 10, calTimer: null };
+const net = { ssid: 'Rede-Casa', portal: false, test: null, tryName: null, err: null, auto: args.includes('--discover'), idle: false, impG: 3.0, hyst: 10, calTimer: null };
 
 function startClient() {
   /* mesmo formato de clientId do firmware: o servidor reconhece a placa e marca offline na hora ao desconectar */
   const suffix = Math.floor(Math.random() * 0xffffff).toString(16).toUpperCase().padStart(6, '0');
-  client = mqtt.connect(url, { clientId: `echomap-${deviceId}-${suffix}` });
+  /* broker com senha: MQTT_USER/MQTT_PASS do ambiente ou do .env do painel (mesmos da placa) */
+  const creds = process.env.MQTT_USER ? { username: process.env.MQTT_USER, password: process.env.MQTT_PASS ?? '' } : {};
+  client = mqtt.connect(url, { clientId: `echomap-${deviceId}-${suffix}`, ...creds });
   client.on('message', onCommand);
   client.on('error', (err) => console.error(`[SIM] ${err.message}`));
   client.on('connect', onConnect);

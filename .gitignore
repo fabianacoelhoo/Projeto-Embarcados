@@ -5,8 +5,20 @@ applications/dashboard/data/
 # PlatformIO
 .pio/
 
+# Segredos e bancos locais (nunca vão para o repositório; modelos: .env.example e secrets.example.h)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.db
+*.db-wal
+*.db-shm
+
 # Arquivos de trabalho do assistente (nunca vão para o repositório)
 Claude outputs/
+CLAUDE.md
+.claude/
 
 # Sistema / editores
 .DS_Store

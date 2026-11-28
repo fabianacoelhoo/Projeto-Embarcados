@@ -50,7 +50,7 @@ const normalizers = {
     mode: p.mode ?? null,
     distL: dist(p.distL), rawL: dist(p.rawL),
     distR: dist(p.distR), rawR: dist(p.rawR),
-    bzL: num(p.bzL), bzR: num(p.bzR),
+    vibL: num(p.vibL), vibR: num(p.vibR),
     thr: num(p.thr), pot: num(p.pot),
     near: num(p.near), /* NEAR_MISS_CM do firmware: o painel usa esse valor quando vier */
     deviceT: num(p.t),
@@ -98,9 +98,8 @@ const normalizers = {
     autoBroker: typeof p.auto === 'boolean' ? p.auto : null, queued: num(p.q),
     /* firmware >= 1.4: a placa esta conectada ao broker MQTT (pelo cabo da para ver quando nao esta) */
     mqtt: typeof p.mq === 'boolean' ? p.mq : null,
-    /* firmware >= 1.6: economia de energia ("active"/"idle") e atuador da linguagem haptica ("buzzer"/"motor") */
+    /* firmware >= 1.6: economia de energia ("active"/"idle") */
     powerState: p.pwr === 'idle' || p.pwr === 'active' ? p.pwr : null,
-    actuator: p.act === 'motor' || p.act === 'buzzer' ? p.act : null,
     /* firmware >= 1.7: limiares em uso (calibrados ou de fabrica) e calibracao em andamento */
     impactG: num(p.impG), hystCm: num(p.hyst), calibrating: p.cal === true,
     portal: p.portal === true, lowLatency: p.lowlat == null ? null : Boolean(p.lowlat),
@@ -289,7 +288,7 @@ export class Hub extends EventEmitter {
     return this.publicDevice(d);
   }
 
-  /* Comando para o dispositivo (ex.: tocar buzzer para localizar). O firmware ainda nao
+  /* Comando para o dispositivo (ex.: vibrar para localizar). O firmware ainda nao
      assina esse topico; fica pronto para as funcoes de controle parental.
      Retorna false se nao ha broker; true nao garante que a placa recebeu. */
   sendCommand(deviceId, command) {

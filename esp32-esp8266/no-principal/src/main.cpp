@@ -1,7 +1,7 @@
 /*=====================================================*/
 /* EchoMap - No Principal (prototipo de bancada)         */
 /* ESP32 + FreeRTOS                                      */
-/* 2x HC-SR04 + potenciometro + botao + LED RGB + 2 buzzers */
+/* 2x HC-SR04 + potenciometro + botao + LED RGB + 2 motores de vibracao (MV50) */
 /* + GPS NEO-6M (UART2) + MPU-6050 (I2C)                    */
 /*=====================================================*/
 
@@ -12,7 +12,7 @@
 #include "ttc_detector.h" /* quase colisao por tempo ate o impacto */
 #include "alert_fsm.h"    /* pre-alerta "Estou bem" de queda/batida */
 #include "power_manager.h" /* economia de energia guiada pelo MPU */
-#include "haptic_engine.h" /* linguagem haptica: padroes -> buzzer ou motor */
+#include "haptic_engine.h" /* linguagem haptica: padroes -> motores de vibracao */
 #include "calibration.h"   /* calibracao assistida (30 s andando) */
 #include "click_classifier.h" /* 1, 2 e 3 cliques */
 #include "wifi_fingerprint.h" /* assinatura de Wi-Fi quando o GPS nao pega */
@@ -37,11 +37,11 @@ enum EventType { EVT_NEAR_MISS, EVT_CRASH, EVT_FALL, EVT_IMPACT, EVT_DISMISSED, 
 struct SideState {
   float rawCm = -1;
   float filteredCm = -1;
-  bool inRange = false; /* alguem confirmado dentro de BUZZER_START_CM */
+  bool inRange = false; /* alguem confirmado dentro de ALERT_START_CM */
   uint8_t nearHits = 0;
   uint8_t farHits = 0;
   uint8_t misses = 0;   /* leituras perdidas seguidas */
-  TtcLevel level = TtcLevel::Clear; /* do detector de TTC: estatico limita o volume do buzzer */
+  TtcLevel level = TtcLevel::Clear; /* do detector de TTC: estatico limita a intensidade da vibracao */
 };
 
 struct SensorState {
@@ -53,8 +53,8 @@ struct SensorState {
 struct AppState {
   Mode mode = MODE_RADAR;
   float lastThr = DIST_MIN_CM;
-  float buzzVolL = 0; /* volume atual de cada buzzer (0..1), so para telemetria */
-  float buzzVolR = 0;
+  float vibL = 0; /* intensidade atual de cada motor (0..1), so para telemetria */
+  float vibR = 0;
 };
 
 /* sem valor padrao nos campos: no C++11 do core isso impediria o AppEvent{...}.
@@ -121,8 +121,6 @@ struct HapticRequest {
   bool stop;
 };
 QueueHandle_t hapticQueue = NULL;
-volatile uint8_t actuatorMode = ACTUATOR_MODE;
-volatile int8_t actuatorRequest = -1; /* troca de atuador pedida (aplicada pela TaskHaptic) */
 
 void haptic(HapticPattern p, uint8_t sides = HAPTIC_BOTH) {
   if (!hapticQueue) return;
@@ -137,7 +135,7 @@ void hapticStop(HapticPattern p) {
 
 /* limiares que a calibracao assistida ajusta (salvos na NVS, aplicados sem reiniciar) */
 volatile float runtimeImpactG = IMPACT_G;     /* limiar de batida (ImuDetector) */
-volatile float runtimeHystCm = BUZZER_HYST_CM; /* histerese da faixa de aviso dos ultrassonicos */
+volatile float runtimeHystCm = ALERT_HYST_CM; /* histerese da faixa de aviso dos ultrassonicos */
 static const CalibConfig CAL_CFG = {CAL_STEP_MIN_G,   CAL_STEP_REFRACTORY_MS, CAL_IMPACT_FACTOR, CAL_MIN_IMPACT_G,
                                     CAL_MAX_IMPACT_G, CAL_HYST_K,             CAL_HYST_MIN_CM,   CAL_HYST_MAX_CM,
                                     CAL_MIN_STEPS,    CAL_MIN_ECHO_SAMPLES,   CAL_MAX_ECHO_JUMP_CM};
@@ -283,27 +281,12 @@ void computeCrashFlash(float &r, float &g, float &b) {
 }
 
 /*=====================================================*/
-/* Saida: buzzers (1 por sensor, canal LEDC dedicado)    */
-/*=====================================================*/
-/* frequencia fixa (configurada em actuatorSetup); o volume muda pelo duty. A amplitude da
-   fundamental de uma onda quadrada e proporcional a sin(pi * duty): 50% e o maximo */
-void setBuzzerVolume(uint8_t channel, float volume) {
-  uint32_t duty = 0;
-  if (volume > 0.0f) {
-    float dutyFraction = asinf(constrain(volume, 0.0f, 1.0f)) / PI; /* 0..0.5 */
-    duty = (uint32_t)(dutyFraction * 1024.0f);
-  }
-  ledcWrite(channel, duty);
-}
-
-
-/*=====================================================*/
 /* Task 1 - Sensores (2x HC-SR04, potenciometro)         */
 /*=====================================================*/
 void updateSide(SideState &side, float raw) {
   if (raw < 0) {
     /* eco perdido isolado e comum no HC-SR04: mantem o ultimo valor filtrado por algumas
-       leituras em vez de "piscar" para nada detectado (no painel, no buzzer e no NEAR_MISS) */
+       leituras em vez de "piscar" para nada detectado (no painel, na vibracao e no NEAR_MISS) */
     side.rawCm = -1;
     if (side.misses < SENSOR_DROPOUT_HOLD) side.misses++;
     if (side.misses >= SENSOR_DROPOUT_HOLD) side.filteredCm = -1;
@@ -313,18 +296,18 @@ void updateSide(SideState &side, float raw) {
     side.filteredCm = (side.filteredCm < 0) ? raw : (side.filteredCm * 0.7f + raw * 0.3f);
   }
 
-  /* liga/desliga do buzzer usa a leitura bruta (sem atraso do filtro), com histerese
+  /* liga/desliga da vibracao usa a leitura bruta (sem atraso do filtro), com histerese
      e confirmacao por leituras seguidas para ignorar ecos isolados */
-  float limit = side.inRange ? (BUZZER_START_CM + runtimeHystCm) : BUZZER_START_CM;
+  float limit = side.inRange ? (ALERT_START_CM + runtimeHystCm) : ALERT_START_CM;
   bool near = (raw >= 0 && raw <= limit);
   if (near) {
     side.farHits = 0;
-    if (side.nearHits < BUZZER_CONFIRM_SAMPLES) side.nearHits++;
-    if (side.nearHits >= BUZZER_CONFIRM_SAMPLES) side.inRange = true;
+    if (side.nearHits < ALERT_CONFIRM_SAMPLES) side.nearHits++;
+    if (side.nearHits >= ALERT_CONFIRM_SAMPLES) side.inRange = true;
   } else {
     side.nearHits = 0;
-    if (side.farHits < BUZZER_CONFIRM_SAMPLES) side.farHits++;
-    if (side.farHits >= BUZZER_CONFIRM_SAMPLES) side.inRange = false;
+    if (side.farHits < ALERT_CONFIRM_SAMPLES) side.farHits++;
+    if (side.farHits >= ALERT_CONFIRM_SAMPLES) side.inRange = false;
   }
 }
 
@@ -344,7 +327,7 @@ void reportNearMiss(const TtcResult &r, char side) {
   if (r.reason == TtcReason::Ttc) haptic(HapticPattern::FastApproach, side == 'L' ? HAPTIC_LEFT : HAPTIC_RIGHT);
 }
 
-void TaskSensors(void *pvParameters) {
+void TaskSensors(void * /* pvParameters */) {
   TtcDetector ttcL(TTC_CFG), ttcR(TTC_CFG);
 
   for (;;) {
@@ -414,7 +397,7 @@ void handleGesture(ClickGesture g) {
   }
 }
 
-void TaskButton(void *pvParameters) {
+void TaskButton(void * /* pvParameters */) {
   ClickClassifier clicks(CLICK_GAP_MS);
   for (;;) {
     /* espera um aperto, mas acorda a cada 20 ms para fechar 1 ou 2 cliques quando a janela passa */
@@ -464,7 +447,7 @@ void TaskButton(void *pvParameters) {
 /*=====================================================*/
 /* Task 3 - LED RGB (status / proximidade)               */
 /*=====================================================*/
-void TaskStatusLed(void *pvParameters) {
+void TaskStatusLed(void * /* pvParameters */) {
   bootFlash();
 
   for (;;) {
@@ -518,54 +501,45 @@ void TaskStatusLed(void *pvParameters) {
 }
 
 /*=====================================================*/
-/* Task 4 - Haptica (sequenciador de padroes -> buzzer ou motor) */
+/* Task 4 - Haptica (sequenciador de padroes -> motores) */
 /*=====================================================*/
-/* intensidade 0..1 no atuador escolhido (o mesmo canal LEDC; muda a frequencia e a curva do duty) */
-void actuatorSetup(uint8_t mode) {
-  uint32_t freq = mode == ACTUATOR_HAPTIC_MOTOR_PWM ? HAPTIC_MOTOR_PWM_HZ : BUZZER_FREQ_HZ;
-  ledcSetup(BUZZER_CHANNEL_L, freq, 10);
-  ledcSetup(BUZZER_CHANNEL_R, freq, 10);
-  ledcWrite(BUZZER_CHANNEL_L, 0);
-  ledcWrite(BUZZER_CHANNEL_R, 0);
+/* PWM dos dois MV50 (timer configurado antes do attach: o ledcWrite(canal, 0) nao grava duty 1) */
+void motorSetup() {
+  ledcSetup(MOTOR_CHANNEL_L, MOTOR_PWM_HZ, MOTOR_PWM_BITS);
+  ledcSetup(MOTOR_CHANNEL_R, MOTOR_PWM_HZ, MOTOR_PWM_BITS);
+  ledcWrite(MOTOR_CHANNEL_L, 0);
+  ledcWrite(MOTOR_CHANNEL_R, 0);
+  ledcAttachPin(PIN_MOTOR_L, MOTOR_CHANNEL_L);
+  ledcAttachPin(PIN_MOTOR_R, MOTOR_CHANNEL_R);
 }
 
-void actuatorWrite(uint8_t channel, float level) {
-  if (actuatorMode == ACTUATOR_HAPTIC_MOTOR_PWM) {
-    /* motor: abaixo de HAPTIC_MOTOR_MIN_DUTY ele nao gira, entao 0..1 vira MIN..100% (0 = parado) */
-    float duty = level <= 0.0f ? 0.0f : HAPTIC_MOTOR_MIN_DUTY + constrain(level, 0.0f, 1.0f) * (1.0f - HAPTIC_MOTOR_MIN_DUTY);
-    ledcWrite(channel, (uint32_t)(duty * 1023.0f));
-  } else {
-    setBuzzerVolume(channel, level);
-  }
+/* intensidade 0..1: abaixo de MOTOR_MIN_DUTY o motor nao gira, entao 0..1 vira MIN..100% (0 = parado) */
+void motorWrite(uint8_t channel, float level) {
+  const uint32_t maxDuty = (1u << MOTOR_PWM_BITS) - 1;
+  float duty = level <= 0.0f ? 0.0f : MOTOR_MIN_DUTY + constrain(level, 0.0f, 1.0f) * (1.0f - MOTOR_MIN_DUTY);
+  ledcWrite(channel, (uint32_t)(duty * maxDuty));
 }
 
 /* fundo de cada lado conforme o detector de TTC: parado = pulso espacado e suave; aproximando = mais
-   rapido e forte quanto mais perto (BUZZER_START_CM .. BUZZER_FULL_CM) */
+   rapido e forte quanto mais perto (ALERT_START_CM .. ALERT_FULL_CM) */
 void setSideAmbient(HapticEngine &engine, uint8_t side, const SideState &s) {
   float closeness = s.filteredCm < 0 ? 0.0f
-      : constrain((BUZZER_START_CM - s.filteredCm) / (BUZZER_START_CM - BUZZER_FULL_CM), 0.0f, 1.0f);
+      : constrain((ALERT_START_CM - s.filteredCm) / (ALERT_START_CM - ALERT_FULL_CM), 0.0f, 1.0f);
   HapticPattern p = HapticPattern::None;
   if (s.level == TtcLevel::Critical || s.level == TtcLevel::Approaching) p = HapticPattern::Proximity;
-  /* parado: a faixa de aviso tem histerese (liga a BUZZER_START_CM, desliga so depois de + runtimeHystCm,
+  /* parado: a faixa de aviso tem histerese (liga a ALERT_START_CM, desliga so depois de + runtimeHystCm,
      calibrada pelo ruido do eco), para o aviso nao piscar com alguem parado na borda */
   else if (s.inRange) p = HapticPattern::StaticObstacle;
   engine.setAmbient(side, p, closeness);
 }
 
-void TaskHaptic(void *pvParameters) {
+void TaskHaptic(void * /* pvParameters */) {
   const HapticConfig cfg = {PRE_ALERT_MS, LOCATE_MS};
   HapticEngine engine(cfg);
   float shownL = 0.0f, shownR = 0.0f; /* para a telemetria: pico que decai, nao pisca a cada pulso */
 
   for (;;) {
     uint32_t now = millis();
-    int8_t req = actuatorRequest;
-    if (req >= 0) {
-      actuatorRequest = -1;
-      actuatorMode = (uint8_t)req;
-      actuatorSetup(actuatorMode);
-    }
-
     HapticRequest rq;
     while (xQueueReceive(hapticQueue, &rq, 0) == pdTRUE) {
       if (rq.stop) engine.stop(rq.pattern, rq.sides);
@@ -580,14 +554,14 @@ void TaskHaptic(void *pvParameters) {
     setSideAmbient(engine, HAPTIC_RIGHT, right);
 
     HapticOutput out = engine.tick(now);
-    actuatorWrite(BUZZER_CHANNEL_L, out.left);
-    actuatorWrite(BUZZER_CHANNEL_R, out.right);
+    motorWrite(MOTOR_CHANNEL_L, out.left);
+    motorWrite(MOTOR_CHANNEL_R, out.right);
 
     shownL = max(out.left, shownL * 0.95f);
     shownR = max(out.right, shownR * 0.95f);
     xSemaphoreTake(stateMutex, portMAX_DELAY);
-    appState.buzzVolL = shownL;
-    appState.buzzVolR = shownR;
+    appState.vibL = shownL;
+    appState.vibR = shownR;
     xSemaphoreGive(stateMutex);
 
     vTaskDelay(pdMS_TO_TICKS(HAPTIC_PERIOD_MS));
@@ -598,7 +572,7 @@ void TaskHaptic(void *pvParameters) {
 /* Task 6 - GPS NEO-6M (UART2, sentencas NMEA)           */
 /*=====================================================*/
 #if ENABLE_GPS
-void TaskGps(void *pvParameters) {
+void TaskGps(void * /* pvParameters */) {
   Serial2.begin(GPS_BAUD, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
 
   for (;;) {
@@ -741,7 +715,7 @@ bool mpuReadMotion(float &ax, float &ay, float &az, float &gx, float &gy, float 
   return true;
 }
 
-void TaskImu(void *pvParameters) {
+void TaskImu(void * /* pvParameters */) {
   Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL, I2C_FREQ_HZ);
 
   while (!mpuInit()) {
@@ -909,8 +883,8 @@ void publishTelemetry() {
   SensorState s = sensorState;
   Mode mode = appState.mode;
   float thr = appState.lastThr;
-  float volL = appState.buzzVolL;
-  float volR = appState.buzzVolR;
+  float volL = appState.vibL;
+  float volR = appState.vibR;
   xSemaphoreGive(stateMutex);
 
   /* "near" = NEAR_MISS_CM: o painel desenha a faixa de quase colisao com o mesmo valor do firmware */
@@ -919,7 +893,7 @@ void publishTelemetry() {
            "{\"t\":%lu,\"mode\":\"%s\","
            "\"distL\":%.1f,\"rawL\":%.1f,"
            "\"distR\":%.1f,\"rawR\":%.1f,"
-           "\"bzL\":%.2f,\"bzR\":%.2f,"
+           "\"vibL\":%.2f,\"vibR\":%.2f,"
            "\"thr\":%.0f,\"pot\":%.2f,\"near\":%.0f}",
            (unsigned long)millis(), modeToString(mode),
            s.left.filteredCm, s.left.rawCm,
@@ -972,8 +946,8 @@ void publishStatus() {
   char buf[640];
   int n = snprintf(buf, sizeof(buf), "{\"fw\":\"%s\",\"up\":%lu,\"heap\":%lu",
                    FW_VERSION, (unsigned long)(millis() / 1000), (unsigned long)ESP.getFreeHeap());
-  n += snprintf(buf + n, sizeof(buf) - n, ",\"pwr\":\"%s\",\"act\":\"%s\",\"impG\":%.2f,\"hyst\":%.1f,\"cal\":%s",
-                powerIdle ? "idle" : "active", actuatorMode == ACTUATOR_HAPTIC_MOTOR_PWM ? "motor" : "buzzer",
+  n += snprintf(buf + n, sizeof(buf) - n, ",\"pwr\":\"%s\",\"impG\":%.2f,\"hyst\":%.1f,\"cal\":%s",
+                powerIdle ? "idle" : "active",
                 runtimeImpactG, runtimeHystCm, calibrating ? "true" : "false");
   n += netStatusAppend(buf + n, sizeof(buf) - n - 24);
   snprintf(buf + n, sizeof(buf) - n, ",\"t\":%lu}", (unsigned long)millis());
@@ -1148,11 +1122,11 @@ void loadCalibration() {
   Preferences prefs;
   if (!prefs.begin(CFG_NAMESPACE, false)) return;
   float impact = prefs.getFloat("impactG", IMPACT_G);
-  float hyst = prefs.getFloat("hystCm", BUZZER_HYST_CM);
+  float hyst = prefs.getFloat("hystCm", ALERT_HYST_CM);
   prefs.end();
   if (impact >= CAL_MIN_IMPACT_G && impact <= CAL_MAX_IMPACT_G) runtimeImpactG = impact;
   if (hyst >= CAL_HYST_MIN_CM && hyst <= CAL_HYST_MAX_CM) runtimeHystCm = hyst;
-  if (runtimeImpactG != IMPACT_G || runtimeHystCm != BUZZER_HYST_CM) {
+  if (runtimeImpactG != IMPACT_G || runtimeHystCm != ALERT_HYST_CM) {
     Serial.printf("[CALIB] Limiares calibrados: batida %.2f g, histerese %.1f cm.\n", runtimeImpactG, runtimeHystCm);
   }
 }
@@ -1194,7 +1168,7 @@ void resetCalibration() {
   stopCalibration();
   float impactBefore = runtimeImpactG, hystBefore = runtimeHystCm;
   runtimeImpactG = IMPACT_G;
-  runtimeHystCm = BUZZER_HYST_CM;
+  runtimeHystCm = ALERT_HYST_CM;
   Preferences prefs;
   if (prefs.begin(CFG_NAMESPACE, false)) {
     prefs.remove("impactG");
@@ -1276,28 +1250,10 @@ HapticPattern patternByName(const char *n) {
   return HapticPattern::None;
 }
 
-/* troca buzzer <-> motor na hora e grava na NVS (vale no proximo boot) */
-bool setActuator(const char *mode) {
-  int8_t m = !strcmp(mode, "motor") ? ACTUATOR_HAPTIC_MOTOR_PWM : !strcmp(mode, "buzzer") ? ACTUATOR_BUZZER_PWM : -1;
-  if (m < 0) {
-    Serial.println("[HAPTICA] Use: atuador buzzer | atuador motor");
-    return true;
-  }
-  Preferences prefs;
-  if (prefs.begin(CFG_NAMESPACE, false)) {
-    prefs.putUChar("actuator", (uint8_t)m);
-    prefs.end();
-  }
-  actuatorRequest = m;
-  Serial.printf("[HAPTICA] Atuador: %s (salvo).\n", mode);
-  haptic(HapticPattern::Confirm);
-  return true;
-}
-
 bool onPanelCommand(const char *cmd, const char *json) {
   if (strcmp(cmd, "locate") == 0) {
     haptic(HapticPattern::Locate);
-    Serial.println("[APP] Painel pediu para tocar o buzzer.");
+    Serial.println("[APP] Painel pediu para localizar (vibracao forte por 4 s).");
     return true;
   }
   /* testar um padrao da linguagem haptica: {"cmd":"haptic","pattern":"approach"} ou "vibrar approach" */
@@ -1337,12 +1293,6 @@ bool onPanelCommand(const char *cmd, const char *json) {
     else startCalibration(arg[0] ? (uint32_t)atoi(arg) : CAL_DEFAULT_DURATION_S);
     return true;
   }
-  if (strcmp(cmd, "actuator") == 0 || strncmp(cmd, "atuador", 7) == 0) {
-    char mode[12] = "";
-    if (json) netJsonField(json, "mode", mode, sizeof(mode));
-    else if (cmd[7] == ' ') snprintf(mode, sizeof(mode), "%s", cmd + 8);
-    return setActuator(mode);
-  }
   if (strcmp(cmd, "diag") == 0 || strcmp(cmd, "sensores") == 0) {
     diagRequested = true; /* roda no ciclo da TaskComms, fora do callback do MQTT */
     return true;
@@ -1350,7 +1300,7 @@ bool onPanelCommand(const char *cmd, const char *json) {
   return false;
 }
 
-void TaskComms(void *pvParameters) {
+void TaskComms(void * /* pvParameters */) {
   TickType_t lastWake = xTaskGetTickCount();
   uint32_t lastTelemetry = 0;
   uint32_t lastStatus = 0;
@@ -1464,18 +1414,14 @@ void setup() {
   pinMode(PIN_RGB_G, OUTPUT);
   pinMode(PIN_RGB_B, OUTPUT);
 
-  /* atuador: buzzer ou motor (padrao do config.h, ou o que foi salvo na NVS com "atuador ...").
-     Timer configurado antes do attach: evita o ledcWrite(canal, 0) gravar duty 1 em canal sem resolucao */
+  motorSetup();
+  /* remove a chave "actuator" do firmware antigo (escolha de atuador), se ainda estiver na NVS */
   Preferences prefs;
   if (prefs.begin(CFG_NAMESPACE, false)) {
-    uint8_t saved = prefs.getUChar("actuator", ACTUATOR_MODE);
-    actuatorMode = saved == ACTUATOR_HAPTIC_MOTOR_PWM ? ACTUATOR_HAPTIC_MOTOR_PWM : ACTUATOR_BUZZER_PWM;
+    if (prefs.isKey("actuator")) prefs.remove("actuator");
     prefs.end();
   }
-  actuatorSetup(actuatorMode);
   loadCalibration();
-  ledcAttachPin(PIN_BUZZER_L, BUZZER_CHANNEL_L);
-  ledcAttachPin(PIN_BUZZER_R, BUZZER_CHANNEL_R);
 
   stateMutex = xSemaphoreCreateMutex();
   eventQueue = xQueueCreate(10, sizeof(AppEvent));
@@ -1515,7 +1461,7 @@ void setup() {
 #endif
   xTaskCreatePinnedToCore(TaskComms, "TaskComms", 8192, NULL, 1, NULL, 0); /* 8 KB: portal web usa String */
 
-  Serial.printf("[APP] EchoMap fw %s iniciado: RGB + buzzers%s%s%s.\n", FW_VERSION,
+  Serial.printf("[APP] EchoMap fw %s iniciado: RGB + 2 motores de vibracao%s%s%s.\n", FW_VERSION,
                 ENABLE_GPS ? " + GPS" : "", ENABLE_IMU ? " + MPU-6050" : "", ENABLE_MQTT ? " + MQTT" : "");
 }
 

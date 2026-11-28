@@ -52,7 +52,7 @@ out.append(f'<svg xmlns="http://www.w3.org/2000/svg" width="{W}" height="{H}" vi
 out.append('<defs><marker id="ponta" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">'
            '<path d="M0,0 L10,4 L0,8 z" fill="#475569"/></marker></defs>')
 rect(0, 0, W, H, "#ffffff", rx=0)
-t(50, 54, "EchoMap — Arquitetura do sistema (firmware 1.9)", 28, peso=700)
+t(50, 54, "EchoMap — Arquitetura do sistema (firmware 2.0)", 28, peso=700)
 t(50, 84, "Do colete ao painel dos responsáveis · gerado por docs/img/gerar_arquitetura.py · "
   "tracejado = previsto, ainda não montado", 14, "#6b7280")
 out.append(f'<line x1="50" y1="102" x2="{W-50}" y2="102" stroke="#FF6000" stroke-width="3"/>')
@@ -73,8 +73,8 @@ y = caixa(50, y, 410, "Case central (bolso 78 × 160)", [
 ], "#0f766e") + 14
 y = caixa(50, y, 410, "2× suporte “farol” na alça de 60 mm", [
     "HC-SR04 (esquerdo / direito), cone de 15° livre",
-    "Atuador do mesmo lado, encostado no peito:",
-    "buzzer passivo (montado hoje) ou módulo MV50",
+    "Motor de vibração MV50 do mesmo lado,",
+    "na metade interna, encostado no peito",
     "Catraca sem parafuso: fita de 1,6 a 2,8 mm",
 ], "#0f766e") + 14
 y = caixa(50, y, 410, "Case do GPS no ombro (perfil 11,4 mm)", [
@@ -96,7 +96,7 @@ y = caixa(510, y, 440, "Core 1 (tempo real dos sensores)", [
     "2× HC-SR04 alternados, filtro EMA, TTC por lado",
     "NEAR_MISS só no crítico (≤ 1,5 s ou < 25 cm)",
     "▸ TaskHaptic · 10 ms · linguagem háptica",
-    "7 padrões por lado, em buzzer ou motor (PWM)",
+    "7 padrões por lado nos motores MV50 (PWM 20 kHz)",
     "▸ TaskStatusLed · 20 ms · cor do LED RGB",
 ], "#1d4ed8") + 14
 y = caixa(510, y, 440, "Core 0 (eventos e rede)", [
@@ -171,7 +171,7 @@ caixa(1470, y, 380, "Responsáveis", [
 
 # ---- setas
 seta(460, 260, 508, 260, rot="sensores", dy_rot=-10)
-seta(508, 300, 460, 300, rot="atuadores", dy_rot=18)
+seta(508, 300, 460, 300, rot="vibração", dy_rot=18)
 seta(950, 300, 998, 300, rot="MQTT/USB")
 seta(998, 360, 950, 360, rot="…/cmd", dy_rot=18)
 seta(1430, 300, 1468, 300, rot="WS")

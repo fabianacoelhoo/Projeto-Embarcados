@@ -52,7 +52,7 @@ test('cooldown de 3 s por lado', () => {
   assert.equal(nearMissEvent(r.reports[0], 'R', 1).reason, 'close');
 });
 
-test('servidor: DISMISSED é "info"; NEAR_MISS guarda reason/ttc/v; status traz energia e atuador', () => {
+test('servidor: DISMISSED é "info"; NEAR_MISS guarda reason/ttc/v; status traz energia', () => {
   assert.equal(SEVERITY.DISMISSED, 'info');
   const saved = [];
   const db = {
@@ -69,10 +69,10 @@ test('servidor: DISMISSED é "info"; NEAR_MISS guarda reason/ttc/v; status traz 
     assert.equal(dismissed.data.cause, 'FALL');
     assert.deepEqual([near.data.reason, near.data.ttc, near.data.v, near.data.side], ['ttc', 0.8, 78, 'L']);
 
-    /* firmware 1.6: estado de energia e atuador no status */
-    hub.ingest({ deviceId: 'node1', channel: 'status', payload: Buffer.from(JSON.stringify({ fw: '1.6.0', up: 300, pwr: 'idle', act: 'motor', lowlat: 0, t: 7000 })), source: 'mqtt' });
+    /* firmware 1.6: estado de energia no status */
+    hub.ingest({ deviceId: 'node1', channel: 'status', payload: Buffer.from(JSON.stringify({ fw: '1.6.0', up: 300, pwr: 'idle', lowlat: 0, t: 7000 })), source: 'mqtt' });
     const st = hub.devices.get('node1').latest.status;
-    assert.deepEqual([st.powerState, st.actuator, st.lowLatency], ['idle', 'motor', false]);
+    assert.deepEqual([st.powerState, st.lowLatency], ['idle', false]);
     hub.ingest({ deviceId: 'node1', channel: 'status', payload: Buffer.from(JSON.stringify({ fw: '1.5.0', pwr: 'xyz', t: 8000 })), source: 'mqtt' });
     assert.equal(hub.devices.get('node1').latest.status.powerState, null);
   } finally {

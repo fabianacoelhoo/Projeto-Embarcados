@@ -26,6 +26,7 @@
     button:hover { background: var(--primary-hover); }
     button[disabled] { opacity: .6; cursor: progress; }
     .err { color: var(--crit); margin: 12px 0 0; font-size: 14px; min-height: 1.5em; }
+    #userRow { margin-bottom: 16px; } #userRow[hidden] { display: none; }
   </style>
 </head>
 <body>
@@ -37,6 +38,10 @@
     <h1>Entrar no painel</h1>
     <p>Este aparelho precisa da senha do painel. Ela aparece no terminal onde o servidor foi iniciado e na aba Dispositivo, no computador.</p>
     <form id="f">
+      <div id="userRow" hidden>
+        <label for="user">Usuário</label>
+        <input id="user" type="text" autocomplete="username" autocapitalize="none" spellcheck="false">
+      </div>
       <label for="pw">Senha do painel</label>
       <input id="pw" type="password" autocomplete="current-password" autocapitalize="none" spellcheck="false" required autofocus>
       <button id="go" type="submit">Entrar</button>
@@ -45,11 +50,17 @@
   </main>
   <script>
     const f = document.getElementById('f'), err = document.getElementById('err'), go = document.getElementById('go');
+    const userRow = document.getElementById('userRow'), user = document.getElementById('user');
+    /* com DASHBOARD_USER configurado, o servidor pede também o usuário */
+    fetch('/api/login-info').then((r) => r.json()).then((info) => {
+      if (!info.userRequired) return;
+      userRow.hidden = false; user.required = true; user.focus();
+    }).catch(() => {});
     f.addEventListener('submit', async (e) => {
       e.preventDefault();
       go.disabled = true; err.textContent = '';
       try {
-        const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: document.getElementById('pw').value }) });
+        const res = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user: user.value.trim(), password: document.getElementById('pw').value }) });
         const body = await res.json().catch(() => ({}));
         if (res.ok) {
           const next = new URLSearchParams(location.search).get('next');

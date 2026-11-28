@@ -8,8 +8,12 @@ import { DatabaseSync } from 'node:sqlite';
 export function openDb(file) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const db = new DatabaseSync(file);
+  /* WAL: leitura e escrita ao mesmo tempo; NORMAL: seguro com WAL e bem mais rapido que FULL */
   db.exec(`
     PRAGMA journal_mode = WAL;
+    PRAGMA synchronous = NORMAL;
+    PRAGMA foreign_keys = ON;
+    PRAGMA busy_timeout = 3000;
     CREATE TABLE IF NOT EXISTS devices (
       id TEXT PRIMARY KEY,
       name TEXT,
@@ -73,6 +77,9 @@ export function openDb(file) {
     getEvent: db.prepare('SELECT * FROM events WHERE id = ?'),
     ackEvent: db.prepare('UPDATE events SET acked_at = ? WHERE id = ? AND acked_at IS NULL'),
     purgeReadings: db.prepare('DELETE FROM readings WHERE ts < ?'),
+    insertNotification: db.prepare(`INSERT INTO alert_notifications(ts, event_id, device_id, type, recipient, status, error, subject)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`),
+    notifications: db.prepare('SELECT * FROM alert_notifications ORDER BY ts DESC, id DESC LIMIT ?'),
   };
 
   const rowToZone = (r) => r && ({
@@ -126,7 +133,13 @@ export function openDb(file) {
       q.ackEvent.run(ts, id);
       return rowToEvent(q.getEvent.get(id));
     },
-    purgeOlderThan(ts) { q.purgeReadings.run(ts); },
+    /* retencao: so a telemetria bruta sai; ocorrencias e collision_hotspots ficam inteiras.
+       Depois de apagar, devolve o espaco do WAL e atualiza as estatisticas do planejador. */
+    purgeOlderThan(ts) {
+      const removed = Number(q.purgeReadings.run(ts).changes);
+      if (removed) db.exec('PRAGMA wal_checkpoint(TRUNCATE); PRAGMA optimize;');
+      return removed;
+    },
 
     /* zonas seguras: type "fixed" (cadastradas) ou "dynamic" (ancora rapida, com expires_at) */
     zones() { return q.zonesAll.all().map(rowToZone); },
@@ -161,6 +174,16 @@ export function openDb(file) {
     nearestLocation(deviceId, ts, tolMs) {
       const r = q.nearestLocation.get(deviceId, ts - tolMs, ts + tolMs, ts);
       return r ? { ts: Number(r.ts), ...JSON.parse(r.data) } : null;
+    },
+    /* alertas por e-mail */
+    insertNotification(n) {
+      q.insertNotification.run(n.ts, n.eventId ?? null, n.deviceId ?? null, n.type, n.recipient, n.status, n.error ?? null, n.subject ?? null);
+    },
+    notifications(limit = 20) {
+      return q.notifications.all(limit).map((r) => ({
+        id: Number(r.id), ts: Number(r.ts), eventId: r.event_id == null ? null : Number(r.event_id), deviceId: r.device_id,
+        type: r.type, recipient: r.recipient, status: r.status, error: r.error, subject: r.subject,
+      }));
     },
     /* calibracao assistida: historico de resultados (feitos, que falharam, e "padroes de fabrica") */
     insertCalibration(deviceId, ts, ok, data) {
@@ -220,4 +243,44 @@ export function migrate(db) {
   `);
   /* bancos criados durante o desenvolvimento da Fase 4 sem a coluna de dono da ancora */
   if (!hasColumn(db, 'safe_zones', 'device_id')) db.exec('ALTER TABLE safe_zones ADD COLUMN device_id TEXT');
+
+  /* Areas de alta colisao: grade geohash de precisao 8 (~19 x 38 m), atualizada a cada NEAR_MISS/IMPACT
+     com GPS (server/services/hotspots.js). Indices para o mapa e para a retencao da telemetria. */
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS collision_hotspots (
+      cell_id TEXT PRIMARY KEY,
+      center_lat REAL NOT NULL,
+      center_lng REAL NOT NULL,
+      event_count INTEGER NOT NULL DEFAULT 0,
+      critical_ttc_count INTEGER NOT NULL DEFAULT 0,
+      avg_min_distance_cm REAL,
+      distance_samples INTEGER NOT NULL DEFAULT 0,
+      left_hits INTEGER NOT NULL DEFAULT 0,
+      right_hits INTEGER NOT NULL DEFAULT 0,
+      risk_score REAL NOT NULL DEFAULT 0,
+      first_seen INTEGER NOT NULL,
+      last_seen INTEGER NOT NULL,
+      label TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_hotspots_score ON collision_hotspots(risk_score DESC);
+    CREATE INDEX IF NOT EXISTS idx_hotspots_last_seen ON collision_hotspots(last_seen);
+    CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts);
+    CREATE INDEX IF NOT EXISTS idx_readings_ts ON readings(ts);
+  `);
+
+  /* Alertas por e-mail: historico de cada envio (sent, failed ou mock) */
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS alert_notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      ts INTEGER NOT NULL,
+      event_id INTEGER,
+      device_id TEXT,
+      type TEXT NOT NULL,
+      recipient TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('sent', 'failed', 'mock')),
+      error TEXT,
+      subject TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_notifications_ts ON alert_notifications(ts);
+  `);
 }

@@ -69,7 +69,7 @@ const EVENT_LABEL = {
 const CAUSE_WORD = { FALL: 'era uma queda', IMPACT: 'era uma batida' };
 /* limiar de batida em uso: o calibrado que a placa informa (firmware 1.7) ou o do servidor */
 const impactOf = (d) => d?.latest?.status?.impactG ?? state.config.thresholds.impactG;
-const HYST_DEFAULT_CM = 10; /* BUZZER_HYST_CM do config.h */
+const HYST_DEFAULT_CM = 10; /* ALERT_HYST_CM do config.h */
 /* tempo que falta: "3h 42m", "12 min", "menos de 1 min" */
 function fmtLeft(ms) {
   if (ms <= 60000) return 'menos de 1 min';
@@ -117,6 +117,7 @@ const ICONS = {
   home: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9"/>',
   pin: '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',
   info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
+  vibrate: '<path d="m2 8 2 2-2 2 2 2-2 2"/><path d="m22 8-2 2 2 2-2 2 2 2"/><rect width="8" height="14" x="8" y="5" rx="1"/>',
   volume: '<path d="M11 4.7a.7.7 0 0 0-1.2-.5L6.4 7.6A1.4 1.4 0 0 1 5.4 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.4a1.4 1.4 0 0 1 1 .4l3.4 3.4a.7.7 0 0 0 1.2-.5z"/><path d="M16 9a5 5 0 0 1 0 6M19.4 18.4a9 9 0 0 0 0-12.8"/>',
   play: '<path d="M6 4.5v15a.5.5 0 0 0 .77.42l11.5-7.5a.5.5 0 0 0 0-.84L6.77 4.08A.5.5 0 0 0 6 4.5z"/>',
   back: '<path d="m15 18-6-6 6-6"/>',
@@ -347,6 +348,7 @@ function connectWs() {
     else if (msg.type === 'eventUpdated') onEvent(msg.event, false);
     else if (msg.type === 'serial') { state.serial = msg.serial; scheduleRefresh(); }
     else if (msg.type === 'wifiPlaces') { state.config.wifiPlaces = msg.places; scheduleRefresh(); }
+    else if (msg.type === 'hotspot') view.impl?.loadHot?.(); /* nova ocorrência numa área crítica: atualiza o ranking do Mapa */
     else if (msg.type === 'zones') {
       state.config.safeZones = msg.zones;
       view.impl?.m?.setZones(msg.zones);
@@ -391,7 +393,7 @@ async function sendCommand(cmd, deviceId = state.selected, extra = {}) {
   });
   if (res.status === 409) return toast('O dispositivo precisa estar online pelo Wi-Fi para receber comandos.');
   if (!res.ok) return toast('O comando não foi enviado. Confira se o servidor está rodando.');
-  if (cmd === 'locate') toast('Pedido enviado: o dispositivo vai apitar por 4 segundos.');
+  if (cmd === 'locate') toast('Pedido enviado: o dispositivo vai vibrar forte nos dois lados por 4 segundos.');
   if (cmd === 'diag') toast('Testando os sensores: aponte os dois para uma parede a 30–100 cm. O resultado aparece em Ao vivo.');
   if (cmd === 'wifi_scan') toast('Pedido enviado: o dispositivo vai escanear o Wi-Fi. As redes aparecem em alguns segundos.');
   if (cmd === 'calibrate_start') toast('Calibração começou: ande em linha reta no seu passo normal até a barra completar.');
@@ -574,7 +576,7 @@ function echoFigure(p, width, { labels = true } = {}) {
     } else if (p) {
       s += `<text x="${(x0 + xAt(maxCm)) / 2}" y="${cy + 5}" text-anchor="middle" font-size="12" fill="var(--text-3)" style="font-family:var(--font)">nada por perto</text>`;
     }
-    /* arcos de eco: um por terço do volume do buzzer */
+    /* arcos de eco: um por terço da intensidade da vibração */
     const waves = bz ? Math.ceil(bz * 3) : 0;
     for (let i = 1; i <= waves; i++) {
       const r = personR + 2 + i * 6, a = Math.PI / 4.5;
@@ -585,8 +587,8 @@ function echoFigure(p, width, { labels = true } = {}) {
   };
 
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Distância dos obstáculos: esquerda ${p?.distL == null ? 'nada' : `${Math.round(p.distL)} cm`}, direita ${p?.distR == null ? 'nada' : `${Math.round(p.distR)} cm`}">
-    ${lane('L', p?.distL ?? null, p?.bzL ?? 0, 'var(--left)')}
-    ${lane('R', p?.distR ?? null, p?.bzR ?? 0, 'var(--right)')}
+    ${lane('L', p?.distL ?? null, p?.vibL ?? 0, 'var(--left)')}
+    ${lane('R', p?.distR ?? null, p?.vibR ?? 0, 'var(--right)')}
     <circle cx="${cx}" cy="${cy}" r="${personR}" fill="var(--surface)" stroke="var(--text)" stroke-width="1.75"/>
     <circle cx="${cx}" cy="${cy - 8}" r="6.5" fill="var(--text)"/>
     <path d="M${cx - 12} ${cy + 16} Q${cx} ${cy - 4} ${cx + 12} ${cy + 16}" fill="var(--text)"/>
@@ -896,7 +898,7 @@ views['ao-vivo'] = {
           <a class="readout" href="#/movimento" id="lvAccel"></a>
         </section>
         <div class="actions col" style="margin-top:0">
-          <button class="btn primary" data-cmd="locate">${ic('volume')}Tocar buzzer</button>
+          <button class="btn primary" data-cmd="locate">${ic('vibrate')}Vibrar para localizar</button>
           <button class="btn" data-cmd="diag">${ic('scan')}Testar sensores</button>
           <a class="btn" href="#/mapa">${ic('pin')}Ver no mapa</a>
         </div>
@@ -949,10 +951,10 @@ views['ao-vivo'] = {
         <div class="s tone-${p ? st.tone : 'muted'}">${p ? st.text : 'Aguardando leitura'}</div>
         <div class="ttc ${ttcTone}">${p ? ttc : ''}</div>
         <div class="meter" aria-hidden="true"><i style="width:${vol ?? 0}%;background:var(--${color === 'l' ? 'left' : 'right'})"></i></div>
-        <div class="meter-k"><span>Buzzer</span><span class="num">${vol == null ? '—' : `${vol}%`}</span></div>
+        <div class="meter-k"><span>Vibração</span><span class="num">${vol == null ? '—' : `${vol}%`}</span></div>
       </div>`;
     };
-    setHTML($('#lvSides'), side('Esquerda', 'l', 'distL', p?.distL, p?.bzL) + side('Direita', 'r', 'distR', p?.distR, p?.bzR));
+    setHTML($('#lvSides'), side('Esquerda', 'l', 'distL', p?.distL, p?.vibL) + side('Direita', 'r', 'distR', p?.distR, p?.vibR));
     const pos = posture(imu?.tilt);
     setHTML($('#lvPosture'), `<div class="k">Equilíbrio${ic('balance')}</div>
       <div class="v tone-${pos.tone}">${pos.word}</div><div class="s">${imu?.tilt != null ? `Inclinação de <span class="num">${fmtNum(imu.tilt)}°</span> em relação à posição de uso` : 'Sem dados do acelerômetro'}</div>`);
@@ -1109,7 +1111,7 @@ views.alerta = {
             <span class="num">${fmtNum(loc.lat, 5)}, ${fmtNum(loc.lon, 5)}</span></p></section>` : ''}
           <div class="actions col" style="margin-top:0">
             ${e.ackedAt ? `<p class="done-mark">${ic('check')}Marcada como ciente ${esc(fmtAgo(e.ackedAt))}</p>` : `<button class="btn ${sev === 'critical' ? 'danger' : 'primary'}" data-ack="${e.id}">${ic('check')}Marcar como ciente</button>`}
-            <button class="btn" data-cmd="locate">${ic('volume')}Tocar buzzer no dispositivo</button>
+            <button class="btn" data-cmd="locate">${ic('vibrate')}Vibrar o dispositivo</button>
             <a class="btn" href="#/mapa" data-dev="${esc(e.deviceId)}">${ic('pin')}Abrir no mapa</a>
           </div>
         </div>
@@ -1148,6 +1150,16 @@ views.mapa = {
           </div>
           <div class="heat-legend" aria-hidden="true"><span>poucas</span><i></i><span>muitas quase colisões</span></div>
           <p class="explain" id="hmInfo">Mostra onde as quase colisões aconteceram, pela posição do GPS no momento de cada uma. Aproximações mais rápidas pesam mais.</p>
+        </section>
+        <section class="float">
+          <div class="section-head"><h2>Áreas críticas</h2><span class="aside" id="hsCount"></span></div>
+          <label class="check"><input type="checkbox" id="hsOn" checked> Destacar no mapa</label>
+          <ol class="hotspots" id="hsList"></ol>
+          <div class="actions col">
+            <a class="btn" id="hsGeo" href="/api/hotspots/export?format=geojson" download>${ic('pin')}Exportar Barreiras (GeoJSON)</a>
+            <a class="btn" id="hsCsv" href="/api/hotspots/export?format=csv" download>Exportar Barreiras (CSV)</a>
+          </div>
+          <p class="explain">Trechos de rua (~20 m) onde quase colisões e batidas se repetem. O risco sobe com a frequência, com aproximações rápidas e com obstáculos muito perto, e cai com o tempo. O período segue o do mapa de calor.</p>
         </section>
         <details class="float" open>
           <summary>Zonas seguras <span class="cnt" id="mpZoneCount"></span>${ic('chevron')}</summary>
@@ -1230,8 +1242,43 @@ views.mapa = {
     };
     const clearHeat = () => { this.heat?.remove(); this.heat = null; };
     $('#hmOn').addEventListener('change', () => { if ($('#hmOn').checked) loadHeat(); else clearHeat(); });
-    $('#hmPeriod').addEventListener('change', loadHeat);
-    this.heatTimer = setInterval(loadHeat, 60000);
+    $('#hmPeriod').addEventListener('change', () => { loadHeat(); this.loadHot(); });
+    this.heatTimer = setInterval(() => { loadHeat(); this.loadHot(); }, 60000);
+
+    /* áreas críticas (collision_hotspots): ranking, círculos no mapa e exportação GeoJSON/CSV */
+    const periodFrom = () => {
+      const p = $('#hmPeriod').value;
+      return p === 'all' ? 0 : p === 'today' ? new Date(new Date().setHours(0, 0, 0, 0)).getTime() : Date.now() - Number(p) * 86400000;
+    };
+    const riskTone = (s) => (s >= 70 ? 'risk-high' : s >= 40 ? 'risk-mid' : 'risk-low');
+    const riskColor = (s) => getComputedStyle(document.documentElement).getPropertyValue(s >= 70 ? '--crit-solid' : s >= 40 ? '--warn-solid' : '--primary').trim();
+    this.loadHot = async () => {
+      if (!$('#hsList')) return;
+      const from = periodFrom();
+      for (const [id, fmt] of [['#hsGeo', 'geojson'], ['#hsCsv', 'csv']]) $(id).href = `/api/hotspots/export?format=${fmt}&from=${from}`;
+      const res = await fetch(`/api/hotspots?from=${from}&limit=200`).catch(() => null);
+      const data = res?.ok ? await res.json() : null;
+      if (!data || !$('#hsList')) return;
+      const list = data.hotspots;
+      $('#hsCount').textContent = list.length ? `${list.length} ${list.length === 1 ? 'área' : 'áreas'}` : '';
+      setHTML($('#hsList'), list.length ? list.slice(0, 5).map((h, i) => `<li><button type="button" class="hs-item" data-hs="${i}">
+          <span class="hs-score ${riskTone(h.riskScore)}" title="Risco de 0 a 100"><span class="num">${fmtNum(h.riskScore)}</span></span>
+          <span class="hs-body"><strong>${h.label ? esc(h.label) : `${h.eventCount} ${h.eventCount === 1 ? 'ocorrência' : 'ocorrências'}`}${h.criticalTtcCount ? ` · ${h.criticalTtcCount} crítica${h.criticalTtcCount > 1 ? 's' : ''}` : ''}</strong>
+          <span class="s">${h.avgMinDistanceCm != null ? `obstáculo a ${fmtNum(h.avgMinDistanceCm)} cm em média · ` : ''}esq. ${h.leftHits} / dir. ${h.rightHits} · ${esc(fmtAgo(h.lastSeen))}</span></span>
+        </button></li>`).join('') : '<li class="explain">Nenhuma área com ocorrências e GPS nesse período.</li>');
+      $('#hsList').querySelectorAll('[data-hs]').forEach((b) => b.addEventListener('click', () => {
+        const h = list[Number(b.dataset.hs)];
+        this.m?.map.setView([h.centerLat, h.centerLng], 19);
+      }));
+      this.hot?.remove();
+      this.hot = null;
+      if (!this.m || !$('#hsOn').checked || !list.length) return;
+      this.hot = L.layerGroup(list.map((h) => L.circle([h.centerLat, h.centerLng], {
+        radius: 12 + Math.min(h.eventCount, 20), color: riskColor(h.riskScore), weight: 2, fillOpacity: 0.25,
+      }).bindTooltip(`Risco ${fmtNum(h.riskScore)} · ${h.eventCount} ${h.eventCount === 1 ? 'ocorrência' : 'ocorrências'}`))).addTo(this.m.map);
+    };
+    $('#hsOn').addEventListener('change', () => this.loadHot());
+    this.loadHot();
 
     /* cadastrar o Wi-Fi atual como local conhecido */
     $('#wpForm').addEventListener('submit', async (ev) => {
@@ -1327,7 +1374,7 @@ views.mapa = {
     $('#zHere').hidden = !has;
     if (has) this.m?.update(loc, state.track.get(state.selected));
   },
-  unmount() { clearInterval(this.heatTimer); this.heat = null; this.m?.destroy(); this.m = null; this.preview = null; this.apsKey = null; },
+  unmount() { clearInterval(this.heatTimer); this.heat = null; this.hot = null; this.loadHot = null; this.m?.destroy(); this.m = null; this.preview = null; this.apsKey = null; },
 };
 
 /* ---------------- Movimento ---------------- */
@@ -1436,10 +1483,15 @@ views.dispositivo = {
           <div class="actions"><button class="btn" type="button" data-cmd="diag" id="dvDiagBtn">${ic('scan')}Testar sensores</button></div>
         </section>
         <section class="panel">
-          <div class="section-head"><h2>Avisos no corpo</h2><span class="aside" id="hpActuator"></span></div>
+          <div class="section-head"><h2>Avisos no corpo</h2><span class="aside">2 motores de vibração</span></div>
           <ul class="haptics" id="hpList">${HAPTIC.map(([k, t, desc]) => `<li><div><strong>${esc(t)}</strong><span>${esc(desc)}</span></div>
             <button class="btn small" type="button" data-haptic="${k}" aria-label="Tocar ${esc(t)} no dispositivo">${ic('play')}Tocar</button></li>`).join('')}</ul>
           <p class="explain" id="hpHint"></p>
+        </section>
+        <section class="panel">
+          <div class="section-head"><h2>Alertas por e-mail</h2><span class="aside" id="emMode"></span></div>
+          <div id="emBody"><p class="explain" style="margin:0">Carregando…</p></div>
+          <div class="actions"><button class="btn" type="button" id="emTest">${ic('check')}Enviar e-mail de teste</button></div>
         </section>
       </div>
     </div>`,
@@ -1477,7 +1529,16 @@ views.dispositivo = {
       location.href = '/login.html';
     });
     this.loadHost();
-    this.hostTimer = setInterval(() => this.loadHost(), 20000);
+    this.hostTimer = setInterval(() => { this.loadHost(); this.loadEmail(); }, 20000);
+    this.loadEmail();
+    $('#emTest').addEventListener('click', async () => {
+      $('#emTest').disabled = true;
+      const res = await fetch('/api/email/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deviceId: current()?.id }) }).catch(() => null);
+      const body = res ? await res.json().catch(() => ({})) : {};
+      toast(res?.ok ? `E-mail de teste na fila para ${body.to?.join(', ')}. O resultado aparece aqui em alguns segundos.` : (body.error ?? 'Não foi possível enviar o teste.'));
+      setTimeout(() => this.loadEmail(), 3000);
+      $('#emTest').disabled = false;
+    });
     /* ultimo resultado de calibracao guardado no servidor (o "latest" se perde quando o servidor reinicia) */
     if (d) fetch(`/api/devices/${encodeURIComponent(d.id)}/calibrations?limit=1`).then((r) => r.json())
       .then((list) => { this.calLast = list[0] ?? null; this.refresh(); }).catch(() => {});
@@ -1540,8 +1601,7 @@ views.dispositivo = {
     setHTML($('#dvDiag'), fresh ? `<div class="diag">${diagSideHtml('Esquerdo', dg.L) + diagSideHtml('Direito', dg.R)}</div>` : '');
     $('#dvDiagBtn').disabled = !d?.online;
     setHTML($('#dvPower'), st.battery != null ? `<span class="channel ${st.battery < 20 ? 'none' : 'power-active'}"><i></i>Bateria <span class="num">${fmtNum(st.battery)}%</span></span>` : '');
-    $('#hpActuator').textContent = st.actuator === 'motor' ? 'motor de vibração' : st.actuator ? 'buzzer' : '';
-    $('#hpHint').textContent = `Cada padrão toca no ${st.actuator === 'motor' ? 'motor de vibração' : 'buzzer'} do dispositivo. Troque com "atuador motor" ou "atuador buzzer" na Serial.${st.fw && st.fw < '1.6' ? ' Padrões novos precisam do firmware 1.6; com firmware antigo só "Localizar" funciona.' : ''}${d?.online ? '' : ' O dispositivo precisa estar online.'}`;
+    $('#hpHint').textContent = `Cada padrão vibra nos motores do dispositivo (esquerdo e direito).${st.fw && st.fw < '2.0' ? ' Este firmware é anterior à versão só com motores: atualize para o 2.0.' : ''}${d?.online ? '' : ' O dispositivo precisa estar online.'}`;
     document.querySelectorAll('#hpList [data-haptic]').forEach((b) => { b.disabled = !d?.online; });
     const srv = state.config.server ?? {};
     /* a placa esta no Wi-Fi mas nao fala com o broker deste PC (IP fixo antigo, outra rede, firewall) */
@@ -1568,7 +1628,7 @@ views.dispositivo = {
   },
 };
 
-/* energia: modo atual (Ativo/Economia), baixa latência, bateria e atuador */
+/* energia: modo atual (Ativo/Economia), baixa latência e bateria */
 views.dispositivo.energyHtml = function energyHtml(d, st) {
   if (!d) return '<p class="explain" style="margin:0">Aguardando o primeiro contato.</p>';
   const idle = st.powerState === 'idle';
@@ -1579,8 +1639,7 @@ views.dispositivo.energyHtml = function energyHtml(d, st) {
       <p>${idle ? 'Parado há 2 min: sensores a 1 leitura por segundo e Wi-Fi em economia. Qualquer movimento ou clique volta na hora.' : 'Sensores a cerca de 10 leituras por segundo.'}</p></div></div>`
     : `<p class="explain" style="margin:0">${d.online ? 'Este firmware não informa o modo de energia.' : 'Sem sinal do dispositivo.'}</p>`;
   const rows = (st.lowLatency != null ? row('Baixa latência', st.lowLatency ? 'Ligada' : 'Desligada', st.lowLatency ? 'Wi-Fi sempre acordado: respostas em milissegundos, gasta mais bateria' : 'economiza bateria; respostas podem demorar até 300 ms') : '') +
-    (st.battery != null ? row('Bateria', `<span class="num ${st.battery < 20 ? 'tone-critical' : ''}">${fmtNum(st.battery)}%</span>`, st.battery < 20 ? 'baixa: carregue o dispositivo' : '') : '') +
-    (st.actuator ? row('Avisos no corpo', st.actuator === 'motor' ? 'Motor de vibração' : 'Buzzer') : '');
+    (st.battery != null ? row('Bateria', `<span class="num ${st.battery < 20 ? 'tone-critical' : ''}">${fmtNum(st.battery)}%</span>`, st.battery < 20 ? 'baixa: carregue o dispositivo' : '') : '');
   return now + (rows ? `<dl class="rows" style="margin-top:12px">${rows}</dl>` : '');
 };
 
@@ -1592,6 +1651,29 @@ views.dispositivo.loadHost = async function loadHost() {
 };
 
 views.dispositivo.unmount = function unmount() { clearInterval(this.hostTimer); };
+
+/* alertas por e-mail: modo (ativo / desativado / teste), destinatários e últimos envios */
+const EMAIL_STATUS = { sent: ['enviado', 'good'], mock: ['simulado', 'muted'], failed: ['falhou', 'critical'] };
+const EMAIL_TYPE = { FALL: 'Queda', CRASH: 'SOS', SOS: 'SOS', GEOFENCE_EXIT: 'Saída de zona', TEST: 'Teste' };
+views.dispositivo.loadEmail = async function loadEmail() {
+  const res = await fetch('/api/email/status').catch(() => null);
+  const st = res?.ok ? await res.json() : null;
+  if (!$('#emBody')) return;
+  if (!st) { setHTML($('#emBody'), '<p class="explain" style="margin:0">Não foi possível ler o estado dos e-mails.</p>'); return; }
+  const label = { active: 'Ativo', disabled: 'Desativado', mock: 'Modo teste' }[st.mode];
+  $('#emMode').textContent = st.mode === 'active' ? `${label} · ${st.provider.toUpperCase()}` : label;
+  $('#emTest').disabled = st.mode === 'disabled';
+  const recent = st.recent.length
+    ? `<ul class="em-list">${st.recent.slice(0, 5).map((n) => `<li><span class="tone-${EMAIL_STATUS[n.status]?.[1] ?? 'muted'}">${EMAIL_STATUS[n.status]?.[0] ?? esc(n.status)}</span>
+        <span>${esc(EMAIL_TYPE[n.type] ?? n.type)} → ${esc(n.recipient)}</span><span class="s">${esc(fmtAgo(n.ts))}${n.error ? ` · ${esc(n.error)}` : ''}</span></li>`).join('')}</ul>`
+    : '<p class="explain" style="margin:0">Nenhum e-mail enviado ainda.</p>';
+  setHTML($('#emBody'), st.mode === 'disabled'
+    ? `<p class="explain" style="margin:0">Para receber queda, pedido de ajuda e saída de zona por e-mail, preencha <code>EMAIL_ENABLED=1</code>, o provedor e <code>ALERT_EMAIL_TO</code> no <code>.env</code> do painel e reinicie o servidor.</p>${recent}`
+    : `<dl class="rows"><dt>Destinatários</dt><dd>${st.recipients.map(esc).join(', ') || '—'}</dd>
+        <dt>Avisa</dt><dd>queda confirmada, pedido de ajuda e saída de zona segura<span class="hint">no máximo 1 e-mail por tipo a cada ${fmtNum(st.cooldownS / 60)} min; "Estou bem" e quase colisões não geram e-mail</span></dd></dl>
+      ${st.problems.length ? `<p class="warn" style="margin-top:12px">Falta configurar: ${st.problems.map(esc).join('; ')}.</p>` : ''}
+      <h3 class="em-h">Últimos envios</h3>${recent}`);
+};
 
 /* passos do celular (aparece dentro do "Conectar pelo celular" e, desconectado, em destaque) */
 function phoneSteps(ap, pw) {

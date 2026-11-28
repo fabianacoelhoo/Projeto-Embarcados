@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import net from 'node:net';
 import * as aedesModule from 'aedes';
 import mqtt from 'mqtt';
@@ -24,6 +25,17 @@ export async function startMqtt(hub, cfg) {
 
   if (cfg.embeddedBroker) {
     const broker = await createBroker();
+    /* com MQTT_USER/MQTT_PASS: so entra quem tiver as credenciais (a placa usa as do secrets.h).
+       Sem elas o broker fica aberto na rede local, como antes (aviso no terminal). */
+    if (cfg.username) {
+      const want = Buffer.from(`${cfg.username}\n${cfg.password ?? ''}`);
+      broker.authenticate = (client, username, password, done) => {
+        const got = Buffer.from(`${username ?? ''}\n${password ? password.toString() : ''}`);
+        const ok = got.length === want.length && crypto.timingSafeEqual(got, want);
+        if (!ok) console.warn(`[MQTT] Recusado: ${client?.id ?? '?'} com usuario/senha errados`);
+        done(null, ok);
+      };
+    }
     /* so o servidor manda comandos para a placa: um cliente qualquer da rede nao pode publicar em .../cmd
        (o servidor publica direto no broker, sem passar por aqui) */
     broker.authorizePublish = (client, packet, done) => {
@@ -74,7 +86,10 @@ export async function startMqtt(hub, cfg) {
   }
 
   if (cfg.externalUrl) {
-    const client = mqtt.connect(cfg.externalUrl, { clientId: `echomap-dashboard-${Math.random().toString(16).slice(2, 8)}` });
+    const client = mqtt.connect(cfg.externalUrl, {
+      clientId: `echomap-dashboard-${Math.random().toString(16).slice(2, 8)}`,
+      ...(cfg.username ? { username: cfg.username, password: cfg.password } : {}),
+    });
     client.on('connect', () => {
       console.log(`[MQTT] Conectado ao broker externo ${cfg.externalUrl}`);
       client.subscribe(`${prefix}/#`);

@@ -2,7 +2,7 @@
 
 ![Diagrama de ligações](diagrama-ligacoes.png)
 
-Diagrama de ligações do **ESP32 DevKit de 38 pinos**, gerado por [`gerar_diagrama.py`](gerar_diagrama.py), que lê os `#define PIN_*` de [`esp32-esp8266/no-principal/include/config.h`](../esp32-esp8266/no-principal/include/config.h). Mostra apenas o que está configurado no firmware atual (1.9).
+Diagrama de ligações do **ESP32 DevKit de 38 pinos**, gerado por [`gerar_diagrama.py`](gerar_diagrama.py), que lê os `#define PIN_*` de [`esp32-esp8266/no-principal/include/config.h`](../esp32-esp8266/no-principal/include/config.h). Mostra apenas o que está configurado no firmware atual (2.0).
 
 - `diagrama-ligacoes.svg`: vetorial, para editar ou ampliar
 - `diagrama-ligacoes.png`: imagem para relatórios
@@ -41,8 +41,8 @@ Pinos que **não** podem ser usados: GPIO 6 a 11 (ligados à flash). GPIO 12 dev
 | Potenciômetro WH148 (10 kΩ, rosca M7) | extremos / cursor | 3V3 e GND / GPIO 35 | entrada só-ADC; limiar de detecção 20–200 cm |
 | Push-button 6×6 mm | um lado / outro | GPIO 4 / GND | pull-up interno, interrupção na borda de descida |
 | LED RGB 5 mm (catodo comum) | R / G / B | GPIO 21 / 22 / 23 | 220–330 Ω em cada cor; comum no GND |
-| Atuador esquerdo | + (buzzer) ou IN (MV50) / – | GPIO 13 / GND | PWM LEDC canal 0: buzzer 2 kHz ou motor 20 kHz |
-| Atuador direito | + (buzzer) ou IN (MV50) / – | GPIO 14 / GND | PWM LEDC canal 2: buzzer 2 kHz ou motor 20 kHz |
+| Motor de vibração MV50 esquerdo | IN / VCC / GND | GPIO 13 / 5V (VIN) / GND | PWM LEDC canal 0, 20 kHz |
+| Motor de vibração MV50 direito | IN / VCC / GND | GPIO 14 / 5V (VIN) / GND | PWM LEDC canal 2, 20 kHz |
 | GPS NEO-6M (GY-GPS6MV2) | VCC / GND | 3V3 / GND | |
 | | TX | GPIO 16 (RX2) | UART2 a 9600 baud |
 | | RX | GPIO 17 (TX2) | opcional (só para configurar o módulo) |
@@ -52,14 +52,24 @@ Pinos que **não** podem ser usados: GPIO 6 a 11 (ligados à flash). GPIO 12 dev
 
 Todos os GND estão ligados ao mesmo terra. GPIO 34 fica reservado para medir a bateria (divisor ainda não montado) e GPIO 32 está livre.
 
-### Atuadores: buzzer hoje, MV50 pronto no firmware
+### Motores de vibração (2× módulo MV50)
 
-Os dois atuadores usam os mesmos pinos (GPIO 13 esquerdo, GPIO 14 direito) e a mesma linguagem háptica (`include/haptic_engine.h`, 7 padrões). O que muda é só a frequência do PWM:
+Os avisos no corpo saem só pelos dois módulos MV50 (firmware 2.0). Cada módulo já tem o transistor que liga o motor e o diodo de proteção, então o GPIO só manda o sinal PWM e não precisa de nenhum componente extra para funcionar.
 
-| | Buzzer passivo (montado hoje) | Módulo de vibração MV50 (2×, previsto) |
-|---|---|---|
-| Ligação | + no GPIO, – no GND | IN no GPIO, VCC no 5V, GND no GND (o módulo já tem o transistor e o diodo) |
-| PWM | 2 kHz, volume pelo duty | 20 kHz (inaudível), intensidade pelo duty |
-| Seleção | padrão de fábrica (`ACTUATOR_MODE` em `config.h`) | `atuador motor` na Serial ou `{"cmd":"actuator","mode":"motor"}` (fica salvo na NVS) |
+**Como ligar:**
+
+1. **MV50 esquerdo:** `IN` → GPIO 13 · `VCC` → trilho de 5V (pino 5V/VIN da placa) · `GND` → GND comum.
+2. **MV50 direito:** `IN` → GPIO 14 · `VCC` → 5V · `GND` → GND comum.
+3. **Capacitor de 100 µF** (eletrolítico, 10 V ou mais) entre o trilho de 5V e o GND, perto dos motores: segura o pico de corrente na partida do motor e evita que a ESP32 reinicie (brownout). Respeite a polaridade (listra = negativo no GND).
+4. *(Opcional)* **Resistor de 10 kΩ** de cada `IN` para o GND: mantém o motor parado nos primeiros milissegundos do boot, antes de o firmware configurar o PWM.
+
+Ligue o `VCC` dos MV50 no **5V, não no 3V3**: cada motor puxa uns 60–100 mA na partida e o regulador de 3,3 V da placa já alimenta o Wi-Fi, o GPS e o MPU-6050. O sinal de 3,3 V do GPIO basta para o transistor do módulo.
+
+| | Valor |
+|---|---|
+| Pinos | GPIO 13 (esquerdo) e GPIO 14 (direito), `PIN_MOTOR_L` / `PIN_MOTOR_R` no `config.h` |
+| PWM | 20 kHz (`MOTOR_PWM_HZ`, fora do audível), 10 bits, canais LEDC 0 e 2 |
+| Intensidade | 0..1 da linguagem háptica vira 35–100% de duty (`MOTOR_MIN_DUTY`: abaixo disso o motor não gira) |
+| Teste | painel → **Dispositivo → Avisos no corpo → Tocar** em cada padrão, ou `vibrar <padrão>` na Serial |
 
 Na mecânica 3D ([`hardware/cad`](../hardware/cad/)), cada MV50 fica na metade interna do suporte "farol", encostado no peito, do mesmo lado do seu HC-SR04.

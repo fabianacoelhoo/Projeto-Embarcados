@@ -1,8 +1,8 @@
 #pragma once
-/* Linguagem háptica: separa O QUE tocar (padrão com significado) de COMO tocar (buzzer ou motor).
+/* Linguagem háptica: separa O QUE tocar (padrão com significado) de COMO tocar (motores de vibração MV50).
  *
  * O motor devolve, a cada tick(), a intensidade 0..1 de cada lado. Quem chama escreve isso no atuador
- * (buzzer PWM com tom fixo, ou motor de vibração ERM/LRA por PWM). Nada aqui bloqueia nem usa delay().
+ * (PWM de 20 kHz em cada motor de vibração). Nada aqui bloqueia nem usa delay().
  *
  * Duas camadas por lado:
  *  - primeiro plano: padrões de uma vez (aproximação rápida, pré-alerta, batimento, confirmação, localizar),
@@ -21,7 +21,7 @@ enum class HapticPattern : uint8_t {
   PreAlert = 4,       /* "Estou bem": batidas que aceleram e crescem durante o pré-alerta */
   Heartbeat = 5,      /* pulso longo e suave (200 ms): está tudo funcionando */
   Confirm = 6,        /* confirmação curta: alerta cancelado, âncora criada, calibração concluída */
-  Locate = 7,         /* "tocar buzzer" do painel: forte e alternado por alguns segundos */
+  Locate = 7,         /* "localizar" pelo painel: forte e alternado por alguns segundos */
 };
 
 enum HapticSide : uint8_t { HAPTIC_LEFT = 1, HAPTIC_RIGHT = 2, HAPTIC_BOTH = 3 };
