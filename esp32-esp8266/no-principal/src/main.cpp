@@ -327,7 +327,7 @@ void reportNearMiss(const TtcResult &r, char side) {
   if (r.reason == TtcReason::Ttc) haptic(HapticPattern::FastApproach, side == 'L' ? HAPTIC_LEFT : HAPTIC_RIGHT);
 }
 
-void TaskSensors(void *pvParameters) {
+void TaskSensors(void * /* pvParameters */) {
   TtcDetector ttcL(TTC_CFG), ttcR(TTC_CFG);
 
   for (;;) {
@@ -397,7 +397,7 @@ void handleGesture(ClickGesture g) {
   }
 }
 
-void TaskButton(void *pvParameters) {
+void TaskButton(void * /* pvParameters */) {
   ClickClassifier clicks(CLICK_GAP_MS);
   for (;;) {
     /* espera um aperto, mas acorda a cada 20 ms para fechar 1 ou 2 cliques quando a janela passa */
@@ -447,7 +447,7 @@ void TaskButton(void *pvParameters) {
 /*=====================================================*/
 /* Task 3 - LED RGB (status / proximidade)               */
 /*=====================================================*/
-void TaskStatusLed(void *pvParameters) {
+void TaskStatusLed(void * /* pvParameters */) {
   bootFlash();
 
   for (;;) {
@@ -533,7 +533,7 @@ void setSideAmbient(HapticEngine &engine, uint8_t side, const SideState &s) {
   engine.setAmbient(side, p, closeness);
 }
 
-void TaskHaptic(void *pvParameters) {
+void TaskHaptic(void * /* pvParameters */) {
   const HapticConfig cfg = {PRE_ALERT_MS, LOCATE_MS};
   HapticEngine engine(cfg);
   float shownL = 0.0f, shownR = 0.0f; /* para a telemetria: pico que decai, nao pisca a cada pulso */
@@ -572,7 +572,7 @@ void TaskHaptic(void *pvParameters) {
 /* Task 6 - GPS NEO-6M (UART2, sentencas NMEA)           */
 /*=====================================================*/
 #if ENABLE_GPS
-void TaskGps(void *pvParameters) {
+void TaskGps(void * /* pvParameters */) {
   Serial2.begin(GPS_BAUD, SERIAL_8N1, PIN_GPS_RX, PIN_GPS_TX);
 
   for (;;) {
@@ -715,7 +715,7 @@ bool mpuReadMotion(float &ax, float &ay, float &az, float &gx, float &gy, float 
   return true;
 }
 
-void TaskImu(void *pvParameters) {
+void TaskImu(void * /* pvParameters */) {
   Wire.begin(PIN_I2C_SDA, PIN_I2C_SCL, I2C_FREQ_HZ);
 
   while (!mpuInit()) {
@@ -1300,7 +1300,7 @@ bool onPanelCommand(const char *cmd, const char *json) {
   return false;
 }
 
-void TaskComms(void *pvParameters) {
+void TaskComms(void * /* pvParameters */) {
   TickType_t lastWake = xTaskGetTickCount();
   uint32_t lastTelemetry = 0;
   uint32_t lastStatus = 0;

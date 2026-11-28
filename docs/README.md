@@ -3,6 +3,7 @@
 | Documento | Onde |
 |---|---|
 | Arquitetura e fluxo de comunicação | nesta página e [`img/arquitetura.svg`](img/arquitetura.svg) (gerada por [`img/gerar_arquitetura.py`](img/gerar_arquitetura.py)) |
+| Protocolo completo (MQTT, Serial, comandos e ocorrências), validado por teste | [`protocol.md`](protocol.md) |
 | Contrato MQTT (tópicos e payloads) | nesta página |
 | Protótipo do front-end (app dos responsáveis) | [`prototipo/`](prototipo/) |
 | Fotos do GPS e do acelerômetro | [`componentes/`](componentes/) |

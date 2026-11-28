@@ -167,9 +167,12 @@ static const char *errText(const char *code) {
 static void rememberBroker() {
   Preferences p;
   if (!p.begin("echomap", false)) return;
-  String ip = brokerIp.toString();
-  if (p.getString("lastip", "") != ip || p.getUShort("lastport", 0) != brokerPort) {
-    p.putString("lastip", ip.c_str());
+  /* buffers fixos (sem String): roda a cada conexao MQTT, por horas */
+  char ip[16], old[16] = "";
+  snprintf(ip, sizeof(ip), "%u.%u.%u.%u", brokerIp[0], brokerIp[1], brokerIp[2], brokerIp[3]);
+  p.getString("lastip", old, sizeof(old));
+  if (strcmp(old, ip) != 0 || p.getUShort("lastport", 0) != brokerPort) {
+    p.putString("lastip", ip);
     p.putUShort("lastport", brokerPort);
   }
   p.end();
@@ -188,10 +191,11 @@ static void applyBroker() {
   /* auto: comeca pelo ultimo servidor achado (conecta na hora); se nao responder, procura de novo */
   Preferences p;
   if (p.begin("echomap", true)) {
-    String ip = p.getString("lastip", "");
+    char ip[16] = "";
+    p.getString("lastip", ip, sizeof(ip));
     uint16_t port = p.getUShort("lastport", cfg.port);
     p.end();
-    if (ip.length() && brokerIp.fromString(ip.c_str())) {
+    if (ip[0] && brokerIp.fromString(ip)) {
       brokerKnown = true;
       brokerPort = port;
     }
@@ -493,15 +497,15 @@ static void handleScan() {
       order[b] = order[b - 1];
       order[b - 1] = t;
     }
-  String out = "{\"nets\":[";
-  for (int k = 0; k < count && k < 15; k++) {
-    String s = WiFi.SSID(order[k]);
-    s.replace("\\", "\\\\");
-    s.replace("\"", "\\\"");
-    if (k) out += ',';
-    out += "{\"ssid\":\"" + s + "\",\"rssi\":" + String(WiFi.RSSI(order[k])) + "}";
+  /* JSON num buffer fixo (sem concatenar String): ate 15 redes com o nome escapado */
+  static char out[1600];
+  char esc[72];
+  size_t w = (size_t)snprintf(out, sizeof(out), "{\"nets\":[");
+  for (int k = 0; k < count && k < 15 && w < sizeof(out); k++) {
+    jsonEscapeTo(esc, sizeof(esc), WiFi.SSID(order[k]).c_str());
+    w += (size_t)snprintf(out + w, sizeof(out) - w, "%s{\"ssid\":\"%s\",\"rssi\":%d}", k ? "," : "", esc, (int)WiFi.RSSI(order[k]));
   }
-  out += "]}";
+  if (w < sizeof(out)) snprintf(out + w, sizeof(out) - w, "]}");
   WiFi.scanDelete();
   web->send(200, "application/json", out);
 }

@@ -57,6 +57,7 @@ export function createAuth({ dataDir, password = null, enabled = true, sessionDa
     enabled,
     password: pass,
     fromConfig: Boolean(password),
+    source: password ? '(definida em config.json, "auth.password")' : `(gerada e guardada em ${path.relative(process.cwd(), file)}; troque em config.json, "auth.password")`,
     file,
     isLocal: (req) => isLocalAddr(req.socket.remoteAddress),
     /* pode ver o painel? (HTTP e WebSocket) */
