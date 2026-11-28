@@ -171,13 +171,14 @@ bloco(XL, 500, WL, 110, "MPU-6050 (GY-521) · I²C 400 kHz",
 fio("E", P["PIN_I2C_SDA"], (O, 564), CH, COR["imu"], "SDA")
 fio("E", P["PIN_I2C_SCL"], (O, 590), CH, COR["imu"], "SCL")
 
-for i, (lado_txt, pino, canal_ledc) in enumerate((("direito", "PIN_BUZZER_R", 2), ("esquerdo", "PIN_BUZZER_L", 0))):
+for i, (lado_txt, pino, canal_ledc) in enumerate((("direito", "PIN_MOTOR_R", 2), ("esquerdo", "PIN_MOTOR_L", 0))):
     y = 630 + i * 180
-    bloco(XL, y, WL, 160, f"Atuador {lado_txt}",
-          ["montado hoje: buzzer passivo (+ no GPIO, – no GND)",
-           "pronto no firmware: módulo MV50 (IN no GPIO,", "VCC → 5V, GND → GND) com 'atuador motor'",
-           f"LEDC canal {canal_ledc} · buzzer 2 kHz / motor 20 kHz"], COR["act"])
-    fio("E", P[pino], (O, y + 116), CH, COR["act"], "+ / IN")
+    bloco(XL, y, WL, 160, f"Motor de vibração MV50 {lado_txt}",
+          ["IN → GPIO (PWM 20 kHz, LEDC canal %d)" % canal_ledc,
+           "VCC → 5V (VIN) · GND → GND comum",
+           "o módulo já tem transistor e diodo do motor",
+           "opcional: 10 kΩ de IN ao GND (parado no boot)"], COR["act"])
+    fio("E", P[pino], (O, y + 116), CH, COR["act"], "IN")
 
 # ---------------- lado direito
 XR, WR = W - 50 - 420, 420
@@ -207,7 +208,7 @@ bloco(XR, 596, WR, 110, "Push-button 6×6 mm",
 fio("D", P["PIN_BUTTON"], (XR, 662), CH, COR["btn"], "A")
 
 bloco(XR, 760, WR, 160, "Alimentação e terra",
-      ["5V (VIN): HC-SR04 ×2 e MV50 ×2", "3V3: potenciômetro, GPS, MPU-6050",
+      ["5V (VIN): HC-SR04 ×2 e MV50 ×2", "100 µF entre 5V e GND junto dos motores", "3V3: potenciômetro, GPS, MPU-6050",
        "GND comum a todos os módulos",
        "Hoje pelo USB-C; bateria 3,7 V + TP4056 +", "MT3608 (5 V) entra no 5V quando montada"],
       "#111827")
@@ -225,7 +226,7 @@ t(BX1 + 38, yg - 50, "GND comum", 11, COR["gnd"], 600)
 # legenda
 yl = H - 130
 out.append(f'<line x1="60" y1="{yl-20}" x2="{W-60}" y2="{yl-20}" stroke="#e5e7eb" stroke-width="1.5"/>')
-leg = [(COR["hc"], "HC-SR04 (5 V; ECHO com divisor 1k/2k → 3,3 V)"), (COR["act"], "Atuadores PWM (LEDC)"),
+leg = [(COR["hc"], "HC-SR04 (5 V; ECHO com divisor 1k/2k → 3,3 V)"), (COR["act"], "Motores de vibração MV50 (PWM)"),
        (COR["pot"], "Potenciômetro (ADC1)"), (COR["rgb"], "LED RGB"), (COR["btn"], "Botão (interrupção)"),
        (COR["imu"], "MPU-6050 (I²C)"), (COR["gps"], "GPS (UART2)"), ("#9ca3af", "Reservado")]
 for i, (c, s) in enumerate(leg):

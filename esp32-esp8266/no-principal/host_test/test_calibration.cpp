@@ -37,7 +37,7 @@ static Sig walk(float peak, uint32_t periodMs) {
 }
 
 static CalibResult run(const Sig &accel, const Sig &echoL, const Sig &echoR, float impactNow = IMPACT_G,
-                       float hystNow = BUZZER_HYST_CM, uint32_t duration = DURATION) {
+                       float hystNow = ALERT_HYST_CM, uint32_t duration = DURATION) {
   Calibrator c(CFG);
   c.start(1000, duration);
   for (uint32_t t = 0; t <= duration + 100; t += IMU_PERIOD_MS) {

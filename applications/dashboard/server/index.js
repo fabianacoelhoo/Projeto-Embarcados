@@ -112,7 +112,7 @@ app.patch('/api/devices/:id', (req, res) => {
 
 /* comandos que o painel pode mandar para a placa (o resto e recusado).
    Vao pelo Wi-Fi (MQTT) e, com a placa no USB e o servidor lendo a Serial, tambem pelo cabo. */
-const PANEL_COMMANDS = new Set(['locate', 'portal', 'wifi', 'diag', 'server', 'haptic', 'actuator', 'calibrate_start', 'calibrate_stop', 'calibrate_reset', 'wifi_scan']);
+const PANEL_COMMANDS = new Set(['locate', 'portal', 'wifi', 'diag', 'server', 'haptic', 'calibrate_start', 'calibrate_stop', 'calibrate_reset', 'wifi_scan']);
 /* padroes da linguagem haptica (firmware >= 1.6, include/haptic_engine.h) */
 const HAPTIC_PATTERNS = ['static', 'proximity', 'approach', 'prealert', 'heartbeat', 'confirm', 'locate'];
 const isIpv4 = (s) => /^\d{1,3}(\.\d{1,3}){3}$/.test(s) && s.split('.').every((n) => Number(n) <= 255);
@@ -134,10 +134,6 @@ function buildCommand(body) {
     const s = body.duration_s == null ? 30 : Number(body.duration_s);
     if (!Number.isInteger(s) || s < 10 || s > 120) return { error: 'Duração da calibração: de 10 a 120 segundos.' };
     return { command: { cmd, duration_s: s } };
-  }
-  if (cmd === 'actuator') {
-    if (body.mode !== 'buzzer' && body.mode !== 'motor') return { error: 'Atuador: use "buzzer" ou "motor".' };
-    return { command: { cmd, mode: body.mode } };
   }
   if (cmd !== 'wifi') return { command: { cmd } };
   const ssid = typeof body.ssid === 'string' ? body.ssid.trim() : '';

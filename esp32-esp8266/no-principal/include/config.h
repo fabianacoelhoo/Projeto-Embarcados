@@ -25,7 +25,7 @@
 #define MQTT_BROKER_IP "auto" /* "auto" = acha o PC do dashboard sozinho; ou um IP fixo (se ele parar de responder e o painel se anunciar em outro IP, a placa passa para "auto" sozinha) */
 #endif
 
-#define FW_VERSION "1.9.0"
+#define FW_VERSION "2.0.0"
 #define DEVICE_ID "node1" /* ID padrao no painel (pode ser trocado no portal) */
 #define MQTT_BROKER_PORT 1883
 #define MQTT_TOPIC_PREFIX "echomap" /* topicos: echomap/<id>/telemetry, events, location, imu, status, pong, cmd */
@@ -42,7 +42,7 @@
 #define PORTAL_BUTTON_HOLD_MS 2000       /* segurar o botao ao ligar por 2 s tambem abre o portal */
 /* 3 cliques (cada um ate CLICK_GAP_MS depois do anterior) abrem o portal: ver "Gestos do botao" */
 #define NET_TEST_TIMEOUT_MS 20000        /* rede nova: tempo maximo do teste antes de voltar para a anterior */
-#define LOCATE_MS 4000                   /* "tocar buzzer" pelo painel: duracao do bipe */
+#define LOCATE_MS 4000                   /* "localizar" pelo painel: duracao da vibracao forte e alternada */
 
 /* reconexao sem travar as tasks: tentativas espacadas e conexao TCP com tempo limite */
 #define WIFI_RETRY_MS 10000
@@ -75,38 +75,27 @@
 #define PIN_RGB_B 23
 #define RGB_COMMON_ANODE 0 /* 1 = comum no 3V3 (anodo comum) */
 
-/* ----- Buzzers passivos (1 por sensor ultrassonico) -----
- * Canais LEDC dedicados (nao usar tone()/noTone(): nesse core elas
- * compartilham um unico canal global e um buzzer rouba o som do outro). */
-#define PIN_BUZZER_L 13
-#define PIN_BUZZER_R 14
-#define BUZZER_CHANNEL_L 0
-#define BUZZER_CHANNEL_R 2
-#define BUZZER_FREQ_HZ 2000 /* tom fixo; o que varia com a distancia e o volume */
-
-/* ----- Atuador da linguagem haptica (include/haptic_engine.h) -----
- * Os padroes (obstaculo parado, aproximacao rapida, pre-alerta, batimento, confirmacao) sao os mesmos;
- * muda so como sao tocados nos pinos 13/14:
- *   ACTUATOR_BUZZER_PWM:       buzzer passivo, tom fixo de BUZZER_FREQ_HZ, intensidade pelo duty
- *   ACTUATOR_HAPTIC_MOTOR_PWM: motor de vibracao (moeda ERM via transistor/MOSFET, ou entrada PWM de um
- *                              driver como o DRV2605L), PWM de HAPTIC_MOTOR_PWM_HZ, intensidade pelo duty
- * O padrao de fabrica e ACTUATOR_MODE; "atuador motor|buzzer" (Serial) ou {"cmd":"actuator","mode":"motor"}
- * troca na hora e grava na NVS (namespace echomap_cfg), que passa a valer no boot. */
-#define ACTUATOR_BUZZER_PWM 0
-#define ACTUATOR_HAPTIC_MOTOR_PWM 1
-#define ACTUATOR_MODE ACTUATOR_BUZZER_PWM
-#define HAPTIC_MOTOR_PWM_HZ 20000   /* acima do audivel: o motor nao chia */
-#define HAPTIC_MOTOR_MIN_DUTY 0.35f /* abaixo disso o motor moeda nao gira: intensidade 0..1 vira 35..100% */
+/* ----- Motores de vibracao: 2x modulo MV50 (1 por sensor ultrassonico) -----
+ * IN do modulo no GPIO; VCC no 5V; GND no GND. O MV50 ja tem o transistor e o diodo do motor,
+ * entao o GPIO so manda o PWM (3,3 V, poucos mA). Cada lado tem um canal LEDC proprio.
+ * A linguagem haptica (include/haptic_engine.h) decide O QUE vibrar; aqui fica COMO. */
+#define PIN_MOTOR_L 13
+#define PIN_MOTOR_R 14
+#define MOTOR_CHANNEL_L 0
+#define MOTOR_CHANNEL_R 2
+#define MOTOR_PWM_HZ 20000   /* acima do audivel: o motor nao chia */
+#define MOTOR_PWM_BITS 10
+#define MOTOR_MIN_DUTY 0.35f /* abaixo disso o motor nao gira: intensidade 0..1 vira 35..100% (0 = parado) */
 #define HAPTIC_PERIOD_MS 10         /* passo do sequenciador (TaskHaptic) */
 #define HEARTBEAT_PERIOD_MS 600000UL /* batimento a cada 10 min, so com Wi-Fi e servidor conectados */
-#define CFG_NAMESPACE "echomap_cfg" /* NVS das configuracoes do usuario (atuador; calibracao na Fase 3) */
+#define CFG_NAMESPACE "echomap_cfg" /* NVS das configuracoes do usuario (calibracao) */
 
 /* Distancias pensadas para pessoas andando na rua: alguem passando a ~1,2 m ja
- * entra no alcance (volume baixo) e o volume sobe ate o maximo a 30 cm. */
-#define BUZZER_START_CM 120.0f  /* comeca a apitar, no volume minimo */
-#define BUZZER_FULL_CM 30.0f    /* daqui para perto: volume maximo */
-#define BUZZER_HYST_CM 10.0f    /* so desliga ao passar de START + HYST (evita liga/desliga na borda) */
-#define BUZZER_CONFIRM_SAMPLES 2 /* leituras seguidas para ligar/desligar (filtra eco espurio) */
+ * entra no alcance (vibracao fraca) e a intensidade sobe ate o maximo a 30 cm. */
+#define ALERT_START_CM 120.0f  /* comeca a vibrar, na intensidade minima */
+#define ALERT_FULL_CM 30.0f    /* daqui para perto: intensidade maxima */
+#define ALERT_HYST_CM 10.0f    /* so desliga ao passar de START + HYST (evita liga/desliga na borda) */
+#define ALERT_CONFIRM_SAMPLES 2 /* leituras seguidas para ligar/desligar (filtra eco espurio) */
 
 /* ----- GPS u-blox NEO-6M (GY-GPS6MV2) na UART2 -----
  * TX do GPS -> GPIO16 (RX2 da ESP32) · RX do GPS -> GPIO17 (TX2) · VCC 3V3 · GND.
@@ -196,7 +185,7 @@
  * a pessoa anda em linha reta num corredor livre. No fim:
  *   limiar de batida = max(CAL_MIN_IMPACT_G, maior pico de passo x CAL_IMPACT_FACTOR), ate CAL_MAX_IMPACT_G
  *   histerese dos ultrassonicos = CAL_HYST_K x ruido do eco, entre CAL_HYST_MIN_CM e CAL_HYST_MAX_CM
- * Aplicado na hora e salvo na NVS (CFG_NAMESPACE); "calibrar padrao" volta para IMPACT_G e BUZZER_HYST_CM. */
+ * Aplicado na hora e salvo na NVS (CFG_NAMESPACE); "calibrar padrao" volta para IMPACT_G e ALERT_HYST_CM. */
 #define CAL_DEFAULT_DURATION_S 30
 #define CAL_MIN_DURATION_S 10
 #define CAL_MAX_DURATION_S 120

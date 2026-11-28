@@ -2,7 +2,7 @@
 
 | Pasta | Placa | O que faz |
 |---|---|---|
-| [`no-principal/`](no-principal/) | ESP32 (esp32dev) | Lê os sensores (distância, GPS e acelerômetro), aciona RGB e buzzers, detecta queda e impacto e publica tudo por Serial e MQTT |
+| [`no-principal/`](no-principal/) | ESP32 (esp32dev) | Lê os sensores (distância, GPS e acelerômetro), aciona o RGB e os 2 motores de vibração, detecta queda e impacto e publica tudo por Serial e MQTT |
 
 ## Nó principal (`no-principal/`)
 
@@ -15,7 +15,7 @@ no-principal/
   include/ttc_detector.h  quase colisão por tempo até o impacto (lógica pura, testável no PC)
   include/alert_fsm.h     pré-alerta "Estou bem" de queda/batida (lógica pura, testável no PC)
   include/power_manager.h economia de energia guiada pelo MPU (lógica pura, testável no PC)
-  include/haptic_engine.h linguagem háptica: padrões -> buzzer ou motor (lógica pura, testável no PC)
+  include/haptic_engine.h linguagem háptica: padrões -> motores de vibração (lógica pura, testável no PC)
   include/calibration.h   calibração assistida: Welford, passos e ruído do eco (lógica pura, testável no PC)
   include/click_classifier.h  gestos do botão: 1, 2 e 3 cliques (lógica pura, testável no PC)
   include/wifi_fingerprint.h  assinatura de Wi-Fi quando o GPS não pega (lógica pura, testável no PC)
@@ -42,7 +42,7 @@ Ligações completas em [`schematics/`](../schematics/).
 | Potenciômetro (limiar de alerta) | 35 |
 | Botão | 4 (pull-up interno) |
 | LED RGB catodo comum | R 21 · G 22 · B 23 |
-| Buzzer passivo esquerdo / direito | 13 / 14 (LEDC canais 0 e 2) |
+| Módulo de vibração MV50 esquerdo / direito (pino IN) | 13 / 14 (LEDC canais 0 e 2, PWM de 20 kHz) · VCC no 5V |
 | GPS NEO-6M (GY-GPS6MV2) | TX do GPS → 16 (RX2) · RX do GPS → 17 (TX2) · VCC 3V3 |
 | MPU-6050 (GY-521) | SDA 26 · SCL 27 · VCC 3V3 · AD0 no GND (endereço 0x68) |
 
@@ -54,7 +54,7 @@ O I²C usa 26/27 porque os pinos padrão (21/22) já estão com o LED RGB. Para 
 |---|---|---|---|---|
 | `TaskSensors` | 1 | 2 | 60 ms | lê os dois HC-SR04 em sequência (30 ms entre eles, contra eco cruzado), filtra (EMA), calcula o TTC de cada lado e gera `NEAR_MISS` só no crítico |
 | `TaskStatusLed` | 1 | 1 | 20 ms | cor e pulsação do RGB conforme o modo |
-| `TaskHaptic` | 1 | 1 | 10 ms | sequenciador da linguagem háptica: padrões pedidos por fila + fundo de cada lado (obstáculo parado/aproximando), escritos no buzzer ou no motor |
+| `TaskHaptic` | 1 | 1 | 10 ms | sequenciador da linguagem háptica: padrões pedidos por fila + fundo de cada lado (obstáculo parado/aproximando), escritos no PWM dos dois motores |
 | `TaskButton` | 0 | 2 | interrupção (+ 20 ms) | gestos: 1 clique troca o modo, 2 cliques = âncora rápida, 3 cliques = portal, clique longo (1,5 s) = `CRASH`; no pré-alerta, 1 clique = "Estou bem" na hora |
 | `TaskImu` | 0 | 3 | 5 ms | lê o MPU a 200 Hz, detecta queda e batida, abre o pré-alerta de 5 s e calcula a inclinação |
 | `TaskGps` | 0 | 1 | 20 ms | lê as sentenças NMEA do NEO-6M (TinyGPSPlus) |
@@ -89,8 +89,8 @@ Queda ou batida confirmada pelo detector **não vai direto ao painel**: abre um 
 
 | Estado | O que acontece |
 |---|---|
-| `PRE_ALERT` | LED âmbar piscando cada vez mais rápido e bipes nos dois buzzers que aceleram (1 a cada 800 ms até 1 a cada 250 ms). A Serial avisa `[ALERTA] Queda detectada...` |
-| `CANCELLED_BY_USER` | **1 clique curto** no botão dentro dos 5 s: o aviso para, LED verde + bip curto, e o painel recebe `DISMISSED` (gravidade "info", sem alarme), com a causa (`FALL` ou `IMPACT`) |
+| `PRE_ALERT` | LED âmbar piscando cada vez mais rápido e pulsos de vibração nos dois lados que aceleram (1 a cada 800 ms até 1 a cada 250 ms). A Serial avisa `[ALERTA] Queda detectada...` |
+| `CANCELLED_BY_USER` | **1 clique curto** no botão dentro dos 5 s: o aviso para, LED verde + dois toques curtos de vibração, e o painel recebe `DISMISSED` (gravidade "info", sem alarme), com a causa (`FALL` ou `IMPACT`) |
 | `CONFIRMED_ALERT` | sem clique em 5 s: o `FALL`/`IMPACT` sai normalmente, com o horário do primeiro evento |
 
 - Durante o pré-alerta o clique curto **só cancela**, na hora (sem esperar a janela dos 2/3 cliques): não troca o modo nem conta para os gestos. O clique longo continua mandando `CRASH` na hora.
@@ -111,7 +111,7 @@ Acordar é imediato: a primeira amostra com movimento (5 ms) acorda, e a `TaskSe
 
 ### Linguagem háptica (firmware 1.6)
 
-`include/haptic_engine.h` separa **o que** tocar (padrão com significado) de **como** tocar (buzzer ou motor). A `TaskHaptic` recebe pedidos por fila, sem `delay()`, e escreve a intensidade 0..1 no atuador a cada 10 ms.
+`include/haptic_engine.h` separa **o que** tocar (padrão com significado) de **como** tocar (PWM em cada motor de vibração). A `TaskHaptic` recebe pedidos por fila, sem `delay()`, e escreve a intensidade 0..1 nos motores a cada 10 ms.
 
 | Padrão | Forma | Quando |
 |---|---|---|
@@ -121,16 +121,16 @@ Acordar é imediato: a primeira amostra com movimento (5 ms) acorda, e a `TaskSe
 | `PATTERN_PRE_ALERT` | batidas que aceleram (800 → 250 ms) e crescem por 5 s | pré-alerta "Estou bem" |
 | `PATTERN_HEARTBEAT` | um pulso de 200 ms, suave | a cada 10 min com Wi-Fi e servidor ok, ou pelo painel |
 | `PATTERN_CONFIRM` | dois toques de 50 ms | alerta cancelado (e, nas próximas fases, âncora e calibração) |
-| localizar | 150 / 150 ms por 4 s | "Tocar buzzer" do painel |
+| localizar | 150 / 150 ms por 4 s | "Vibrar para localizar" no painel |
 
-Prioridade: pré-alerta > aproximação rápida > confirmação > localizar > batimento; o fundo só toca quando nada está tocando naquele lado. **Atuador:** `ACTUATOR_MODE` no `config.h` (`ACTUATOR_BUZZER_PWM` ou `ACTUATOR_HAPTIC_MOTOR_PWM`), trocável na hora com `atuador motor` (Serial) ou `{"cmd":"actuator","mode":"motor"}` e salvo na NVS (namespace `echomap_cfg`). No modo motor, o PWM vai a 20 kHz e a intensidade vira 35–100% de duty (abaixo disso o motor moeda não gira).
+Prioridade: pré-alerta > aproximação rápida > confirmação > localizar > batimento; o fundo só toca quando nada está tocando naquele lado. **Motores:** dois módulos MV50 nos GPIO 13 (esquerdo) e 14 (direito). O PWM vai a 20 kHz (`MOTOR_PWM_HZ`, fora do audível) e a intensidade 0..1 vira 35–100% de duty (`MOTOR_MIN_DUTY`: abaixo disso o motor não gira).
 
 ### Calibração assistida (firmware 1.7)
 
 O limiar de batida de fábrica (3 g) serve para a média; quem pisa mais forte pode gerar batidas falsas, e quem pisa leve pode perder batidas de verdade. A calibração mede o passo de quem usa:
 
 1. **Iniciar calibração (30 s)** na tela Dispositivo, `{"cmd":"calibrate_start","duration_s":30}` (MQTT ou Serial) ou `calibrar` na Serial (`calibrar 20` muda a duração, de 10 a 120 s).
-2. O LED pisca em azul rápido, os buzzers dão a confirmação, e a pessoa anda em linha reta num corredor livre, no passo normal. A cada 1 s sai `{"calib":"running","elapsed":12,"duration":30,"steps":21}` no canal `echomap/<id>/calib`.
+2. O LED pisca em azul rápido, os motores dão a confirmação, e a pessoa anda em linha reta num corredor livre, no passo normal. A cada 1 s sai `{"calib":"running","elapsed":12,"duration":30,"steps":21}` no canal `echomap/<id>/calib`.
 3. A coleta não guarda amostras (Welford: média e desvio em memória constante):
    - **passos**: cada pico de \|a\| acima de 1,15 g, com no mínimo 250 ms entre passos; média, desvio padrão e maior pico;
    - **eco**: ruído de cada ultrassônico pela diferença entre leituras seguidas (std/√2), que mede o tremor do eco e não a parede chegando perto.
@@ -140,7 +140,7 @@ O limiar de batida de fábrica (3 g) serve para a média; quem pisa mais forte p
    - com menos de 10 passos a calibração **falha** e nada muda; sem eco suficiente, só a histerese fica como estava.
 5. Os valores são aplicados na hora (sem reiniciar), gravados na NVS (`echomap_cfg`: `impactG`, `hystCm`) e lidos no boot. O resultado sai como `{"calib":"done","type":"calibration_result",...}` com antes/depois.
 
-`calibrar parar` (ou `calibrate_stop`) cancela sem mudar nada; `calibrar padrao` (ou `calibrate_reset`) volta para `IMPACT_G` e `BUZZER_HYST_CM` e limpa a NVS. O status traz os limiares em uso (`impG`, `hyst`) e `cal` durante a calibração. Parâmetros: `CAL_*` no `config.h`.
+`calibrar parar` (ou `calibrate_stop`) cancela sem mudar nada; `calibrar padrao` (ou `calibrate_reset`) volta para `IMPACT_G` e `ALERT_HYST_CM` e limpa a NVS. O status traz os limiares em uso (`impG`, `hyst`) e `cal` durante a calibração. Parâmetros: `CAL_*` no `config.h`.
 
 ### Assinatura de Wi-Fi quando o GPS não pega (firmware 1.8)
 
@@ -208,7 +208,7 @@ Cada ultrassônico tem um `TtcDetector` (`include/ttc_detector.h`):
 |---|---|
 | TTC ≤ 1,5 s com d ≤ 150 cm (2 leituras seguidas) | `NEAR_MISS` com `"reason":"ttc"`, `ttc` (s) e `v` (cm/s) |
 | leitura ≤ 25 cm em 3 leituras válidas seguidas | `NEAR_MISS` com `"reason":"close"` |
-| 25–120 cm sem aproximação (\|v\| < 15 cm/s): andando ao lado de um muro | **sem ocorrência**; só o buzzer, em volume baixo |
+| 25–120 cm sem aproximação (\|v\| < 15 cm/s): andando ao lado de um muro | **sem ocorrência**; só a vibração suave daquele lado |
 | mesmo lado de novo | no mínimo 3 s depois (`TTC_COOLDOWN_MS`), e o obstáculo precisa ainda estar perto ou se aproximando |
 
 Todos os valores ficam no `config.h` (`TTC_*`). A telemetria manda `near` = 25 cm (`TTC_CLOSE_CM`), que o painel usa para a faixa crítica.
@@ -216,7 +216,7 @@ Todos os valores ficam no `config.h` (`TTC_*`). A telemetria manda `near` = 25 c
 ### Saída (JSON, uma linha por mensagem)
 
 ```json
-{"t":5230,"mode":"RADAR","distL":87.2,"rawL":88.0,"distR":-1.0,"rawR":-1.0,"bzL":0.40,"bzR":0.00,"thr":120,"pot":0.55,"near":25}
+{"t":5230,"mode":"RADAR","distL":87.2,"rawL":88.0,"distR":-1.0,"rawR":-1.0,"vibL":0.40,"vibR":0.00,"thr":120,"pot":0.55,"near":25}
 {"fw":"1.1.0","up":5,"heap":201344,"rssi":-61,"t":5000}
 {"ax":0.02,"ay":-0.01,"az":0.99,"gx":0.3,"gy":-0.2,"gz":0.1,"gMax":1.01,"tilt":4,"t":5230}
 {"lat":-8.059280,"lon":-34.872030,"acc":6.5,"hdop":1.30,"sats":8,"speed":0.12,"t":6000}
@@ -265,7 +265,7 @@ O resultado sai na Serial (linhas `[DIAG]`) e em `echomap/<id>/diag`, e o painel
 
 **Latência:** `NET_LOW_LATENCY 1` desliga o modem-sleep do Wi-Fi (respostas em milissegundos em vez de 100–300 ms, com ~80 mA a mais); o socket MQTT não usa Nagle; a TaskComms atende rede, comandos e alertas a cada 20 ms. O servidor mede a ida e volta com ping a cada 5 s e mostra na tela Dispositivo.
 
-**Comandos do painel** (`echomap/<id>/cmd`, ou JSON pela Serial): `ping` (latência), `locate` (padrão "localizar" por 4 s), `haptic` (`{"pattern":"approach"}`: toca um padrão da linguagem háptica), `actuator` (`{"mode":"motor"}` ou `"buzzer"`, salvo na NVS), `calibrate_start` (`{"duration_s":30}`), `calibrate_stop`, `calibrate_reset`, `wifi_scan` (varredura de Wi-Fi agora), `portal` (abre o portal), `wifi` (testa e salva uma rede), `server` (`{"host":"auto"}` ou um IP: onde procurar o servidor), `diag` (teste dos ultrassônicos) e `forget` (esquece a rede). Na Serial também: `vibrar <padrão>`, `atuador motor|buzzer` `calibrar` / `calibrar parar` / `calibrar padrao` e `escanear`.
+**Comandos do painel** (`echomap/<id>/cmd`, ou JSON pela Serial): `ping` (latência), `locate` (padrão "localizar" por 4 s), `haptic` (`{"pattern":"approach"}`: toca um padrão da linguagem háptica), `calibrate_start` (`{"duration_s":30}`), `calibrate_stop`, `calibrate_reset`, `wifi_scan` (varredura de Wi-Fi agora), `portal` (abre o portal), `wifi` (testa e salva uma rede), `server` (`{"host":"auto"}` ou um IP: onde procurar o servidor), `diag` (teste dos ultrassônicos) e `forget` (esquece a rede). Na Serial também: `vibrar <padrão>`, `calibrar` / `calibrar parar` / `calibrar padrao` e `escanear`.
 
 O `include/secrets.h` (fora do git, modelo em `include/secrets.example.h`) é opcional: serve só como padrão gravado no firmware. O que for salvo pelo painel, pelo portal ou pela Serial tem prioridade:
 
@@ -281,19 +281,18 @@ O `include/secrets.h` (fora do git, modelo em `include/secrets.example.h`) é op
 
 | Tópico | Conteúdo |
 |---|---|
-| `echomap/node1/telemetry` | distâncias, buzzers, modo e limiar (5×/s) |
+| `echomap/node1/telemetry` | distâncias, intensidade de cada motor (`vibL`/`vibR`), modo e limiar (5×/s) |
 | `echomap/node1/imu` | aceleração, giro, pico e inclinação (5×/s) |
 | `echomap/node1/location` | posição do GPS (1×/s, só com fix) |
 | `echomap/node1/events` | `NEAR_MISS`, `CRASH`, `FALL`, `IMPACT`, `DISMISSED`, `ANCHOR_TOGGLE` (2 cliques) |
-| `echomap/node1/status` | versão, tempo ligado, memória, energia (`pwr`: `active`/`idle`), atuador (`act`: `buzzer`/`motor`), limiares em uso (`impG`, `hyst`), calibrando (`cal`), sinal, IP, rede, canal, servidor, MQTT conectado (`mq`), fila de alertas (a cada 5 s, e na hora quando a energia muda) |
+| `echomap/node1/status` | versão, tempo ligado, memória, energia (`pwr`: `active`/`idle`), limiares em uso (`impG`, `hyst`), calibrando (`cal`), sinal, IP, rede, canal, servidor, MQTT conectado (`mq`), fila de alertas (a cada 5 s, e na hora quando a energia muda) |
 | `echomap/node1/pong` | resposta ao ping do servidor |
 | `echomap/node1/calib` | progresso e resultado da calibração assistida |
 | `echomap/node1/wifi` | assinatura de Wi-Fi (3 redes mais fortes) quando o GPS não pega |
-| `echomap/node1/cmd` | (placa assina) `ping`, `locate`, `haptic`, `actuator`, `calibrate_start`, `calibrate_stop`, `calibrate_reset`, `portal`, `wifi`, `server`, `diag`, `forget`; só o servidor pode publicar aqui |
+| `echomap/node1/cmd` | (placa assina) `ping`, `locate`, `haptic`, `calibrate_start`, `calibrate_stop`, `calibrate_reset`, `portal`, `wifi`, `server`, `diag`, `forget`; só o servidor pode publicar aqui |
 
 O PC e a ESP32 precisam estar na mesma rede, e o firewall do PC precisa liberar a porta TCP 1883.
 
 ### Próxima etapa
 
-- **Montar os motores de vibração** (um de cada lado). O firmware 1.6 já toca todos os padrões em motor (`atuador motor`); falta o circuito: motor moeda com transistor/MOSFET e diodo nos GPIO 13/14, ou a entrada PWM de um driver DRV2605L.
 - Medir a bateria e incluir `battery` (%) no `status` (o painel já gera `LOW_BATTERY`).
